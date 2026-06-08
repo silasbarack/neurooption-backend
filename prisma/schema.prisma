@@ -1,0 +1,858 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPPORT
+  COMPLIANCE
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  FINANCE_ADMIN
+  SUPPORT_ADMIN
+  KYC_ADMIN
+  RISK_ADMIN
+  COMPLIANCE_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  PENDING_KYC
+  SUSPENDED
+  LOCKED
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AccountType {
+  DEMO
+  REAL
+}
+
+enum AccountCurrency {
+  KES
+  USD
+  TZS
+  UGX
+  AUD
+  CAD
+  JPY
+  CNY
+  NGN
+  EUR
+  RWD
+  INR
+  AOA
+  ARS
+}
+
+enum AssetCategory {
+  CURRENCY
+  CRYPTOCURRENCY
+  STOCK
+  COMMODITY
+  INDEX
+}
+
+enum MarketType {
+  REAL
+  OTC
+}
+
+enum TradeDirection {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  OPEN
+  WON
+  LOST
+  DRAW
+  CANCELLED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRADE_STAKE
+  TRADE_PROFIT
+  BONUS
+  REFUND
+  AFFILIATE_COMMISSION
+  COPY_TRADING_FEE
+  ADMIN_ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+  CANCELLED
+}
+
+enum CandleType {
+  CANDLESTICK
+  HEIKEN_ASHI
+  BAR
+  LINE
+}
+
+enum ChartType {
+  CANDLESTICK
+  HEIKEN_ASHI
+  BAR
+  LINE
+}
+
+enum IndicatorType {
+  SMA
+  EMA
+  WMA
+  RSI
+  MACD
+  BOLLINGER_BANDS
+  STOCHASTIC
+  ATR
+  ADX
+  CCI
+  MOMENTUM
+  ROC
+  WILLIAMS_R
+  PARABOLIC_SAR
+  ICHIMOKU
+  VWAP
+  OBV
+  MFI
+  PIVOT_POINTS
+  SUPERTREND
+  DONCHIAN_CHANNEL
+  KELTNER_CHANNEL
+  STANDARD_DEVIATION
+  ZIGZAG
+  DEMA
+  TEMA
+  TRIX
+  AROON
+  CHAIKIN_OSCILLATOR
+  VOLUME_OSCILLATOR
+  ALLIGATOR
+  FRACTALS
+  AWESOME_OSCILLATOR
+  ACCELERATOR_OSCILLATOR
+  ENVELOPES
+  GATOR_OSCILLATOR
+  DEMARKER
+  RVI
+  ELDER_RAY
+  FORCE_INDEX
+  BULLS_POWER
+  BEARS_POWER
+}
+
+enum PaymentGatewayType {
+  MPESA
+  AIRTEL_MONEY
+  TKASH
+  EQUITEL
+  BINANCE_PAY
+  MANUAL
+}
+
+enum PaymentDirection {
+  IN
+  OUT
+  BOTH
+}
+
+enum SupportTicketStatus {
+  OPEN
+  PENDING_USER
+  PENDING_SUPPORT
+  CLOSED
+}
+
+enum SupportSenderRole {
+  USER
+  SUPPORT
+  ADMIN
+}
+
+enum NotificationType {
+  DEPOSIT_SUCCESSFUL
+  WITHDRAWAL_REQUESTED
+  WITHDRAWAL_PROCESSING
+  WITHDRAWAL_COMPLETED
+  WITHDRAWAL_REJECTED
+  KYC_SUBMITTED
+  KYC_APPROVED
+  KYC_REJECTED
+  FORGOT_PASSWORD
+  SUPPORT_TICKET_CREATED
+  SUPPORT_REPLY_SENT
+  TRADE_OPENED
+  TRADE_CLOSED
+  AFFILIATE_COMMISSION_EARNED
+  COPY_TRADE_OPENED
+  COPY_TRADE_CLOSED
+  ADMIN_ACTION
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+  SMS
+}
+
+enum NotificationStatus {
+  CREATED
+  SENT
+  FAILED
+}
+
+enum WebsocketEventType {
+  CONNECTED
+  PRICE_UPDATE
+  CANDLE_UPDATE
+  CHART_UPDATE
+  TRADE_OPENED
+  TRADE_SETTLED
+  WALLET_UPDATE
+  DEPOSIT_UPDATE
+  WITHDRAWAL_UPDATE
+  PAYOUT_UPDATE
+  COPY_TRADE_UPDATE
+}
+
+enum AffiliateStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+  CANCELLED
+}
+
+enum SocialFollowStatus {
+  ACTIVE
+  PAUSED
+  STOPPED
+}
+
+enum CopyTradeStatus {
+  OPEN
+  WON
+  LOST
+  DRAW
+  CANCELLED
+}
+
+model User {
+  id           String  @id @default(uuid())
+  fullName     String
+  email        String  @unique
+  phone        String? @unique
+  passwordHash String
+
+  role      UserRole      @default(USER)
+  status    AccountStatus @default(PENDING_KYC)
+  kycStatus KycStatus     @default(NOT_SUBMITTED)
+
+  referralCode String?  @unique
+  referredById String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  referredBy User?  @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals  User[] @relation("UserReferrals")
+
+  wallets              Wallet[]
+  tradingAccounts      TradingAccount[]
+  trades               Trade[]
+  transactions         Transaction[]
+  kycRecords           KycRecord[]
+  supportTickets       SupportTicket[]
+  supportMessages      SupportMessage[]
+  notifications        Notification[]
+  deposits             Deposit[]
+  withdrawals          Withdrawal[]
+  payouts              Payout[]
+  auditLogs            AuditLog[]
+  affiliateProfile     Affiliate?
+  affiliateCommissions AffiliateCommission[] @relation("AffiliateCommissionAffiliate")
+  referredCommissions  AffiliateCommission[] @relation("AffiliateCommissionReferredUser")
+  followingTraders     SocialFollow[]        @relation("Follower")
+  traderFollowers      SocialFollow[]        @relation("Trader")
+  masterCopyTrades     CopyTrade[]           @relation("MasterTradeUser")
+  followerCopyTrades   CopyTrade[]           @relation("FollowerTradeUser")
+  PasswordResetToken   PasswordResetToken[]
+}
+
+model Admin {
+  id           String    @id @default(uuid())
+  fullName     String
+  email        String    @unique
+  passwordHash String
+  role         AdminRole
+  phone        String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  reviewedKycRecords KycRecord[]
+  logs               AuditLog[]
+}
+
+model TradingAccount {
+  id        String          @id @default(uuid())
+  userId    String
+  type      AccountType
+  currency  AccountCurrency
+  balance   Decimal         @default(0)
+  locked    Decimal         @default(0)
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id])
+  trades Trade[]
+
+  @@unique([userId, type, currency])
+  @@index([userId, type])
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String
+  currency  String   @default("KES")
+  balance   Decimal  @default(0)
+  locked    Decimal  @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+  deposits     Deposit[]
+  withdrawals  Withdrawal[]
+  payouts      Payout[]
+
+  @@unique([userId, currency])
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  userId      String
+  walletId    String
+  type        TransactionType
+  status      TransactionStatus @default(PENDING)
+  amount      Decimal
+  reference   String?           @unique
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  user                 User                  @relation(fields: [userId], references: [id])
+  wallet               Wallet                @relation(fields: [walletId], references: [id])
+  deposit              Deposit?
+  withdrawal           Withdrawal?
+  payout               Payout?
+  affiliateCommissions AffiliateCommission[]
+  notifications        Notification[]
+}
+
+model PaymentGateway {
+  id            String             @id @default(uuid())
+  name          String
+  type          PaymentGatewayType
+  direction     PaymentDirection
+  isActive      Boolean            @default(true)
+  publicKey     String?
+  secretKey     String?
+  callbackUrl   String?
+  accountNumber String?
+  shortcode     String?
+  paybill       String?
+  tillNumber    String?
+  merchantId    String?
+  environment   String             @default("sandbox")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  deposits    Deposit[]
+  withdrawals Withdrawal[]
+  payouts     Payout[]
+
+  @@unique([type, direction])
+}
+
+model Deposit {
+  id            String            @id @default(uuid())
+  userId        String
+  walletId      String
+  gatewayId     String
+  transactionId String            @unique
+  amount        Decimal
+  currency      String            @default("KES")
+  phone         String?
+  accountNumber String?
+  checkoutId    String?
+  externalRef   String?
+  gatewayRaw    Json?
+  status        TransactionStatus @default(PENDING)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id])
+  wallet      Wallet         @relation(fields: [walletId], references: [id])
+  gateway     PaymentGateway @relation(fields: [gatewayId], references: [id])
+  transaction Transaction    @relation(fields: [transactionId], references: [id])
+
+  @@index([userId, status])
+  @@index([gatewayId, status])
+}
+
+model Withdrawal {
+  id              String            @id @default(uuid())
+  userId          String
+  walletId        String
+  gatewayId       String
+  transactionId   String            @unique
+  amount          Decimal
+  currency        String            @default("KES")
+  phone           String?
+  accountNumber   String?
+  externalRef     String?
+  gatewayRaw      Json?
+  status          TransactionStatus @default(PENDING)
+  rejectionReason String?
+  processedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id])
+  wallet      Wallet         @relation(fields: [walletId], references: [id])
+  gateway     PaymentGateway @relation(fields: [gatewayId], references: [id])
+  transaction Transaction    @relation(fields: [transactionId], references: [id])
+
+  @@index([userId, status])
+  @@index([gatewayId, status])
+}
+
+model Payout {
+  id            String            @id @default(uuid())
+  userId        String
+  walletId      String
+  gatewayId     String?
+  transactionId String            @unique
+  tradeId       String?
+  amount        Decimal
+  currency      String            @default("KES")
+  status        TransactionStatus @default(PENDING)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user        User            @relation(fields: [userId], references: [id])
+  wallet      Wallet          @relation(fields: [walletId], references: [id])
+  gateway     PaymentGateway? @relation(fields: [gatewayId], references: [id])
+  transaction Transaction     @relation(fields: [transactionId], references: [id])
+  trade       Trade?          @relation(fields: [tradeId], references: [id])
+
+  @@index([userId, status])
+  @@index([tradeId])
+}
+
+model Asset {
+  id         String        @id @default(uuid())
+  symbol     String
+  name       String
+  category   AssetCategory
+  marketType MarketType
+  isActive   Boolean       @default(true)
+  payoutRate Decimal       @default(0.80)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  candles          Candle[]
+  trades           Trade[]
+  marketData       MarketData[]
+  chartViews       ChartView[]
+  indicatorResults IndicatorResult[]
+
+  @@unique([symbol, marketType])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+}
+
+model MarketData {
+  id         String     @id @default(uuid())
+  assetId    String
+  symbol     String
+  marketType MarketType
+  bid        Decimal
+  ask        Decimal
+  mid        Decimal
+  timestamp  DateTime   @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@index([symbol, marketType, timestamp])
+}
+
+model OtcMarket {
+  id          String   @id @default(uuid())
+  symbol      String   @unique
+  displayName String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RealMarket {
+  id          String   @id @default(uuid())
+  symbol      String   @unique
+  displayName String
+  source      String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Timeframe {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  seconds   Int
+  label     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  candles    Candle[]
+  chartViews ChartView[]
+  indicators IndicatorResult[]
+}
+
+model Expiry {
+  id        String   @id @default(uuid())
+  duration  String   @unique
+  seconds   Int
+  label     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trades Trade[]
+}
+
+model Candle {
+  id          String     @id @default(uuid())
+  assetId     String
+  timeframeId String
+  type        CandleType @default(CANDLESTICK)
+  time        DateTime
+  open        Decimal
+  high        Decimal
+  low         Decimal
+  close       Decimal
+  volume      Decimal    @default(0)
+  createdAt   DateTime   @default(now())
+
+  asset     Asset     @relation(fields: [assetId], references: [id])
+  timeframe Timeframe @relation(fields: [timeframeId], references: [id])
+
+  @@unique([assetId, timeframeId, type, time])
+  @@index([assetId, timeframeId, time])
+}
+
+model ChartView {
+  id          String    @id @default(uuid())
+  assetId     String
+  timeframeId String
+  chartType   ChartType
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  asset     Asset     @relation(fields: [assetId], references: [id])
+  timeframe Timeframe @relation(fields: [timeframeId], references: [id])
+
+  @@unique([assetId, timeframeId, chartType])
+}
+
+model IndicatorSetting {
+  id            String        @id @default(uuid())
+  indicator     IndicatorType
+  name          String
+  category      String
+  defaultPeriod Int?
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  results IndicatorResult[]
+
+  @@unique([indicator])
+}
+
+model IndicatorResult {
+  id          String        @id @default(uuid())
+  settingId   String
+  assetId     String
+  timeframeId String
+  indicator   IndicatorType
+  period      Int?
+  values      Json
+  generatedAt DateTime      @default(now())
+
+  setting   IndicatorSetting @relation(fields: [settingId], references: [id])
+  asset     Asset            @relation(fields: [assetId], references: [id])
+  timeframe Timeframe        @relation(fields: [timeframeId], references: [id])
+
+  @@index([assetId, timeframeId, indicator, generatedAt])
+}
+
+model Trade {
+  id               String         @id @default(uuid())
+  userId           String
+  tradingAccountId String?
+  assetId          String
+  expiryId         String?
+  direction        TradeDirection
+  status           TradeStatus    @default(OPEN)
+  stakeAmount      Decimal
+  payoutRate       Decimal
+  entryPrice       Decimal
+  exitPrice        Decimal?
+  profitAmount     Decimal        @default(0)
+  openedAt         DateTime       @default(now())
+  expiresAt        DateTime
+  closedAt         DateTime?
+
+  user           User            @relation(fields: [userId], references: [id])
+  tradingAccount TradingAccount? @relation(fields: [tradingAccountId], references: [id])
+  asset          Asset           @relation(fields: [assetId], references: [id])
+  expiry         Expiry?         @relation(fields: [expiryId], references: [id])
+  payouts        Payout[]
+  copyTrades     CopyTrade[]
+
+  @@index([userId, status])
+  @@index([tradingAccountId])
+  @@index([assetId, openedAt])
+}
+
+model KycRecord {
+  id                String    @id @default(uuid())
+  userId            String
+  documentType      String
+  documentNumber    String?
+  frontImageUrl     String?
+  backImageUrl      String?
+  selfieImageUrl    String?
+  addressProofUrl   String?
+  status            KycStatus @default(PENDING)
+  rejectionReason   String?
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id])
+  reviewedBy    Admin?         @relation(fields: [reviewedByAdminId], references: [id])
+  notifications Notification[]
+}
+
+model SupportTicket {
+  id        String              @id @default(uuid())
+  userId    String
+  subject   String
+  status    SupportTicketStatus @default(OPEN)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id])
+  messages      SupportMessage[]
+  notifications Notification[]
+}
+
+model SupportMessage {
+  id         String            @id @default(uuid())
+  ticketId   String
+  senderId   String
+  senderRole SupportSenderRole
+  message    String
+  createdAt  DateTime          @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
+  sender User          @relation(fields: [senderId], references: [id])
+}
+
+model Notification {
+  id              String              @id @default(uuid())
+  userId          String
+  transactionId   String?
+  kycRecordId     String?
+  supportTicketId String?
+  type            NotificationType
+  channel         NotificationChannel @default(EMAIL)
+  status          NotificationStatus  @default(CREATED)
+  subject         String
+  body            String
+  recipientEmail  String
+  sentAt          DateTime?
+  createdAt       DateTime            @default(now())
+
+  user          User           @relation(fields: [userId], references: [id])
+  transaction   Transaction?   @relation(fields: [transactionId], references: [id])
+  kycRecord     KycRecord?     @relation(fields: [kycRecordId], references: [id])
+  supportTicket SupportTicket? @relation(fields: [supportTicketId], references: [id])
+}
+
+model Affiliate {
+  id             String          @id @default(uuid())
+  userId         String          @unique
+  code           String          @unique
+  status         AffiliateStatus @default(ACTIVE)
+  commissionRate Decimal         @default(0.10)
+  totalEarned    Decimal         @default(0)
+  totalPaid      Decimal         @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user        User                  @relation(fields: [userId], references: [id])
+  commissions AffiliateCommission[]
+}
+
+model AffiliateCommission {
+  id              String           @id @default(uuid())
+  affiliateId     String
+  affiliateUserId String
+  referredUserId  String
+  transactionId   String?
+  amount          Decimal
+  rate            Decimal
+  status          CommissionStatus @default(PENDING)
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  paidAt          DateTime?
+
+  affiliate     Affiliate    @relation(fields: [affiliateId], references: [id])
+  affiliateUser User         @relation("AffiliateCommissionAffiliate", fields: [affiliateUserId], references: [id])
+  referredUser  User         @relation("AffiliateCommissionReferredUser", fields: [referredUserId], references: [id])
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  @@index([affiliateId, status])
+  @@index([affiliateUserId])
+  @@index([referredUserId])
+}
+
+model SocialFollow {
+  id             String             @id @default(uuid())
+  followerUserId String
+  traderUserId   String
+  status         SocialFollowStatus @default(ACTIVE)
+  copyPercentage Decimal            @default(1.00)
+  maxStakeAmount Decimal?
+  minStakeAmount Decimal?
+  copiedTrades   Int                @default(0)
+  totalProfit    Decimal            @default(0)
+  totalLoss      Decimal            @default(0)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  follower User        @relation("Follower", fields: [followerUserId], references: [id])
+  trader   User        @relation("Trader", fields: [traderUserId], references: [id])
+  copies   CopyTrade[]
+
+  @@unique([followerUserId, traderUserId])
+  @@index([traderUserId, status])
+  @@index([followerUserId, status])
+}
+
+model CopyTrade {
+  id              String          @id @default(uuid())
+  socialFollowId  String
+  masterUserId    String
+  followerUserId  String
+  masterTradeId   String
+  followerTradeId String?
+  status          CopyTradeStatus @default(OPEN)
+  stakeAmount     Decimal
+  payoutRate      Decimal
+  entryPrice      Decimal
+  exitPrice       Decimal?
+  profitAmount    Decimal         @default(0)
+  openedAt        DateTime        @default(now())
+  closedAt        DateTime?
+
+  socialFollow SocialFollow @relation(fields: [socialFollowId], references: [id])
+  masterUser   User         @relation("MasterTradeUser", fields: [masterUserId], references: [id])
+  followerUser User         @relation("FollowerTradeUser", fields: [followerUserId], references: [id])
+  masterTrade  Trade        @relation(fields: [masterTradeId], references: [id])
+
+  @@index([masterUserId])
+  @@index([followerUserId])
+  @@index([masterTradeId])
+  @@index([status])
+}
+
+model WebsocketEvent {
+  id        String             @id @default(uuid())
+  userId    String?
+  event     WebsocketEventType
+  room      String?
+  payload   Json?
+  createdAt DateTime           @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  adminId     String?
+  action      String
+  targetType  String
+  targetId    String?
+  description String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id])
+  admin Admin? @relation(fields: [adminId], references: [id])
+
+  @@index([userId])
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
