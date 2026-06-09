@@ -23,10 +23,10 @@ export declare class SupportController {
         messages: {
             id: string;
             createdAt: Date;
+            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
-            message: string;
         }[];
     } & {
         id: string;
@@ -54,10 +54,10 @@ export declare class SupportController {
         messages: {
             id: string;
             createdAt: Date;
+            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
-            message: string;
         }[];
     } & {
         id: string;
@@ -85,10 +85,10 @@ export declare class SupportController {
         messages: {
             id: string;
             createdAt: Date;
+            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
-            message: string;
         }[];
     } & {
         id: string;
@@ -102,10 +102,10 @@ export declare class SupportController {
         messages: {
             id: string;
             createdAt: Date;
+            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
-            message: string;
         }[];
     } & {
         id: string;
@@ -118,10 +118,10 @@ export declare class SupportController {
     sendMessage(dto: CreateSupportMessageDto): Promise<{
         id: string;
         createdAt: Date;
+        message: string;
         ticketId: string;
         senderId: string;
         senderRole: import(".prisma/client").$Enums.SupportSenderRole;
-        message: string;
     }>;
     updateStatus(id: string, dto: UpdateSupportTicketStatusDto): Promise<{
         id: string;

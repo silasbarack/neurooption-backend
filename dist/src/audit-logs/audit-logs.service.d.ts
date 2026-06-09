@@ -7,15 +7,15 @@ export declare class AuditLogsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
-        } | null;
+        };
         admin: {
             id: string;
             fullName: string;
             email: string;
             role: import(".prisma/client").$Enums.AdminRole;
-        } | null;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -33,15 +33,15 @@ export declare class AuditLogsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
-        } | null;
+        };
         admin: {
             id: string;
             fullName: string;
             email: string;
             role: import(".prisma/client").$Enums.AdminRole;
-        } | null;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -59,15 +59,15 @@ export declare class AuditLogsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
-        } | null;
+        };
         admin: {
             id: string;
             fullName: string;
             email: string;
             role: import(".prisma/client").$Enums.AdminRole;
-        } | null;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -85,15 +85,15 @@ export declare class AuditLogsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
-        } | null;
+        };
         admin: {
             id: string;
             fullName: string;
             email: string;
             role: import(".prisma/client").$Enums.AdminRole;
-        } | null;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -111,15 +111,15 @@ export declare class AuditLogsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
-        } | null;
+        };
         admin: {
             id: string;
             fullName: string;
             email: string;
             role: import(".prisma/client").$Enums.AdminRole;
-        } | null;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -137,15 +137,15 @@ export declare class AuditLogsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
-        } | null;
+        };
         admin: {
             id: string;
             fullName: string;
             email: string;
             role: import(".prisma/client").$Enums.AdminRole;
-        } | null;
+        };
     } & {
         id: string;
         createdAt: Date;

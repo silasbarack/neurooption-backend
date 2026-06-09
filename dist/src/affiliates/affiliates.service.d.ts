@@ -11,7 +11,7 @@ export declare class AffiliatesService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         commissions: {
@@ -43,7 +43,7 @@ export declare class AffiliatesService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         commissions: {
@@ -75,7 +75,7 @@ export declare class AffiliatesService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         commissions: {
@@ -107,7 +107,7 @@ export declare class AffiliatesService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         commissions: {
@@ -139,7 +139,7 @@ export declare class AffiliatesService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         commissions: {
@@ -173,13 +173,13 @@ export declare class AffiliatesService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
             walletId: string;
-        } | null;
+        };
         affiliate: {
             id: string;
             createdAt: Date;
@@ -194,13 +194,13 @@ export declare class AffiliatesService {
         affiliateUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         referredUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -223,13 +223,13 @@ export declare class AffiliatesService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
             walletId: string;
-        } | null;
+        };
         affiliate: {
             id: string;
             createdAt: Date;
@@ -244,13 +244,13 @@ export declare class AffiliatesService {
         affiliateUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         referredUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -273,13 +273,13 @@ export declare class AffiliatesService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
             walletId: string;
-        } | null;
+        };
         affiliate: {
             id: string;
             createdAt: Date;
@@ -294,13 +294,13 @@ export declare class AffiliatesService {
         affiliateUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         referredUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -323,13 +323,13 @@ export declare class AffiliatesService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
             walletId: string;
-        } | null;
+        };
         affiliate: {
             id: string;
             createdAt: Date;
@@ -344,13 +344,13 @@ export declare class AffiliatesService {
         affiliateUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         referredUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -373,13 +373,13 @@ export declare class AffiliatesService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
             walletId: string;
-        } | null;
+        };
         affiliate: {
             id: string;
             createdAt: Date;
@@ -394,13 +394,13 @@ export declare class AffiliatesService {
         affiliateUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         referredUser: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {

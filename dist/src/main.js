@@ -1,12 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
+const common_1 = require("@nestjs/common");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors({
-        origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+        origin: [
+            'http://localhost:5173',
+            'http://localhost:3000',
+            'https://neurooption.com',
+            'https://www.neurooption.com',
+        ],
         credentials: true,
     });
     app.useGlobalPipes(new common_1.ValidationPipe({
@@ -14,7 +19,9 @@ async function bootstrap() {
         forbidNonWhitelisted: false,
         transform: true,
     }));
-    await app.listen(3000);
+    const port = Number(process.env.PORT) || 3000;
+    await app.listen(port, '0.0.0.0');
+    console.log(`NeuroOption backend is running on port ${port}`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

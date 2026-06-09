@@ -1,39 +1,39 @@
 export declare const paymentConfig: () => {
     payments: {
         mpesa: {
-            consumerKey: string | undefined;
-            consumerSecret: string | undefined;
-            shortcode: string | undefined;
-            passkey: string | undefined;
-            callbackUrl: string | undefined;
+            consumerKey: string;
+            consumerSecret: string;
+            shortcode: string;
+            passkey: string;
+            callbackUrl: string;
             environment: string;
         };
         airtel: {
-            clientId: string | undefined;
-            clientSecret: string | undefined;
-            merchantId: string | undefined;
-            callbackUrl: string | undefined;
+            clientId: string;
+            clientSecret: string;
+            merchantId: string;
+            callbackUrl: string;
             environment: string;
         };
         tkash: {
-            clientId: string | undefined;
-            clientSecret: string | undefined;
-            shortcode: string | undefined;
-            callbackUrl: string | undefined;
+            clientId: string;
+            clientSecret: string;
+            shortcode: string;
+            callbackUrl: string;
             environment: string;
         };
         equitel: {
-            clientId: string | undefined;
-            clientSecret: string | undefined;
-            paybill: string | undefined;
-            callbackUrl: string | undefined;
+            clientId: string;
+            clientSecret: string;
+            paybill: string;
+            callbackUrl: string;
             environment: string;
         };
         binancePay: {
-            apiKey: string | undefined;
-            apiSecret: string | undefined;
-            merchantId: string | undefined;
-            callbackUrl: string | undefined;
+            apiKey: string;
+            apiSecret: string;
+            merchantId: string;
+            callbackUrl: string;
             environment: string;
         };
     };

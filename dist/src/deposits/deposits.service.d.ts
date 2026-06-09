@@ -9,7 +9,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -26,8 +26,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
@@ -72,7 +72,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -89,8 +89,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
@@ -135,7 +135,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -152,8 +152,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
@@ -198,7 +198,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -215,8 +215,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
@@ -261,7 +261,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -278,8 +278,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
@@ -324,7 +324,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -341,8 +341,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
@@ -387,7 +387,7 @@ export declare class DepositsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -404,8 +404,8 @@ export declare class DepositsService {
             createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            type: import(".prisma/client").$Enums.TransactionType;
             userId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
             description: string | null;
             amount: Prisma.Decimal;
             reference: string | null;
