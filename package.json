@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start:dev": "nest start --watch",
-    "build": "npx @nestjs/cli build",
+    "build": "npx generate prisma && npx test build",
     "start": "node dist/main.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
