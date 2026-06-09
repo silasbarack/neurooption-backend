@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "start:dev": "nest start --watch",
-    "build": "npx generate prisma && npx test build",
+    "build": "nest build",
     "start": "node dist/main.js",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",
     "lint": "eslint 'src/**/*.{ts,tsx}' --ext .ts",
     "format": "prettier --write 'src/**/*.{ts,tsx,js,json,md}'",
