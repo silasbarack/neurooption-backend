@@ -12,8 +12,8 @@ export declare class TradingAccountsService {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -28,7 +28,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -39,8 +39,8 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     }>;
     createDefaultAccounts(userId: string): Promise<{
         demo: {
@@ -51,8 +51,8 @@ export declare class TradingAccountsService {
             currency: import(".prisma/client").$Enums.AccountCurrency;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            type: import(".prisma/client").$Enums.AccountType;
             userId: string;
+            type: import(".prisma/client").$Enums.AccountType;
         };
         real: {
             id: string;
@@ -62,8 +62,8 @@ export declare class TradingAccountsService {
             currency: import(".prisma/client").$Enums.AccountCurrency;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            type: import(".prisma/client").$Enums.AccountType;
             userId: string;
+            type: import(".prisma/client").$Enums.AccountType;
         };
     }>;
     findAll(): Promise<({
@@ -71,8 +71,8 @@ export declare class TradingAccountsService {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -87,7 +87,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -98,16 +98,16 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     })[]>;
     findByUser(userId: string): Promise<({
         trades: {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -122,7 +122,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -133,16 +133,16 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     })[]>;
     findByUserAndType(userId: string, type: AccountType): Promise<({
         trades: {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -157,7 +157,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -168,16 +168,16 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     })[]>;
     findOne(id: string): Promise<{
         trades: {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -192,7 +192,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -203,16 +203,16 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     }>;
     switchCurrency(userId: string, type: AccountType, dto: SwitchAccountCurrencyDto): Promise<{
         trades: {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -227,7 +227,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -238,16 +238,16 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     }>;
     resetDemoAccount(id: string): Promise<{
         trades: {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -262,7 +262,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -273,16 +273,16 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     }>;
     update(id: string, dto: UpdateTradingAccountDto): Promise<{
         trades: {
             id: string;
             payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
-            expiresAt: Date;
             userId: string;
+            expiresAt: Date;
             openedAt: Date;
             closedAt: Date | null;
             stakeAmount: Prisma.Decimal;
@@ -297,7 +297,7 @@ export declare class TradingAccountsService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
     } & {
@@ -308,8 +308,8 @@ export declare class TradingAccountsService {
         currency: import(".prisma/client").$Enums.AccountCurrency;
         balance: Prisma.Decimal;
         locked: Prisma.Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
         userId: string;
+        type: import(".prisma/client").$Enums.AccountType;
     }>;
     private includeRelations;
 }

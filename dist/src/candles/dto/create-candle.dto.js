@@ -27,7 +27,7 @@ __decorate([
 ], CreateCandleDto.prototype, "symbol", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateCandleDto.prototype, "timeframe", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(CandleType),

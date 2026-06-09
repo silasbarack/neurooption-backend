@@ -20,7 +20,7 @@ __decorate([
 ], CreateKycDto.prototype, "userId", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateKycDto.prototype, "documentType", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),

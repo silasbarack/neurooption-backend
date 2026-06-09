@@ -51,7 +51,7 @@ export declare class AssetsController {
         payoutRate: import("@prisma/client/runtime/library").Decimal;
         createdAt: Date;
         updatedAt: Date;
-    } | null>;
+    }>;
     findById(id: string): Promise<{
         symbol: string;
         id: string;
@@ -62,5 +62,5 @@ export declare class AssetsController {
         payoutRate: import("@prisma/client/runtime/library").Decimal;
         createdAt: Date;
         updatedAt: Date;
-    } | null>;
+    }>;
 }

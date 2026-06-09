@@ -9,7 +9,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -37,7 +37,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -55,7 +55,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -68,14 +68,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -89,8 +89,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -100,7 +100,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -128,7 +128,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -146,7 +146,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -159,14 +159,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -180,8 +180,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -191,7 +191,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -219,7 +219,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -237,7 +237,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -250,14 +250,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -271,8 +271,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -282,7 +282,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -310,7 +310,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -328,7 +328,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -341,14 +341,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -362,8 +362,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -373,7 +373,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -401,7 +401,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -419,7 +419,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -432,14 +432,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -453,8 +453,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -464,7 +464,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -492,7 +492,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -510,7 +510,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -523,14 +523,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -544,8 +544,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -555,7 +555,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -583,7 +583,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -601,7 +601,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -614,14 +614,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -635,8 +635,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -646,7 +646,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -674,7 +674,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -692,7 +692,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -705,14 +705,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -726,8 +726,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -737,7 +737,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -765,7 +765,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -783,7 +783,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -796,14 +796,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -817,8 +817,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;
@@ -828,7 +828,7 @@ export declare class TransactionsController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
+            phone: string;
             fullname: never;
         };
         wallet: {
@@ -856,7 +856,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             checkoutId: string | null;
-        } | null;
+        };
         withdrawal: {
             id: string;
             createdAt: Date;
@@ -874,7 +874,7 @@ export declare class TransactionsController {
             gatewayId: string;
             gatewayRaw: import("@prisma/client/runtime/library").JsonValue | null;
             processedAt: Date | null;
-        } | null;
+        };
         payout: {
             id: string;
             createdAt: Date;
@@ -887,14 +887,14 @@ export declare class TransactionsController {
             walletId: string;
             gatewayId: string | null;
             tradeId: string | null;
-        } | null;
+        };
         notifications: {
             id: string;
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -908,8 +908,8 @@ export declare class TransactionsController {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.TransactionStatus;
-        type: import(".prisma/client").$Enums.TransactionType;
         userId: string;
+        type: import(".prisma/client").$Enums.TransactionType;
         description: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         reference: string | null;

@@ -11,8 +11,8 @@ export declare class NotificationsService {
             createdAt: Date;
             subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
-            type: import(".prisma/client").$Enums.NotificationType;
             userId: string;
+            type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
@@ -27,8 +27,8 @@ export declare class NotificationsService {
         createdAt: Date;
         subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
-        type: import(".prisma/client").$Enums.NotificationType;
         userId: string;
+        type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
@@ -42,8 +42,8 @@ export declare class NotificationsService {
         createdAt: Date;
         subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
-        type: import(".prisma/client").$Enums.NotificationType;
         userId: string;
+        type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
@@ -57,8 +57,8 @@ export declare class NotificationsService {
         createdAt: Date;
         subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
-        type: import(".prisma/client").$Enums.NotificationType;
         userId: string;
+        type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
@@ -72,8 +72,8 @@ export declare class NotificationsService {
         createdAt: Date;
         subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
-        type: import(".prisma/client").$Enums.NotificationType;
         userId: string;
+        type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
@@ -87,8 +87,8 @@ export declare class NotificationsService {
         createdAt: Date;
         subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
-        type: import(".prisma/client").$Enums.NotificationType;
         userId: string;
+        type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
@@ -102,8 +102,8 @@ export declare class NotificationsService {
         createdAt: Date;
         subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
-        type: import(".prisma/client").$Enums.NotificationType;
         userId: string;
+        type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
