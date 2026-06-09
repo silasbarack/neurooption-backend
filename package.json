@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start:dev": "nest start --watch",
-    "build": "nest build -p tsconfig.build.json",
+    "build": "tsc -ptsconfig.build.json",
     "start": "node dist/main.js",
     "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",
@@ -51,7 +51,7 @@
     "prettier": "^2.8.8",
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
