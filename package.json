@@ -2,17 +2,16 @@
   "name": "binary-trading-backend",
   "version": "1.0.0",
   "scripts": {
-  "start:dev": "nest start --watch",
-  "build": "npx nest build -p tsconfig.build.json",
-  "start": "node dist/main.js",
-  "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
-  "prisma:migrate": "prisma migrate dev",
-  "lint": "eslint 'src/**/*.{ts,tsx}' --ext .ts",
-  "format": "prettier --write 'src/**/*.{ts,tsx,js,json,md}'",
-  "ci": "npx tsc --noEmit && npm run lint",
-  "test": "jest --runInBand",
-  "cleanup:tokens": "node scripts/cleanup_expired_tokens.js"
-
+    "start:dev": "nest start --watch",
+    "build": "nest build -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev",
+    "lint": "eslint 'src/**/*.{ts,tsx}' --ext .ts",
+    "format": "prettier --write 'src/**/*.{ts,tsx,js,json,md}'",
+    "ci": "npx tsc --noEmit && npm run lint",
+    "test": "jest --runInBand",
+    "cleanup:tokens": "node scripts/cleanup_expired_tokens.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
