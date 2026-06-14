@@ -1,106 +1,196 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
-
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
-import { RegisterDto } from './dto/register.dto';
+
+type RegisterPayload = {
+  fullName?: string;
+  name?: string;
+  email: string;
+  password: string;
+};
+
+type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+type ForgotPasswordPayload = {
+  email: string;
+};
+
+type ResetPasswordPayload = {
+  token: string;
+  password: string;
+};
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailsService: EmailsService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async register(dto: RegisterDto) {
-    const fullName = dto.fullName?.trim();
-    const email = dto.email?.trim().toLowerCase();
-    const phone = dto.phone?.trim() || null;
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
 
-    if (!fullName) {
-      throw new BadRequestException('Full name is required.');
+  private getFrontendUrl(): string {
+    return (
+      this.configService.get<string>('FRONTEND_URL') ||
+      'http://localhost:5173'
+    ).replace(/\/+$/, '');
+  }
+
+  private getUserModelFields(): string[] {
+    const runtimeModel = (this.prisma as any)?._runtimeDataModel?.models?.User;
+
+    if (!runtimeModel?.fields) {
+      return [];
     }
 
-    if (!email) {
-      throw new BadRequestException('Email is required.');
+    return runtimeModel.fields.map((field: any) => field.name);
+  }
+
+  private getPasswordFieldName(): string {
+    const fields = this.getUserModelFields();
+
+    if (fields.includes('password')) return 'password';
+    if (fields.includes('passwordHash')) return 'passwordHash';
+    if (fields.includes('hashedPassword')) return 'hashedPassword';
+
+    return 'password';
+  }
+
+  private getNameFieldName(): string | null {
+    const fields = this.getUserModelFields();
+
+    if (fields.includes('fullName')) return 'fullName';
+    if (fields.includes('name')) return 'name';
+
+    return null;
+  }
+
+  private getUserDisplayName(user: any): string {
+    return (
+      user?.fullName ||
+      user?.name ||
+      user?.email?.split('@')?.[0] ||
+      'Trader'
+    );
+  }
+
+  private removeSensitiveFields(user: any) {
+    if (!user) return null;
+
+    const {
+      password,
+      passwordHash,
+      hashedPassword,
+      ...safeUser
+    } = user;
+
+    return safeUser;
+  }
+
+  private signToken(user: any): string {
+    return this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+    });
+  }
+
+  private async sendEmailSafely(
+    methodName: string,
+    payload: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const emailService = this.emailsService as any;
+      const method = emailService?.[methodName];
+
+      if (typeof method !== 'function') {
+        this.logger.warn(`EmailsService.${methodName} does not exist.`);
+        return;
+      }
+
+      await method.call(emailService, payload);
+    } catch (error) {
+      this.logger.error(`${methodName} failed`, error as Error);
+    }
+  }
+
+  async register(payload: RegisterPayload) {
+    const email = this.normalizeEmail(payload.email || '');
+    const fullName = (payload.fullName || payload.name || '').trim();
+
+    if (!email || !payload.password) {
+      throw new BadRequestException('Email and password are required.');
     }
 
-    if (!dto.password) {
-      throw new BadRequestException('Password is required.');
+    if (payload.password.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters.');
     }
 
-    const existingEmail = await this.prisma.user.findUnique({
+    const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
 
-    if (existingEmail) {
-      throw new ConflictException('Email already exists.');
+    if (existingUser) {
+      throw new BadRequestException('An account with this email already exists.');
     }
 
-    if (phone) {
-      const existingPhone = await this.prisma.user.findUnique({
-        where: { phone },
-      });
+    const hashedPassword = await bcrypt.hash(payload.password, 12);
 
-      if (existingPhone) {
-        throw new ConflictException('Phone already exists.');
-      }
+    const passwordField = this.getPasswordFieldName();
+    const nameField = this.getNameFieldName();
+
+    const userData: Record<string, any> = {
+      email,
+      [passwordField]: hashedPassword,
+    };
+
+    if (nameField) {
+      userData[nameField] = fullName;
     }
-
-    const passwordHash = await bcrypt.hash(dto.password, 12);
 
     const user = await this.prisma.user.create({
-      data: {
-        fullName,
-        email,
-        phone,
-        passwordHash,
-        wallets: {
-          create: [
-            { currency: 'KES', balance: 0, locked: 0 },
-            { currency: 'USD', balance: 0, locked: 0 },
-          ],
-        },
-        tradingAccounts: {
-          create: [
-            {
-              type: 'DEMO',
-              currency: 'USD',
-              balance: 70000,
-              locked: 0,
-              isActive: true,
-            },
-            {
-              type: 'REAL',
-              currency: 'KES',
-              balance: 0,
-              locked: 0,
-              isActive: true,
-            },
-          ],
-        },
-      },
-      include: {
-        wallets: true,
-        tradingAccounts: true,
-      },
+      data: userData as any,
     });
 
-    await this.emailsService.sendAccountCreatedEmail(user.email, user.fullName);
+    await this.sendEmailSafely('sendRegistrationEmail', {
+      email: user.email,
+      fullName: this.getUserDisplayName(user),
+    });
 
-    return this.buildAuthResponse(user);
+    const token = this.signToken(user);
+
+    return {
+      success: true,
+      message: 'Account created successfully.',
+      token,
+      accessToken: token,
+      user: this.removeSensitiveFields(user),
+    };
   }
 
-  async login(dto: { email: string; password: string }) {
-    const email = dto.email?.trim().toLowerCase();
+  async login(payload: LoginPayload) {
+    const email = this.normalizeEmail(payload.email || '');
+
+    if (!email || !payload.password) {
+      throw new BadRequestException('Email and password are required.');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -110,17 +200,36 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    const passwordIsValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordField = this.getPasswordFieldName();
+    const savedPassword = (user as any)[passwordField];
 
-    if (!passwordIsValid) {
+    if (!savedPassword) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    return this.buildAuthResponse(user);
+    const validPassword = await bcrypt.compare(payload.password, savedPassword);
+
+    if (!validPassword) {
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    const token = this.signToken(user);
+
+    return {
+      success: true,
+      message: 'Signed in successfully.',
+      token,
+      accessToken: token,
+      user: this.removeSensitiveFields(user),
+    };
   }
 
-  async forgotPassword(dto: { email: string }) {
-    const email = dto.email?.trim().toLowerCase();
+  async forgotPassword(payload: ForgotPasswordPayload) {
+    const email = this.normalizeEmail(payload.email || '');
+
+    if (!email) {
+      throw new BadRequestException('Email is required.');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -128,104 +237,93 @@ export class AuthService {
 
     if (!user) {
       return {
-        message: 'If the email exists, a reset link has been sent.',
+        success: true,
+        message: 'If this email exists, a password reset message has been sent.',
       };
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const passwordResetTokenHash = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
 
-    const passwordResetExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-    // create a PasswordResetToken record linked to the user
-    await this.prisma.passwordResetToken.create({
-      data: {
-        token: passwordResetTokenHash,
-        expiresAt: passwordResetExpiresAt,
-        user: {
-          connect: { id: user.id },
-        },
+    await this.prisma.passwordResetToken.deleteMany({
+      where: {
+        userId: user.id,
       },
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+      },
+    });
 
-    const sent = await this.emailsService.sendPasswordResetEmail(user.email, resetLink);
+    const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${token}`;
 
-    if (!sent) {
-      throw new BadRequestException(
-        'Reset link was created, but email could not be sent. Check SMTP settings.',
-      );
-    }
+    await this.sendEmailSafely('sendPasswordResetEmail', {
+      email: user.email,
+      fullName: this.getUserDisplayName(user),
+      resetUrl,
+    });
 
     return {
-      message: 'If the email exists, a reset link has been sent.',
+      success: true,
+      message: 'If this email exists, a password reset message has been sent.',
     };
   }
 
-  async resetPassword(dto: { token: string; password: string }) {
-    if (!dto.token) {
-      throw new BadRequestException('Reset token is required.');
+  async resetPassword(payload: ResetPasswordPayload) {
+    if (!payload.token || !payload.password) {
+      throw new BadRequestException('Token and new password are required.');
     }
 
-    if (!dto.password || dto.password.length < 6) {
+    if (payload.password.length < 6) {
       throw new BadRequestException('Password must be at least 6 characters.');
     }
 
-    const passwordResetToken = crypto
-      .createHash('sha256')
-      .update(dto.token)
-      .digest('hex');
-
-    // find token record and include user
-    const tokenRecord = await this.prisma.passwordResetToken.findFirst({
+    const resetRecord = await this.prisma.passwordResetToken.findFirst({
       where: {
-        token: passwordResetToken,
-        expiresAt: { gt: new Date() },
+        token: payload.token,
+        expiresAt: {
+          gt: new Date(),
+        },
       },
-      include: { user: true },
+      include: {
+        user: true,
+      },
     });
 
-    if (!tokenRecord || !tokenRecord.user) {
-      throw new BadRequestException('Invalid or expired reset link.');
+    if (!resetRecord) {
+      throw new BadRequestException('Invalid or expired reset token.');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const hashedPassword = await bcrypt.hash(payload.password, 12);
+    const passwordField = this.getPasswordFieldName();
 
-    // update user password
     await this.prisma.user.update({
-      where: { id: tokenRecord.user.id },
-      data: { passwordHash },
+      where: {
+        id: resetRecord.userId,
+      },
+      data: {
+        [passwordField]: hashedPassword,
+      } as any,
     });
 
-    // remove the token record
-    await this.prisma.passwordResetToken.delete({ where: { id: tokenRecord.id } });
-
-    return {
-      message: 'Password reset successful.',
-    };
-  }
-
-  private buildAuthResponse(user: any) {
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    return {
-      accessToken: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
+    await this.prisma.passwordResetToken.delete({
+      where: {
+        id: resetRecord.id,
       },
+    });
+
+    await this.sendEmailSafely('sendPasswordChangedEmail', {
+      email: resetRecord.user.email,
+      fullName: this.getUserDisplayName(resetRecord.user),
+    });
+
+    return {
+      success: true,
+      message: 'Password reset successfully.',
     };
   }
 }
