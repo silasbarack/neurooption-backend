@@ -1,7 +1,13 @@
 import { Injectable, MessageEvent, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Observable } from "rxjs";
 import { MARKET_ASSETS } from "./market-assets";
-import type { MarketCategory, OtcAsset, OtcCandle, OtcStreamPayload, OtcTimeframe } from "./market-data.types";
+import type {
+  MarketCategory,
+  OtcAsset,
+  OtcCandle,
+  OtcStreamPayload,
+  OtcTimeframe,
+} from "./market-data.types";
 
 type MarketState = {
   asset: OtcAsset;
@@ -24,15 +30,17 @@ const TIMEFRAME_SECONDS: Record<OtcTimeframe, number> = {
   H4: 14400,
 };
 
+const ENGINE_INTERVAL_MS = 650;
+
 @Injectable()
 export class MarketDataService implements OnModuleInit, OnModuleDestroy {
   private readonly states = new Map<string, MarketState>();
-  private engineTimer: NodeJS.Timeout | null = null;
+  private engineTimer: ReturnType<typeof setInterval> | null = null;
 
   onModuleInit() {
     this.engineTimer = setInterval(() => {
       this.states.forEach((state) => this.advanceState(state));
-    }, 250);
+    }, ENGINE_INTERVAL_MS);
   }
 
   onModuleDestroy() {
@@ -43,7 +51,6 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
 
   getAssets(category?: MarketCategory): OtcAsset[] {
     if (!category) return MARKET_ASSETS;
-
     return MARKET_ASSETS.filter((asset) => asset.category === category);
   }
 
@@ -66,7 +73,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
           type: "tick",
           data: this.toPayload(state, "tick"),
         });
-      }, 250);
+      }, ENGINE_INTERVAL_MS);
 
       return () => {
         clearInterval(timer);
@@ -94,29 +101,38 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
       timeframe,
       candles,
       lastPrice: last.close,
-      trend: 0,
+      trend: this.randomNormal() * asset.volatility * 0.05,
       lastUpdate: Date.now(),
       currentCandleStart: last.time,
     };
 
     this.states.set(key, state);
-
     return state;
   }
 
   private generateInitialCandles(asset: OtcAsset, timeframe: OtcTimeframe, count: number): OtcCandle[] {
     const candles: OtcCandle[] = [];
     const durationMs = TIMEFRAME_SECONDS[timeframe] * 1000;
+    const timeframeFactor = this.getTimeframeVolatilityFactor(timeframe);
+    const volatility = asset.volatility * timeframeFactor;
+
     let price = asset.basePrice;
+    let trend = this.randomNormal() * volatility * 0.15;
 
     for (let index = 0; index < count; index += 1) {
       const time = Date.now() - (count - index) * durationMs;
-      const wave = Math.sin(index / 5.2) * asset.volatility * 1.8;
-      const noise = this.randomNormal() * asset.volatility * 0.9;
+
+      trend = trend * 0.82 + this.randomNormal() * volatility * 0.18;
+
       const open = price;
-      const close = Math.max(0.00000001, open + wave * 0.2 + noise);
-      const high = Math.max(open, close) + Math.abs(this.randomNormal()) * asset.volatility * 1.2;
-      const low = Math.min(open, close) - Math.abs(this.randomNormal()) * asset.volatility * 1.2;
+      const bodyMove = trend + this.randomNormal() * volatility * 0.38;
+      const close = Math.max(0.00000001, open + bodyMove);
+
+      const upperWick = Math.abs(this.randomNormal()) * volatility * 0.55;
+      const lowerWick = Math.abs(this.randomNormal()) * volatility * 0.55;
+
+      const high = Math.max(open, close) + upperWick;
+      const low = Math.max(0.00000001, Math.min(open, close) - lowerWick);
 
       candles.push({
         symbol: asset.symbol,
@@ -124,7 +140,7 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
         time,
         open,
         high,
-        low: Math.max(0.00000001, low),
+        low,
         close,
         closed: true,
       });
@@ -133,29 +149,30 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
     }
 
     candles[candles.length - 1].closed = false;
-
     return candles;
   }
 
   private advanceState(state: MarketState): void {
     const now = Date.now();
-    const deltaSeconds = Math.min(1, Math.max(0.05, (now - state.lastUpdate) / 1000));
-    const durationMs = TIMEFRAME_SECONDS[state.timeframe] * 1000;
     const active = state.candles[state.candles.length - 1];
 
     if (!active) return;
 
-    const meanPull = (state.asset.basePrice - state.lastPrice) * 0.0007;
-    const pulse = Math.sin(now / 1300) * state.asset.volatility * 0.08;
-    const microPulse = Math.sin(now / 410) * state.asset.volatility * 0.035;
-    const randomImpulse = this.randomNormal() * state.asset.volatility * 0.42;
+    const deltaSeconds = Math.min(1.2, Math.max(0.2, (now - state.lastUpdate) / 1000));
+    const durationMs = TIMEFRAME_SECONDS[state.timeframe] * 1000;
 
-    state.trend = state.trend * 0.965 + randomImpulse * 0.035;
+    const timeframeFactor = this.getTimeframeVolatilityFactor(state.timeframe);
+    const volatility = state.asset.volatility * timeframeFactor;
 
-    const nextPrice = Math.max(
-      0.00000001,
-      state.lastPrice + (state.trend + meanPull + pulse + microPulse + randomImpulse) * deltaSeconds,
-    );
+    const meanPull = (state.asset.basePrice - state.lastPrice) * 0.00008;
+    const softPulse = Math.sin(now / 2600) * volatility * 0.025;
+    const smallNoise = this.randomNormal() * volatility * 0.13;
+
+    state.trend = state.trend * 0.9 + this.randomNormal() * volatility * 0.055;
+
+    const movement = (state.trend * 0.16 + meanPull + softPulse + smallNoise) * Math.sqrt(deltaSeconds);
+
+    const nextPrice = Math.max(0.00000001, state.lastPrice + movement);
 
     state.lastPrice = nextPrice;
     state.lastUpdate = now;
@@ -186,6 +203,11 @@ export class MarketDataService implements OnModuleInit, OnModuleDestroy {
 
       state.currentCandleStart = now;
     }
+  }
+
+  private getTimeframeVolatilityFactor(timeframe: OtcTimeframe): number {
+    const seconds = TIMEFRAME_SECONDS[timeframe];
+    return Math.min(3.8, Math.sqrt(seconds / 60));
   }
 
   private toPayload(state: MarketState, type: "snapshot" | "tick"): OtcStreamPayload {

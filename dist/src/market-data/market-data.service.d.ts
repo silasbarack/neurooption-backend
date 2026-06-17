@@ -12,6 +12,7 @@ export declare class MarketDataService implements OnModuleInit, OnModuleDestroy 
     private getOrCreateState;
     private generateInitialCandles;
     private advanceState;
+    private getTimeframeVolatilityFactor;
     private toPayload;
     private randomNormal;
 }
