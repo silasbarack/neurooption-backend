@@ -72,35 +72,59 @@ let MarketDataService = class MarketDataService {
         const existing = this.states.get(key);
         if (existing)
             return existing;
-        const candles = this.generateInitialCandles(asset, timeframe, 120);
+        const seedOffset = this.symbolSeed(symbol);
+        const behaviour = this.createAssetBehaviour(asset, seedOffset);
+        const candles = this.generateInitialCandles(asset, timeframe, behaviour, seedOffset, 120);
         const last = candles[candles.length - 1];
         const state = {
             asset,
             timeframe,
             candles,
             lastPrice: last.close,
-            trend: this.randomNormal() * asset.volatility * 0.05,
+            velocity: this.randomNormal() * asset.volatility * 0.05,
+            impulse: 0,
             lastUpdate: Date.now(),
             currentCandleStart: last.time,
+            behaviour,
+            seedOffset,
         };
         this.states.set(key, state);
         return state;
     }
-    generateInitialCandles(asset, timeframe, count) {
+    generateInitialCandles(asset, timeframe, behaviour, seedOffset, count) {
         const candles = [];
         const durationMs = TIMEFRAME_SECONDS[timeframe] * 1000;
         const timeframeFactor = this.getTimeframeVolatilityFactor(timeframe);
         const volatility = asset.volatility * timeframeFactor;
         let price = asset.basePrice;
-        let trend = this.randomNormal() * volatility * 0.15;
+        let velocity = this.randomNormal() * volatility * 0.2;
+        let regimeDirection = this.seededDirection(seedOffset);
         for (let index = 0; index < count; index += 1) {
             const time = Date.now() - (count - index) * durationMs;
-            trend = trend * 0.82 + this.randomNormal() * volatility * 0.18;
+            if (index % 18 === 0) {
+                regimeDirection = this.randomNormal() >= 0 ? 1 : -1;
+            }
+            const regimeWave = Math.sin(index / (8 + (seedOffset % 7))) *
+                volatility *
+                0.42 *
+                regimeDirection;
+            velocity =
+                velocity * behaviour.trendPersistence +
+                    this.randomNormal() * volatility * behaviour.noiseStrength +
+                    regimeWave * 0.16;
             const open = price;
-            const bodyMove = trend + this.randomNormal() * volatility * 0.38;
+            const bodyMove = velocity + this.randomNormal() * volatility * 0.22;
             const close = Math.max(0.00000001, open + bodyMove);
-            const upperWick = Math.abs(this.randomNormal()) * volatility * 0.55;
-            const lowerWick = Math.abs(this.randomNormal()) * volatility * 0.55;
+            const bodySize = Math.abs(close - open);
+            const wickBase = Math.max(bodySize * 0.35, volatility * 0.22);
+            const upperWick = Math.abs(this.randomNormal()) *
+                wickBase *
+                behaviour.wickStrength *
+                (close >= open ? 0.85 : 1.18);
+            const lowerWick = Math.abs(this.randomNormal()) *
+                wickBase *
+                behaviour.wickStrength *
+                (close >= open ? 1.18 : 0.85);
             const high = Math.max(open, close) + upperWick;
             const low = Math.max(0.00000001, Math.min(open, close) - lowerWick);
             candles.push({
@@ -123,16 +147,43 @@ let MarketDataService = class MarketDataService {
         const active = state.candles[state.candles.length - 1];
         if (!active)
             return;
-        const deltaSeconds = Math.min(1.2, Math.max(0.2, (now - state.lastUpdate) / 1000));
+        const deltaSeconds = Math.min(1.4, Math.max(0.25, (now - state.lastUpdate) / 1000));
         const durationMs = TIMEFRAME_SECONDS[state.timeframe] * 1000;
         const timeframeFactor = this.getTimeframeVolatilityFactor(state.timeframe);
         const volatility = state.asset.volatility * timeframeFactor;
-        const meanPull = (state.asset.basePrice - state.lastPrice) * 0.00008;
-        const softPulse = Math.sin(now / 2600) * volatility * 0.025;
-        const smallNoise = this.randomNormal() * volatility * 0.13;
-        state.trend = state.trend * 0.9 + this.randomNormal() * volatility * 0.055;
-        const movement = (state.trend * 0.16 + meanPull + softPulse + smallNoise) * Math.sqrt(deltaSeconds);
-        const nextPrice = Math.max(0.00000001, state.lastPrice + movement);
+        const elapsedInCandle = Math.max(0, now - state.currentCandleStart);
+        const candleProgress = Math.min(1, elapsedInCandle / durationMs);
+        if (Math.random() < state.behaviour.impulseChance) {
+            state.impulse =
+                this.randomNormal() *
+                    volatility *
+                    state.behaviour.impulseStrength *
+                    (0.6 + candleProgress);
+        }
+        state.impulse *= 0.86;
+        const meanPull = (state.asset.basePrice - state.lastPrice) *
+            state.behaviour.meanReversion;
+        const slowWave = Math.sin(now / (4200 + state.seedOffset * 11)) *
+            volatility *
+            0.025;
+        const mediumWave = Math.sin(now / (1700 + state.seedOffset * 5)) *
+            volatility *
+            0.018;
+        const marketNoise = this.randomNormal() *
+            volatility *
+            state.behaviour.noiseStrength *
+            0.18;
+        state.velocity =
+            state.velocity * state.behaviour.trendPersistence +
+                marketNoise +
+                slowWave +
+                mediumWave +
+                state.impulse * 0.12 +
+                meanPull;
+        const movement = state.velocity * Math.sqrt(deltaSeconds);
+        const maxTickMove = volatility * 0.34;
+        const controlledMovement = this.clamp(movement, -maxTickMove, maxTickMove);
+        const nextPrice = Math.max(0.00000001, state.lastPrice + controlledMovement);
         state.lastPrice = nextPrice;
         state.lastUpdate = now;
         active.close = nextPrice;
@@ -155,11 +206,69 @@ let MarketDataService = class MarketDataService {
                 state.candles.shift();
             }
             state.currentCandleStart = now;
+            state.velocity *= 0.55;
+            state.impulse *= 0.35;
         }
+    }
+    createAssetBehaviour(asset, seedOffset) {
+        const personality = (seedOffset % 10) / 10;
+        if (asset.category === "Currencies") {
+            return {
+                trendPersistence: 0.91 + personality * 0.025,
+                noiseStrength: 0.55 + personality * 0.12,
+                wickStrength: 1.0 + personality * 0.22,
+                meanReversion: 0.000055,
+                impulseChance: 0.018 + personality * 0.006,
+                impulseStrength: 0.72 + personality * 0.18,
+                tickIntervalMs: ENGINE_INTERVAL_MS,
+            };
+        }
+        if (asset.category === "Cryptocurrencies") {
+            return {
+                trendPersistence: 0.88 + personality * 0.035,
+                noiseStrength: 0.72 + personality * 0.2,
+                wickStrength: 1.25 + personality * 0.35,
+                meanReversion: 0.000045,
+                impulseChance: 0.026 + personality * 0.012,
+                impulseStrength: 0.9 + personality * 0.35,
+                tickIntervalMs: ENGINE_INTERVAL_MS,
+            };
+        }
+        if (asset.category === "Indices") {
+            return {
+                trendPersistence: 0.92 + personality * 0.03,
+                noiseStrength: 0.5 + personality * 0.16,
+                wickStrength: 0.92 + personality * 0.24,
+                meanReversion: 0.000038,
+                impulseChance: 0.015 + personality * 0.006,
+                impulseStrength: 0.6 + personality * 0.22,
+                tickIntervalMs: ENGINE_INTERVAL_MS,
+            };
+        }
+        if (asset.category === "Stocks") {
+            return {
+                trendPersistence: 0.89 + personality * 0.04,
+                noiseStrength: 0.62 + personality * 0.18,
+                wickStrength: 1.08 + personality * 0.26,
+                meanReversion: 0.00005,
+                impulseChance: 0.02 + personality * 0.01,
+                impulseStrength: 0.8 + personality * 0.28,
+                tickIntervalMs: ENGINE_INTERVAL_MS,
+            };
+        }
+        return {
+            trendPersistence: 0.9 + personality * 0.03,
+            noiseStrength: 0.58 + personality * 0.16,
+            wickStrength: 1.18 + personality * 0.25,
+            meanReversion: 0.000045,
+            impulseChance: 0.019 + personality * 0.008,
+            impulseStrength: 0.72 + personality * 0.24,
+            tickIntervalMs: ENGINE_INTERVAL_MS,
+        };
     }
     getTimeframeVolatilityFactor(timeframe) {
         const seconds = TIMEFRAME_SECONDS[timeframe];
-        return Math.min(3.8, Math.sqrt(seconds / 60));
+        return Math.min(3.4, Math.sqrt(seconds / 60));
     }
     toPayload(state, type) {
         return {
@@ -170,6 +279,19 @@ let MarketDataService = class MarketDataService {
             serverTime: Date.now(),
             candles: state.candles.slice(-120),
         };
+    }
+    symbolSeed(symbol) {
+        let hash = 0;
+        for (let index = 0; index < symbol.length; index += 1) {
+            hash = (hash * 31 + symbol.charCodeAt(index)) >>> 0;
+        }
+        return hash % 997;
+    }
+    seededDirection(seed) {
+        return seed % 2 === 0 ? 1 : -1;
+    }
+    clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
     }
     randomNormal() {
         return Math.random() + Math.random() + Math.random() + Math.random() - 2;
