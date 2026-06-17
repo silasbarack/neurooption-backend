@@ -8,190 +8,249 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const bcrypt = require("bcrypt");
-const crypto = require("crypto");
+const crypto_1 = require("crypto");
 const prisma_service_1 = require("../config/prisma.service");
 const emails_service_1 = require("../emails/emails.service");
-let AuthService = class AuthService {
-    constructor(prisma, jwtService, emailsService) {
+let AuthService = AuthService_1 = class AuthService {
+    constructor(prisma, jwtService, emailsService, configService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.emailsService = emailsService;
+        this.configService = configService;
+        this.logger = new common_1.Logger(AuthService_1.name);
     }
-    async register(dto) {
-        const fullName = dto.fullName?.trim();
-        const email = dto.email?.trim().toLowerCase();
-        const phone = dto.phone?.trim() || null;
-        if (!fullName) {
-            throw new common_1.BadRequestException('Full name is required.');
+    normalizeEmail(email) {
+        return email.trim().toLowerCase();
+    }
+    getFrontendUrl() {
+        return (this.configService.get('FRONTEND_URL') ||
+            'http://localhost:5173').replace(/\/+$/, '');
+    }
+    getUserModelFields() {
+        const runtimeModel = this.prisma?._runtimeDataModel?.models?.User;
+        if (!runtimeModel?.fields) {
+            return [];
         }
-        if (!email) {
-            throw new common_1.BadRequestException('Email is required.');
+        return runtimeModel.fields.map((field) => field.name);
+    }
+    getPasswordFieldName() {
+        const fields = this.getUserModelFields();
+        if (fields.includes('password'))
+            return 'password';
+        if (fields.includes('passwordHash'))
+            return 'passwordHash';
+        if (fields.includes('hashedPassword'))
+            return 'hashedPassword';
+        return 'password';
+    }
+    getNameFieldName() {
+        const fields = this.getUserModelFields();
+        if (fields.includes('fullName'))
+            return 'fullName';
+        if (fields.includes('name'))
+            return 'name';
+        return null;
+    }
+    getUserDisplayName(user) {
+        return (user?.fullName ||
+            user?.name ||
+            user?.email?.split('@')?.[0] ||
+            'Trader');
+    }
+    removeSensitiveFields(user) {
+        if (!user)
+            return null;
+        const { password, passwordHash, hashedPassword, ...safeUser } = user;
+        return safeUser;
+    }
+    signToken(user) {
+        return this.jwtService.sign({
+            sub: user.id,
+            email: user.email,
+        });
+    }
+    async sendEmailSafely(methodName, payload) {
+        try {
+            const emailService = this.emailsService;
+            const method = emailService?.[methodName];
+            if (typeof method !== 'function') {
+                this.logger.warn(`EmailsService.${methodName} does not exist.`);
+                return;
+            }
+            await method.call(emailService, payload);
         }
-        if (!dto.password) {
-            throw new common_1.BadRequestException('Password is required.');
+        catch (error) {
+            this.logger.error(`${methodName} failed`, error);
         }
-        const existingEmail = await this.prisma.user.findUnique({
+    }
+    async register(payload) {
+        const email = this.normalizeEmail(payload.email || '');
+        const fullName = (payload.fullName || payload.name || '').trim();
+        if (!email || !payload.password) {
+            throw new common_1.BadRequestException('Email and password are required.');
+        }
+        if (payload.password.length < 6) {
+            throw new common_1.BadRequestException('Password must be at least 6 characters.');
+        }
+        const existingUser = await this.prisma.user.findUnique({
             where: { email },
         });
-        if (existingEmail) {
-            throw new common_1.ConflictException('Email already exists.');
+        if (existingUser) {
+            throw new common_1.BadRequestException('An account with this email already exists.');
         }
-        if (phone) {
-            const existingPhone = await this.prisma.user.findUnique({
-                where: { phone },
-            });
-            if (existingPhone) {
-                throw new common_1.ConflictException('Phone already exists.');
-            }
+        const hashedPassword = await bcrypt.hash(payload.password, 12);
+        const passwordField = this.getPasswordFieldName();
+        const nameField = this.getNameFieldName();
+        const userData = {
+            email,
+            [passwordField]: hashedPassword,
+        };
+        if (nameField) {
+            userData[nameField] = fullName;
         }
-        const passwordHash = await bcrypt.hash(dto.password, 12);
         const user = await this.prisma.user.create({
-            data: {
-                fullName,
-                email,
-                phone,
-                passwordHash,
-                wallets: {
-                    create: [
-                        { currency: 'KES', balance: 0, locked: 0 },
-                        { currency: 'USD', balance: 0, locked: 0 },
-                    ],
-                },
-                tradingAccounts: {
-                    create: [
-                        {
-                            type: 'DEMO',
-                            currency: 'USD',
-                            balance: 70000,
-                            locked: 0,
-                            isActive: true,
-                        },
-                        {
-                            type: 'REAL',
-                            currency: 'KES',
-                            balance: 0,
-                            locked: 0,
-                            isActive: true,
-                        },
-                    ],
-                },
-            },
-            include: {
-                wallets: true,
-                tradingAccounts: true,
-            },
+            data: userData,
         });
-        await this.emailsService.sendAccountCreatedEmail(user.email, user.fullName);
-        return this.buildAuthResponse(user);
+        await this.sendEmailSafely('sendRegistrationEmail', {
+            email: user.email,
+            fullName: this.getUserDisplayName(user),
+        });
+        const token = this.signToken(user);
+        return {
+            success: true,
+            message: 'Account created successfully.',
+            token,
+            accessToken: token,
+            user: this.removeSensitiveFields(user),
+        };
     }
-    async login(dto) {
-        const email = dto.email?.trim().toLowerCase();
+    async login(payload) {
+        const email = this.normalizeEmail(payload.email || '');
+        if (!email || !payload.password) {
+            throw new common_1.BadRequestException('Email and password are required.');
+        }
         const user = await this.prisma.user.findUnique({
             where: { email },
         });
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid email or password.');
         }
-        const passwordIsValid = await bcrypt.compare(dto.password, user.passwordHash);
-        if (!passwordIsValid) {
+        const passwordField = this.getPasswordFieldName();
+        const savedPassword = user[passwordField];
+        if (!savedPassword) {
             throw new common_1.UnauthorizedException('Invalid email or password.');
         }
-        return this.buildAuthResponse(user);
+        const validPassword = await bcrypt.compare(payload.password, savedPassword);
+        if (!validPassword) {
+            throw new common_1.UnauthorizedException('Invalid email or password.');
+        }
+        const token = this.signToken(user);
+        return {
+            success: true,
+            message: 'Signed in successfully.',
+            token,
+            accessToken: token,
+            user: this.removeSensitiveFields(user),
+        };
     }
-    async forgotPassword(dto) {
-        const email = dto.email?.trim().toLowerCase();
+    async forgotPassword(payload) {
+        const email = this.normalizeEmail(payload.email || '');
+        if (!email) {
+            throw new common_1.BadRequestException('Email is required.');
+        }
         const user = await this.prisma.user.findUnique({
             where: { email },
         });
         if (!user) {
             return {
-                message: 'If the email exists, a reset link has been sent.',
+                success: true,
+                message: 'If this email exists, a password reset message has been sent.',
             };
         }
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const passwordResetTokenHash = crypto
-            .createHash('sha256')
-            .update(resetToken)
-            .digest('hex');
-        const passwordResetExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        const token = (0, crypto_1.randomBytes)(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+        await this.prisma.passwordResetToken.deleteMany({
+            where: {
+                userId: user.id,
+            },
+        });
         await this.prisma.passwordResetToken.create({
             data: {
-                token: passwordResetTokenHash,
-                expiresAt: passwordResetExpiresAt,
-                user: {
-                    connect: { id: user.id },
-                },
+                userId: user.id,
+                token,
+                expiresAt,
             },
         });
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
-        const sent = await this.emailsService.sendPasswordResetEmail(user.email, resetLink);
-        if (!sent) {
-            throw new common_1.BadRequestException('Reset link was created, but email could not be sent. Check SMTP settings.');
-        }
+        const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${token}`;
+        await this.sendEmailSafely('sendPasswordResetEmail', {
+            email: user.email,
+            fullName: this.getUserDisplayName(user),
+            resetUrl,
+        });
         return {
-            message: 'If the email exists, a reset link has been sent.',
+            success: true,
+            message: 'If this email exists, a password reset message has been sent.',
         };
     }
-    async resetPassword(dto) {
-        if (!dto.token) {
-            throw new common_1.BadRequestException('Reset token is required.');
+    async resetPassword(payload) {
+        if (!payload.token || !payload.password) {
+            throw new common_1.BadRequestException('Token and new password are required.');
         }
-        if (!dto.password || dto.password.length < 6) {
+        if (payload.password.length < 6) {
             throw new common_1.BadRequestException('Password must be at least 6 characters.');
         }
-        const passwordResetToken = crypto
-            .createHash('sha256')
-            .update(dto.token)
-            .digest('hex');
-        const tokenRecord = await this.prisma.passwordResetToken.findFirst({
+        const resetRecord = await this.prisma.passwordResetToken.findFirst({
             where: {
-                token: passwordResetToken,
-                expiresAt: { gt: new Date() },
+                token: payload.token,
+                expiresAt: {
+                    gt: new Date(),
+                },
             },
-            include: { user: true },
+            include: {
+                user: true,
+            },
         });
-        if (!tokenRecord || !tokenRecord.user) {
-            throw new common_1.BadRequestException('Invalid or expired reset link.');
+        if (!resetRecord) {
+            throw new common_1.BadRequestException('Invalid or expired reset token.');
         }
-        const passwordHash = await bcrypt.hash(dto.password, 12);
+        const hashedPassword = await bcrypt.hash(payload.password, 12);
+        const passwordField = this.getPasswordFieldName();
         await this.prisma.user.update({
-            where: { id: tokenRecord.user.id },
-            data: { passwordHash },
-        });
-        await this.prisma.passwordResetToken.delete({ where: { id: tokenRecord.id } });
-        return {
-            message: 'Password reset successful.',
-        };
-    }
-    buildAuthResponse(user) {
-        const payload = {
-            sub: user.id,
-            email: user.email,
-            role: user.role,
-        };
-        return {
-            accessToken: this.jwtService.sign(payload),
-            user: {
-                id: user.id,
-                fullName: user.fullName,
-                email: user.email,
-                phone: user.phone,
-                role: user.role,
+            where: {
+                id: resetRecord.userId,
             },
+            data: {
+                [passwordField]: hashedPassword,
+            },
+        });
+        await this.prisma.passwordResetToken.delete({
+            where: {
+                id: resetRecord.id,
+            },
+        });
+        await this.sendEmailSafely('sendPasswordChangedEmail', {
+            email: resetRecord.user.email,
+            fullName: this.getUserDisplayName(resetRecord.user),
+        });
+        return {
+            success: true,
+            message: 'Password reset successfully.',
         };
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService,
-        emails_service_1.EmailsService])
+        emails_service_1.EmailsService,
+        config_1.ConfigService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

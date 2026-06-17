@@ -14,55 +14,64 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketDataController = void 0;
 const common_1 = require("@nestjs/common");
+const rxjs_1 = require("rxjs");
 const market_data_service_1 = require("./market-data.service");
-const price_feed_dto_1 = require("./dto/price-feed.dto");
+const VALID_TIMEFRAMES = ["M1", "M2", "M3", "M5", "M15", "M30", "H1", "H4"];
 let MarketDataController = class MarketDataController {
     constructor(marketDataService) {
         this.marketDataService = marketDataService;
     }
-    findAll() {
-        return this.marketDataService.findAll();
+    getAssets(category) {
+        return {
+            success: true,
+            assets: this.marketDataService.getAssets(category),
+        };
     }
-    findBySymbol(symbol) {
-        return this.marketDataService.findBySymbol(symbol);
+    getCandles(symbol = "AUD/CAD OTC", timeframe = "M1", limit = "120") {
+        return {
+            success: true,
+            symbol,
+            timeframe: this.normalizeTimeframe(timeframe),
+            candles: this.marketDataService.getCandles(symbol, this.normalizeTimeframe(timeframe), Number(limit) || 120),
+        };
     }
-    findByMarketType(marketType) {
-        return this.marketDataService.findByMarketType(marketType);
+    stream(symbol = "AUD/CAD OTC", timeframe = "M1") {
+        return this.marketDataService.stream(symbol, this.normalizeTimeframe(timeframe));
     }
-    updatePrice(dto) {
-        return this.marketDataService.updatePrice(dto);
+    normalizeTimeframe(value) {
+        if (VALID_TIMEFRAMES.includes(value)) {
+            return value;
+        }
+        return "M1";
     }
 };
 exports.MarketDataController = MarketDataController;
 __decorate([
-    (0, common_1.Get)(),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
-], MarketDataController.prototype, "findAll", null);
-__decorate([
-    (0, common_1.Get)('symbol/:symbol'),
-    __param(0, (0, common_1.Param)('symbol')),
+    (0, common_1.Get)("assets"),
+    __param(0, (0, common_1.Query)("category")),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], MarketDataController.prototype, "findBySymbol", null);
+], MarketDataController.prototype, "getAssets", null);
 __decorate([
-    (0, common_1.Get)('market/:marketType'),
-    __param(0, (0, common_1.Param)('marketType')),
+    (0, common_1.Get)("candles"),
+    __param(0, (0, common_1.Query)("symbol")),
+    __param(1, (0, common_1.Query)("timeframe")),
+    __param(2, (0, common_1.Query)("limit")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", void 0)
-], MarketDataController.prototype, "findByMarketType", null);
+], MarketDataController.prototype, "getCandles", null);
 __decorate([
-    (0, common_1.Patch)('price'),
-    __param(0, (0, common_1.Body)()),
+    (0, common_1.Sse)("stream"),
+    __param(0, (0, common_1.Query)("symbol")),
+    __param(1, (0, common_1.Query)("timeframe")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [price_feed_dto_1.PriceFeedDto]),
-    __metadata("design:returntype", void 0)
-], MarketDataController.prototype, "updatePrice", null);
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", rxjs_1.Observable)
+], MarketDataController.prototype, "stream", null);
 exports.MarketDataController = MarketDataController = __decorate([
-    (0, common_1.Controller)('market-data'),
+    (0, common_1.Controller)("market-data"),
     __metadata("design:paramtypes", [market_data_service_1.MarketDataService])
 ], MarketDataController);
 //# sourceMappingURL=market-data.controller.js.map

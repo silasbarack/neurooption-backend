@@ -1,10 +1,17 @@
-import { PriceFeedDto } from './dto/price-feed.dto';
-export declare class MarketDataService {
-    private prices;
-    findAll(): any[];
-    findBySymbol(symbol: string): any;
-    findByMarketType(marketType: 'OTC' | 'REAL'): any[];
-    updatePrice(dto: PriceFeedDto): any;
-    getCurrentMidPrice(symbol: string): number;
-    private buildPrice;
+import { MessageEvent, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Observable } from "rxjs";
+import type { MarketCategory, OtcAsset, OtcCandle, OtcTimeframe } from "./market-data.types";
+export declare class MarketDataService implements OnModuleInit, OnModuleDestroy {
+    private readonly states;
+    private engineTimer;
+    onModuleInit(): void;
+    onModuleDestroy(): void;
+    getAssets(category?: MarketCategory): OtcAsset[];
+    getCandles(symbol: string, timeframe: OtcTimeframe, limit?: number): OtcCandle[];
+    stream(symbol: string, timeframe: OtcTimeframe): Observable<MessageEvent>;
+    private getOrCreateState;
+    private generateInitialCandles;
+    private advanceState;
+    private toPayload;
+    private randomNormal;
 }

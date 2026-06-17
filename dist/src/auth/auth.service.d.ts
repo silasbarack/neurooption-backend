@@ -1,45 +1,61 @@
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
-import { RegisterDto } from './dto/register.dto';
+type RegisterPayload = {
+    fullName?: string;
+    name?: string;
+    email: string;
+    password: string;
+};
+type LoginPayload = {
+    email: string;
+    password: string;
+};
+type ForgotPasswordPayload = {
+    email: string;
+};
+type ResetPasswordPayload = {
+    token: string;
+    password: string;
+};
 export declare class AuthService {
     private readonly prisma;
     private readonly jwtService;
     private readonly emailsService;
-    constructor(prisma: PrismaService, jwtService: JwtService, emailsService: EmailsService);
-    register(dto: RegisterDto): Promise<{
-        accessToken: string;
-        user: {
-            id: any;
-            fullName: any;
-            email: any;
-            phone: any;
-            role: any;
-        };
-    }>;
-    login(dto: {
-        email: string;
-        password: string;
-    }): Promise<{
-        accessToken: string;
-        user: {
-            id: any;
-            fullName: any;
-            email: any;
-            phone: any;
-            role: any;
-        };
-    }>;
-    forgotPassword(dto: {
-        email: string;
-    }): Promise<{
+    private readonly configService;
+    private readonly logger;
+    constructor(prisma: PrismaService, jwtService: JwtService, emailsService: EmailsService, configService: ConfigService);
+    private normalizeEmail;
+    private getFrontendUrl;
+    private getUserModelFields;
+    private getPasswordFieldName;
+    private getNameFieldName;
+    private getUserDisplayName;
+    private removeSensitiveFields;
+    private signToken;
+    private sendEmailSafely;
+    register(payload: RegisterPayload): Promise<{
+        success: boolean;
         message: string;
-    }>;
-    resetPassword(dto: {
         token: string;
-        password: string;
-    }): Promise<{
+        accessToken: string;
+        user: any;
+    }>;
+    login(payload: LoginPayload): Promise<{
+        success: boolean;
+        message: string;
+        token: string;
+        accessToken: string;
+        user: any;
+    }>;
+    forgotPassword(payload: ForgotPasswordPayload): Promise<{
+        success: boolean;
         message: string;
     }>;
-    private buildAuthResponse;
+    resetPassword(payload: ResetPasswordPayload): Promise<{
+        success: boolean;
+        message: string;
+    }>;
 }
+export {};

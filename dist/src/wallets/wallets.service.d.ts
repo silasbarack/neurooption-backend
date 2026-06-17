@@ -17,24 +17,24 @@ export declare class WalletsService {
     getUserWallets(userId: string): Promise<({
         transactions: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             userId: string;
+            walletId: string;
             type: import(".prisma/client").$Enums.TransactionType;
-            description: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             reference: string | null;
-            walletId: string;
+            description: string | null;
         }[];
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
         currency: string;
         balance: import("@prisma/client/runtime/library").Decimal;
         locked: import("@prisma/client/runtime/library").Decimal;
-        userId: string;
     })[]>;
     deposit(dto: DepositDto): Promise<{
         message: string;
@@ -42,22 +42,22 @@ export declare class WalletsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             currency: string;
             balance: import("@prisma/client/runtime/library").Decimal;
             locked: import("@prisma/client/runtime/library").Decimal;
-            userId: string;
         };
         transaction: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             userId: string;
+            walletId: string;
             type: import(".prisma/client").$Enums.TransactionType;
-            description: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             reference: string | null;
-            walletId: string;
+            description: string | null;
         };
         email: {
             subject: string;
@@ -67,18 +67,18 @@ export declare class WalletsService {
             message: string;
             notification: {
                 id: string;
+                status: import(".prisma/client").$Enums.NotificationStatus;
                 createdAt: Date;
                 subject: string;
-                status: import(".prisma/client").$Enums.NotificationStatus;
                 userId: string;
                 type: import(".prisma/client").$Enums.NotificationType;
-                transactionId: string | null;
                 channel: import(".prisma/client").$Enums.NotificationChannel;
                 body: string;
                 recipientEmail: string;
+                sentAt: Date | null;
+                transactionId: string | null;
                 kycRecordId: string | null;
                 supportTicketId: string | null;
-                sentAt: Date | null;
             };
         };
     }>;
@@ -88,22 +88,22 @@ export declare class WalletsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             currency: string;
             balance: import("@prisma/client/runtime/library").Decimal;
             locked: import("@prisma/client/runtime/library").Decimal;
-            userId: string;
         };
         transaction: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             userId: string;
+            walletId: string;
             type: import(".prisma/client").$Enums.TransactionType;
-            description: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             reference: string | null;
-            walletId: string;
+            description: string | null;
         };
         email: {
             subject: string;
@@ -113,18 +113,18 @@ export declare class WalletsService {
             message: string;
             notification: {
                 id: string;
+                status: import(".prisma/client").$Enums.NotificationStatus;
                 createdAt: Date;
                 subject: string;
-                status: import(".prisma/client").$Enums.NotificationStatus;
                 userId: string;
                 type: import(".prisma/client").$Enums.NotificationType;
-                transactionId: string | null;
                 channel: import(".prisma/client").$Enums.NotificationChannel;
                 body: string;
                 recipientEmail: string;
+                sentAt: Date | null;
+                transactionId: string | null;
                 kycRecordId: string | null;
                 supportTicketId: string | null;
-                sentAt: Date | null;
             };
         };
     }>;
@@ -132,15 +132,15 @@ export declare class WalletsService {
         message: string;
         transaction: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             userId: string;
+            walletId: string;
             type: import(".prisma/client").$Enums.TransactionType;
-            description: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             reference: string | null;
-            walletId: string;
+            description: string | null;
         };
         email: {
             subject: string;
@@ -150,18 +150,18 @@ export declare class WalletsService {
             message: string;
             notification: {
                 id: string;
+                status: import(".prisma/client").$Enums.NotificationStatus;
                 createdAt: Date;
                 subject: string;
-                status: import(".prisma/client").$Enums.NotificationStatus;
                 userId: string;
                 type: import(".prisma/client").$Enums.NotificationType;
-                transactionId: string | null;
                 channel: import(".prisma/client").$Enums.NotificationChannel;
                 body: string;
                 recipientEmail: string;
+                sentAt: Date | null;
+                transactionId: string | null;
                 kycRecordId: string | null;
                 supportTicketId: string | null;
-                sentAt: Date | null;
             };
         };
     }>;
@@ -171,22 +171,22 @@ export declare class WalletsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             currency: string;
             balance: import("@prisma/client/runtime/library").Decimal;
             locked: import("@prisma/client/runtime/library").Decimal;
-            userId: string;
         };
         transaction: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             userId: string;
+            walletId: string;
             type: import(".prisma/client").$Enums.TransactionType;
-            description: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             reference: string | null;
-            walletId: string;
+            description: string | null;
         };
         email: {
             subject: string;
@@ -196,18 +196,18 @@ export declare class WalletsService {
             message: string;
             notification: {
                 id: string;
+                status: import(".prisma/client").$Enums.NotificationStatus;
                 createdAt: Date;
                 subject: string;
-                status: import(".prisma/client").$Enums.NotificationStatus;
                 userId: string;
                 type: import(".prisma/client").$Enums.NotificationType;
-                transactionId: string | null;
                 channel: import(".prisma/client").$Enums.NotificationChannel;
                 body: string;
                 recipientEmail: string;
+                sentAt: Date | null;
+                transactionId: string | null;
                 kycRecordId: string | null;
                 supportTicketId: string | null;
-                sentAt: Date | null;
             };
         };
     }>;
@@ -217,22 +217,22 @@ export declare class WalletsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            userId: string;
             currency: string;
             balance: import("@prisma/client/runtime/library").Decimal;
             locked: import("@prisma/client/runtime/library").Decimal;
-            userId: string;
         };
         transaction: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             userId: string;
+            walletId: string;
             type: import(".prisma/client").$Enums.TransactionType;
-            description: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             reference: string | null;
-            walletId: string;
+            description: string | null;
         };
         email: {
             subject: string;
@@ -242,18 +242,18 @@ export declare class WalletsService {
             message: string;
             notification: {
                 id: string;
+                status: import(".prisma/client").$Enums.NotificationStatus;
                 createdAt: Date;
                 subject: string;
-                status: import(".prisma/client").$Enums.NotificationStatus;
                 userId: string;
                 type: import(".prisma/client").$Enums.NotificationType;
-                transactionId: string | null;
                 channel: import(".prisma/client").$Enums.NotificationChannel;
                 body: string;
                 recipientEmail: string;
+                sentAt: Date | null;
+                transactionId: string | null;
                 kycRecordId: string | null;
                 supportTicketId: string | null;
-                sentAt: Date | null;
             };
         };
     }>;

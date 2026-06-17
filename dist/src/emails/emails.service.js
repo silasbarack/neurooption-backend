@@ -14,6 +14,12 @@ let EmailsService = EmailsService_1 = class EmailsService {
     constructor() {
         this.logger = new common_1.Logger(EmailsService_1.name);
     }
+    sendRegistrationEmail(arg0) {
+        throw new Error('Method not implemented.');
+    }
+    sendRegistrationWelcomeEmail(arg0) {
+        throw new Error('Method not implemented.');
+    }
     getTransporterConfig() {
         const config = {
             auth: {
@@ -21,7 +27,8 @@ let EmailsService = EmailsService_1 = class EmailsService {
                 pass: process.env.SMTP_PASS,
             },
             tls: {
-                rejectUnauthorized: String(process.env.SMTP_REJECT_UNAUTHORIZED || 'true').toLowerCase() === 'true',
+                rejectUnauthorized: String(process.env.SMTP_REJECT_UNAUTHORIZED || 'true').toLowerCase() ===
+                    'true',
             },
         };
         if (process.env.SMTP_SERVICE) {
@@ -30,7 +37,8 @@ let EmailsService = EmailsService_1 = class EmailsService {
         else {
             config.host = process.env.SMTP_HOST || 'smtp.gmail.com';
             config.port = Number(process.env.SMTP_PORT || 587);
-            config.secure = String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true';
+            config.secure =
+                String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true';
         }
         return config;
     }
@@ -42,6 +50,24 @@ let EmailsService = EmailsService_1 = class EmailsService {
         const hasServer = !!process.env.SMTP_SERVICE || !!process.env.SMTP_HOST;
         return hasCredentials && hasServer;
     }
+    getFromAddress() {
+        return (process.env.SMTP_FROM ||
+            `"NeuroOption" <${process.env.SMTP_USER || 'no-reply@neurooption.com'}>`);
+    }
+    formatName(fullName) {
+        const cleaned = fullName?.trim();
+        return cleaned && cleaned.length > 0 ? cleaned : 'User';
+    }
+    toHtml(body) {
+        return `
+      <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6; font-size: 15px;">
+        ${body
+            .split('\n')
+            .map((line) => `<p style="margin: 0 0 10px;">${line}</p>`)
+            .join('')}
+      </div>
+    `;
+    }
     async sendEmail(to, subject, body) {
         try {
             if (!this.isConfigured()) {
@@ -49,11 +75,11 @@ let EmailsService = EmailsService_1 = class EmailsService {
                 return false;
             }
             await this.createTransporter().sendMail({
-                from: process.env.SMTP_FROM || `"NeuroOption" <${process.env.SMTP_USER}>`,
+                from: this.getFromAddress(),
                 to,
                 subject,
                 text: body,
-                html: `<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;line-height:1.5;">${body}</pre>`,
+                html: this.toHtml(body),
             });
             return true;
         }
@@ -67,60 +93,34 @@ let EmailsService = EmailsService_1 = class EmailsService {
         }
     }
     async sendAccountCreatedEmail(email, fullName) {
+        const name = this.formatName(fullName);
         return this.sendEmail(email, 'Welcome to NeuroOption', `
-Dear ${fullName},
+Dear ${name},
 
-Your NeuroOption account has been created successfully.
-
-You can now sign in and start using your account.
-
+Welcome to NeuroOption. Your account has been created successfully.
+You can now sign in and start using your trading dashboard.
 Thank you for choosing NeuroOption.
       `.trim());
     }
     async sendAccountDeletedEmail(email, fullName) {
+        const name = this.formatName(fullName);
         return this.sendEmail(email, 'NeuroOption Account Deleted', `
-Dear ${fullName},
+Dear ${name},
 
 Your NeuroOption account has been deleted successfully.
-
 If you did not request this action, please contact Support Service immediately.
-
 Thank you for using NeuroOption.
       `.trim());
     }
-    async sendPasswordResetEmail(email, resetLink) {
-        try {
-            if (!this.isConfigured()) {
-                this.logger.warn('SMTP is not configured. Password reset email not sent.');
-                return false;
-            }
-            await this.createTransporter().sendMail({
-                from: process.env.SMTP_FROM || `"NeuroOption" <${process.env.SMTP_USER}>`,
-                to: email,
-                subject: 'Reset your NeuroOption password',
-                text: `Reset your NeuroOption password\n\nOpen the link below to reset your password:\n${resetLink}\n\nThis link expires in 15 minutes. If you did not request this, ignore this email.`,
-                html: `
-          <h2>Reset your NeuroOption password</h2>
-          <p>Click the button below to reset your password.</p>
-          <p>
-            <a href="${resetLink}" style="background:#006cff;color:white;padding:12px 18px;text-decoration:none;border-radius:8px;">
-              Reset Password
-            </a>
-          </p>
-          <p>This link expires in 15 minutes.</p>
-          <p>If you did not request this, ignore this email.</p>
-        `,
-            });
-            return true;
-        }
-        catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Password reset email failed: ${message}`);
-            if (error instanceof Error && error.stack) {
-                this.logger.error(error.stack);
-            }
-            return false;
-        }
+    async sendPasswordResetEmail(email, resetLink, fullName = 'User') {
+        const name = this.formatName(fullName);
+        return this.sendEmail(email, 'Reset your NeuroOption password', `
+Dear ${name},
+
+We received a request to reset your NeuroOption password.
+Open this secure link to create a new password: ${resetLink}
+This link expires shortly. If you did not request this, please ignore this email.
+      `.trim());
     }
     depositSuccessful(data) {
         return {
@@ -140,9 +140,6 @@ ${data.dateTime}
 
 Payment Method
 ${data.method}
-
-Payment Amount
-${data.amount} ${data.currency}
 
 Amount
 ${data.amount} ${data.currency}
@@ -284,38 +281,37 @@ Contact the Support Service if you need further clarification.
         };
     }
     kycSubmitted(fullName) {
+        const name = this.formatName(fullName);
         return {
             subject: 'NeuroOption KYC Documents Received',
             body: `
-Dear ${fullName},
+Dear ${name},
 
 Thank you for uploading your KYC documents.
-
 Our compliance team has received your documents and live face verification for careful review. We will notify you once the verification is complete.
-
 Thank you for using NeuroOption.
       `.trim(),
         };
     }
     kycApproved(fullName) {
+        const name = this.formatName(fullName);
         return {
             subject: 'NeuroOption KYC Approved',
             body: `
-Dear ${fullName},
+Dear ${name},
 
 Your KYC verification has been approved.
-
 You may now continue using NeuroOption services, subject to the platform rules and compliance requirements.
-
 Thank you for using NeuroOption.
       `.trim(),
         };
     }
     kycRejected(fullName, reason) {
+        const name = this.formatName(fullName);
         return {
             subject: 'NeuroOption KYC Documents Rejected',
             body: `
-Dear ${fullName},
+Dear ${name},
 
 Your KYC documents could not be approved.
 
@@ -327,6 +323,33 @@ Please upload clear and valid documents, and ensure your live face verification 
 Thank you for using NeuroOption.
       `.trim(),
         };
+    }
+    async sendTemplateEmail(email, template) {
+        return this.sendEmail(email, template.subject, template.body);
+    }
+    async sendDepositSuccessfulEmail(email, data) {
+        return this.sendTemplateEmail(email, this.depositSuccessful(data));
+    }
+    async sendWithdrawalRequestedEmail(email, data) {
+        return this.sendTemplateEmail(email, this.withdrawalRequested(data));
+    }
+    async sendWithdrawalProcessingEmail(email, data) {
+        return this.sendTemplateEmail(email, this.withdrawalProcessing(data));
+    }
+    async sendWithdrawalCompletedEmail(email, data) {
+        return this.sendTemplateEmail(email, this.withdrawalCompleted(data));
+    }
+    async sendWithdrawalDeclinedEmail(email, data) {
+        return this.sendTemplateEmail(email, this.withdrawalDeclined(data));
+    }
+    async sendKycSubmittedEmail(email, fullName) {
+        return this.sendTemplateEmail(email, this.kycSubmitted(fullName));
+    }
+    async sendKycApprovedEmail(email, fullName) {
+        return this.sendTemplateEmail(email, this.kycApproved(fullName));
+    }
+    async sendKycRejectedEmail(email, fullName, reason) {
+        return this.sendTemplateEmail(email, this.kycRejected(fullName, reason));
     }
 };
 exports.EmailsService = EmailsService;

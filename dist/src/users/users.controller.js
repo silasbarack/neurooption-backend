@@ -14,136 +14,84 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
-const create_user_dto_1 = require("./dto/create-user.dto");
-const update_user_kyc_status_dto_1 = require("./dto/update-user-kyc-status.dto");
-const update_user_status_dto_1 = require("./dto/update-user-status.dto");
-const update_user_dto_1 = require("./dto/update-user.dto");
 const users_service_1 = require("./users.service");
-const passport_1 = require("@nestjs/passport");
 let UsersController = class UsersController {
     constructor(usersService) {
         this.usersService = usersService;
     }
-    async create(dto) {
-        return this.usersService.create(dto);
+    async findAll() {
+        return this.usersService.findAll();
     }
-    async findAll(page = 1, limit = 20, q) {
-        return this.usersService.findAll({ page, limit, q });
+    async getMe(userId) {
+        return this.usersService.getMe(userId);
     }
-    async findOne(id) {
-        return this.usersService.findOne(id);
+    async findById(id) {
+        return this.usersService.findById(id);
     }
-    async update(id, dto) {
-        return this.usersService.update(id, dto);
+    async updateMe(userId, payload) {
+        return this.usersService.updateMe(userId, payload);
     }
-    async updateStatus(id, dto) {
-        return this.usersService.updateStatus(id, dto);
+    async updateById(id, payload) {
+        return this.usersService.updateMe(id, payload);
     }
-    async updateKycStatus(id, dto) {
-        return this.usersService.updateKycStatus(id, dto);
+    async deleteMe(userId) {
+        return this.usersService.deleteMe(userId);
     }
-    async suspend(id) {
-        return this.usersService.suspend(id);
-    }
-    async lock(id) {
-        return this.usersService.lock(id);
-    }
-    async activate(id) {
-        return this.usersService.activate(id);
-    }
-    async remove(id) {
-        return this.usersService.remove(id);
+    async deleteById(id) {
+        return this.usersService.deleteMe(id);
     }
 };
 exports.UsersController = UsersController;
 __decorate([
-    (0, common_1.Post)(),
-    (0, common_1.UsePipes)(new common_1.ValidationPipe({ whitelist: true, transform: true })),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto]),
-    __metadata("design:returntype", Promise)
-], UsersController.prototype, "create", null);
-__decorate([
     (0, common_1.Get)(),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Query)('page', new common_1.DefaultValuePipe(1), common_1.ParseIntPipe)),
-    __param(1, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(20), common_1.ParseIntPipe)),
-    __param(2, (0, common_1.Query)('q')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object, String]),
+    __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Get)(':id'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
+    (0, common_1.Get)('me/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "findOne", null);
+], UsersController.prototype, "getMe", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "findById", null);
+__decorate([
+    (0, common_1.Patch)('me/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateMe", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.UsePipes)(new common_1.ValidationPipe({ whitelist: true, transform: true })),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
+    __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "update", null);
+], UsersController.prototype, "updateById", null);
 __decorate([
-    (0, common_1.Patch)(':id/status'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.UsePipes)(new common_1.ValidationPipe({ whitelist: true, transform: true })),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_user_status_dto_1.UpdateUserStatusDto]),
-    __metadata("design:returntype", Promise)
-], UsersController.prototype, "updateStatus", null);
-__decorate([
-    (0, common_1.Patch)(':id/kyc-status'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    (0, common_1.UsePipes)(new common_1.ValidationPipe({ whitelist: true, transform: true })),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_user_kyc_status_dto_1.UpdateUserKycStatusDto]),
-    __metadata("design:returntype", Promise)
-], UsersController.prototype, "updateKycStatus", null);
-__decorate([
-    (0, common_1.Patch)(':id/suspend'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
+    (0, common_1.Delete)('me/:userId'),
+    __param(0, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "suspend", null);
-__decorate([
-    (0, common_1.Patch)(':id/lock'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], UsersController.prototype, "lock", null);
-__decorate([
-    (0, common_1.Patch)(':id/activate'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], UsersController.prototype, "activate", null);
+], UsersController.prototype, "deleteMe", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
-    __param(0, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
+    __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "remove", null);
+], UsersController.prototype, "deleteById", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService])
