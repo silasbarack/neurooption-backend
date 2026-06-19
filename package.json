@@ -11,7 +11,8 @@
     "format": "prettier --write 'src/**/*.{ts,tsx,js,json,md}'",
     "ci": "npx tsc --noEmit && npm run lint",
     "test": "jest --runInBand",
-    "cleanup:tokens": "node scripts/cleanup_expired_tokens.js"
+    "cleanup:tokens": "node scripts/cleanup_expired_tokens.js",
+    "start:prod": "node dist/src/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
