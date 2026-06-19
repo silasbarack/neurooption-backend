@@ -6,9 +6,9 @@ export declare class KycService {
     constructor(prisma: PrismaService);
     submit(dto: CreateKycDto): Promise<{
         id: string;
+        status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.KycStatus;
         userId: string;
         rejectionReason: string | null;
         documentType: string;
@@ -23,23 +23,23 @@ export declare class KycService {
     findAll(): Promise<({
         user: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
             passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.KycStatus;
         userId: string;
         rejectionReason: string | null;
         documentType: string;
@@ -54,23 +54,23 @@ export declare class KycService {
     findOne(id: string): Promise<{
         user: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
             passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.KycStatus;
         userId: string;
         rejectionReason: string | null;
         documentType: string;
@@ -84,9 +84,9 @@ export declare class KycService {
     }>;
     approve(id: string, dto: ReviewKycDto): Promise<{
         id: string;
+        status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.KycStatus;
         userId: string;
         rejectionReason: string | null;
         documentType: string;
@@ -100,9 +100,9 @@ export declare class KycService {
     }>;
     reject(id: string, dto: ReviewKycDto): Promise<{
         id: string;
+        status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.KycStatus;
         userId: string;
         rejectionReason: string | null;
         documentType: string;
@@ -117,23 +117,23 @@ export declare class KycService {
     pending(): Promise<({
         user: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
             passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.KycStatus;
         userId: string;
         rejectionReason: string | null;
         documentType: string;

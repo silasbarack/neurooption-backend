@@ -6,74 +6,74 @@ export declare class TradesController {
     private readonly tradesService;
     constructor(tradesService: TradesService);
     create(dto: CreateTradeDto): Promise<{
-        asset: {
-            symbol: string;
-            id: string;
-            name: string;
-            category: import(".prisma/client").$Enums.AssetCategory;
-            marketType: import(".prisma/client").$Enums.MarketType;
-            isActive: boolean;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
-        user: {
-            id: string;
-            email: string;
-            phone: string;
-            fullname: never;
-        };
-        expiry: {
-            id: string;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            seconds: number;
-            duration: string;
-            label: string;
-        };
         payouts: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.TransactionStatus;
-            currency: string;
-            userId: string;
-            transactionId: string;
             amount: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             walletId: string;
+            currency: string;
+            transactionId: string;
             gatewayId: string | null;
             tradeId: string | null;
         }[];
+        user: {
+            id: string;
+            email: string;
+            phone: string;
+            fullname: never;
+        };
+        asset: {
+            symbol: string;
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            isActive: boolean;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            category: import(".prisma/client").$Enums.AssetCategory;
+            marketType: import(".prisma/client").$Enums.MarketType;
+        };
+        expiry: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            isActive: boolean;
+            duration: string;
+            seconds: number;
+            label: string;
+        };
     } & {
         id: string;
-        payoutRate: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.TradeStatus;
         userId: string;
-        expiresAt: Date;
-        openedAt: Date;
-        closedAt: Date | null;
+        direction: import(".prisma/client").$Enums.TradeDirection;
         stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        payoutRate: import("@prisma/client/runtime/library").Decimal;
         entryPrice: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
         profitAmount: import("@prisma/client/runtime/library").Decimal;
+        openedAt: Date;
+        expiresAt: Date;
+        closedAt: Date | null;
         tradingAccountId: string | null;
         assetId: string;
         expiryId: string | null;
-        direction: import(".prisma/client").$Enums.TradeDirection;
     }>;
     findAll(query: TradeQueryDto): Promise<({
-        asset: {
-            id: string;
-            isActive: boolean;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
-            pair: never;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
+        };
+        asset: {
+            id: string;
+            isActive: boolean;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            pair: never;
         };
         expiry: {
             id: string;
@@ -82,33 +82,33 @@ export declare class TradesController {
         };
     } & {
         id: string;
-        payoutRate: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.TradeStatus;
         userId: string;
-        expiresAt: Date;
-        openedAt: Date;
-        closedAt: Date | null;
+        direction: import(".prisma/client").$Enums.TradeDirection;
         stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        payoutRate: import("@prisma/client/runtime/library").Decimal;
         entryPrice: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
         profitAmount: import("@prisma/client/runtime/library").Decimal;
+        openedAt: Date;
+        expiresAt: Date;
+        closedAt: Date | null;
         tradingAccountId: string | null;
         assetId: string;
         expiryId: string | null;
-        direction: import(".prisma/client").$Enums.TradeDirection;
     })[]>;
     findByUser(userId: string): Promise<({
-        asset: {
-            id: string;
-            isActive: boolean;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
-            pair: never;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
+        };
+        asset: {
+            id: string;
+            isActive: boolean;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            pair: never;
         };
         expiry: {
             id: string;
@@ -117,33 +117,33 @@ export declare class TradesController {
         };
     } & {
         id: string;
-        payoutRate: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.TradeStatus;
         userId: string;
-        expiresAt: Date;
-        openedAt: Date;
-        closedAt: Date | null;
+        direction: import(".prisma/client").$Enums.TradeDirection;
         stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        payoutRate: import("@prisma/client/runtime/library").Decimal;
         entryPrice: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
         profitAmount: import("@prisma/client/runtime/library").Decimal;
+        openedAt: Date;
+        expiresAt: Date;
+        closedAt: Date | null;
         tradingAccountId: string | null;
         assetId: string;
         expiryId: string | null;
-        direction: import(".prisma/client").$Enums.TradeDirection;
     })[]>;
     findOne(id: string): Promise<{
-        asset: {
-            id: string;
-            isActive: boolean;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
-            pair: never;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
+        };
+        asset: {
+            id: string;
+            isActive: boolean;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            pair: never;
         };
         expiry: {
             id: string;
@@ -152,33 +152,33 @@ export declare class TradesController {
         };
     } & {
         id: string;
-        payoutRate: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.TradeStatus;
         userId: string;
-        expiresAt: Date;
-        openedAt: Date;
-        closedAt: Date | null;
+        direction: import(".prisma/client").$Enums.TradeDirection;
         stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        payoutRate: import("@prisma/client/runtime/library").Decimal;
         entryPrice: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
         profitAmount: import("@prisma/client/runtime/library").Decimal;
+        openedAt: Date;
+        expiresAt: Date;
+        closedAt: Date | null;
         tradingAccountId: string | null;
         assetId: string;
         expiryId: string | null;
-        direction: import(".prisma/client").$Enums.TradeDirection;
     }>;
     settle(id: string, dto: SettleTradeDto): Promise<{
-        asset: {
-            id: string;
-            isActive: boolean;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
-            pair: never;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
+        };
+        asset: {
+            id: string;
+            isActive: boolean;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            pair: never;
         };
         expiry: {
             id: string;
@@ -187,33 +187,33 @@ export declare class TradesController {
         };
     } & {
         id: string;
-        payoutRate: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.TradeStatus;
         userId: string;
-        expiresAt: Date;
-        openedAt: Date;
-        closedAt: Date | null;
+        direction: import(".prisma/client").$Enums.TradeDirection;
         stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        payoutRate: import("@prisma/client/runtime/library").Decimal;
         entryPrice: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
         profitAmount: import("@prisma/client/runtime/library").Decimal;
+        openedAt: Date;
+        expiresAt: Date;
+        closedAt: Date | null;
         tradingAccountId: string | null;
         assetId: string;
         expiryId: string | null;
-        direction: import(".prisma/client").$Enums.TradeDirection;
     }>;
     cancel(id: string, reason?: string): Promise<{
-        asset: {
-            id: string;
-            isActive: boolean;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
-            pair: never;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
+        };
+        asset: {
+            id: string;
+            isActive: boolean;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            pair: never;
         };
         expiry: {
             id: string;
@@ -222,19 +222,19 @@ export declare class TradesController {
         };
     } & {
         id: string;
-        payoutRate: import("@prisma/client/runtime/library").Decimal;
         status: import(".prisma/client").$Enums.TradeStatus;
         userId: string;
-        expiresAt: Date;
-        openedAt: Date;
-        closedAt: Date | null;
+        direction: import(".prisma/client").$Enums.TradeDirection;
         stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        payoutRate: import("@prisma/client/runtime/library").Decimal;
         entryPrice: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
         profitAmount: import("@prisma/client/runtime/library").Decimal;
+        openedAt: Date;
+        expiresAt: Date;
+        closedAt: Date | null;
         tradingAccountId: string | null;
         assetId: string;
         expiryId: string | null;
-        direction: import(".prisma/client").$Enums.TradeDirection;
     }>;
 }

@@ -8,12 +8,12 @@ export declare class NotificationsController {
         message: string;
         notification: {
             id: string;
-            createdAt: Date;
-            subject: string;
             status: import(".prisma/client").$Enums.NotificationStatus;
+            createdAt: Date;
             userId: string;
             type: import(".prisma/client").$Enums.NotificationType;
             transactionId: string | null;
+            subject: string;
             channel: import(".prisma/client").$Enums.NotificationChannel;
             body: string;
             recipientEmail: string;
@@ -24,12 +24,12 @@ export declare class NotificationsController {
     }>;
     findAll(): Promise<{
         id: string;
-        createdAt: Date;
-        subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
         userId: string;
         type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
+        subject: string;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
         recipientEmail: string;
@@ -39,12 +39,12 @@ export declare class NotificationsController {
     }[]>;
     findByUser(userId: string): Promise<{
         id: string;
-        createdAt: Date;
-        subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
         userId: string;
         type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
+        subject: string;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
         recipientEmail: string;
@@ -54,12 +54,12 @@ export declare class NotificationsController {
     }[]>;
     findOne(id: string): Promise<{
         id: string;
-        createdAt: Date;
-        subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
         userId: string;
         type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
+        subject: string;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
         recipientEmail: string;
@@ -69,12 +69,12 @@ export declare class NotificationsController {
     }>;
     markAsSent(id: string): Promise<{
         id: string;
-        createdAt: Date;
-        subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
         userId: string;
         type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
+        subject: string;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
         recipientEmail: string;
@@ -84,12 +84,12 @@ export declare class NotificationsController {
     }>;
     markAsFailed(id: string): Promise<{
         id: string;
-        createdAt: Date;
-        subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
         userId: string;
         type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
+        subject: string;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
         recipientEmail: string;
@@ -99,12 +99,12 @@ export declare class NotificationsController {
     }>;
     updateStatus(id: string, dto: UpdateNotificationStatusDto): Promise<{
         id: string;
-        createdAt: Date;
-        subject: string;
         status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
         userId: string;
         type: import(".prisma/client").$Enums.NotificationType;
         transactionId: string | null;
+        subject: string;
         channel: import(".prisma/client").$Enums.NotificationChannel;
         body: string;
         recipientEmail: string;

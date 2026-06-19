@@ -8,143 +8,143 @@ export declare class SupportService {
     createTicket(dto: CreateSupportTicketDto): Promise<{
         user: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
             passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
         messages: {
             id: string;
             createdAt: Date;
-            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+            message: string;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     }>;
     getTickets(): Promise<({
         user: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
             passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
         messages: {
             id: string;
             createdAt: Date;
-            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+            message: string;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     })[]>;
     getUserTickets(userId: string): Promise<({
         messages: {
             id: string;
             createdAt: Date;
-            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+            message: string;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     })[]>;
     getTicket(id: string): Promise<{
         user: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
             passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
+            createdAt: Date;
+            updatedAt: Date;
         };
         messages: {
             id: string;
             createdAt: Date;
-            message: string;
             ticketId: string;
             senderId: string;
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+            message: string;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     }>;
     sendMessage(dto: CreateSupportMessageDto): Promise<{
         id: string;
         createdAt: Date;
-        message: string;
         ticketId: string;
         senderId: string;
         senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+        message: string;
     }>;
     updateStatus(id: string, dto: UpdateSupportTicketStatusDto): Promise<{
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     }>;
     resolveTicket(id: string): Promise<{
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     }>;
     closeTicket(id: string): Promise<{
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
-        subject: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         userId: string;
+        subject: string;
     }>;
 }

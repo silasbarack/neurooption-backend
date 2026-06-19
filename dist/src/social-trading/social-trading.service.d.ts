@@ -22,33 +22,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     findAllFollows(): Promise<({
         follower: {
@@ -65,33 +65,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     })[]>;
     findFollowersOfTrader(traderUserId: string): Promise<({
         follower: {
@@ -108,33 +108,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     })[]>;
     findTradersFollowedByUser(followerUserId: string): Promise<({
         follower: {
@@ -151,33 +151,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     })[]>;
     findFollow(id: string): Promise<{
         follower: {
@@ -194,33 +194,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     updateFollow(id: string, dto: UpdateSocialFollowDto): Promise<{
         follower: {
@@ -237,33 +237,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     pauseFollow(id: string): Promise<{
         follower: {
@@ -280,33 +280,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     resumeFollow(id: string): Promise<{
         follower: {
@@ -323,33 +323,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     stopFollow(id: string): Promise<{
         follower: {
@@ -366,33 +366,33 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     createCopyTrade(dto: CreateCopyTradeDto): Promise<{
         follower: {
@@ -409,48 +409,48 @@ export declare class SocialTradingService {
         };
         copies: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            openedAt: Date;
-            closedAt: Date | null;
-            socialFollowId: string;
-            masterUserId: string;
-            followerUserId: string;
-            masterTradeId: string;
-            followerTradeId: string | null;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            closedAt: Date | null;
+            followerUserId: string;
+            socialFollowId: string;
+            masterUserId: string;
+            masterTradeId: string;
+            followerTradeId: string | null;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
-        followerUserId: string;
-        traderUserId: string;
         copyPercentage: Prisma.Decimal;
         maxStakeAmount: Prisma.Decimal | null;
         minStakeAmount: Prisma.Decimal | null;
         copiedTrades: number;
         totalProfit: Prisma.Decimal;
         totalLoss: Prisma.Decimal;
+        followerUserId: string;
+        traderUserId: string;
     }>;
     findCopyTrades(): Promise<({
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
-            followerUserId: string;
-            traderUserId: string;
             copyPercentage: Prisma.Decimal;
             maxStakeAmount: Prisma.Decimal | null;
             minStakeAmount: Prisma.Decimal | null;
             copiedTrades: number;
             totalProfit: Prisma.Decimal;
             totalLoss: Prisma.Decimal;
+            followerUserId: string;
+            traderUserId: string;
         };
         masterUser: {
             id: string;
@@ -466,51 +466,51 @@ export declare class SocialTradingService {
         };
         masterTrade: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
-            expiresAt: Date;
-            openedAt: Date;
-            closedAt: Date | null;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            expiresAt: Date;
+            closedAt: Date | null;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
-            direction: import(".prisma/client").$Enums.TradeDirection;
         };
     } & {
         id: string;
-        payoutRate: Prisma.Decimal;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        openedAt: Date;
-        closedAt: Date | null;
-        socialFollowId: string;
-        masterUserId: string;
-        followerUserId: string;
-        masterTradeId: string;
-        followerTradeId: string | null;
         stakeAmount: Prisma.Decimal;
+        payoutRate: Prisma.Decimal;
         entryPrice: Prisma.Decimal;
         exitPrice: Prisma.Decimal | null;
         profitAmount: Prisma.Decimal;
+        openedAt: Date;
+        closedAt: Date | null;
+        followerUserId: string;
+        socialFollowId: string;
+        masterUserId: string;
+        masterTradeId: string;
+        followerTradeId: string | null;
     })[]>;
     findCopyTradesByFollower(followerUserId: string): Promise<({
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
-            followerUserId: string;
-            traderUserId: string;
             copyPercentage: Prisma.Decimal;
             maxStakeAmount: Prisma.Decimal | null;
             minStakeAmount: Prisma.Decimal | null;
             copiedTrades: number;
             totalProfit: Prisma.Decimal;
             totalLoss: Prisma.Decimal;
+            followerUserId: string;
+            traderUserId: string;
         };
         masterUser: {
             id: string;
@@ -526,51 +526,51 @@ export declare class SocialTradingService {
         };
         masterTrade: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
-            expiresAt: Date;
-            openedAt: Date;
-            closedAt: Date | null;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            expiresAt: Date;
+            closedAt: Date | null;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
-            direction: import(".prisma/client").$Enums.TradeDirection;
         };
     } & {
         id: string;
-        payoutRate: Prisma.Decimal;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        openedAt: Date;
-        closedAt: Date | null;
-        socialFollowId: string;
-        masterUserId: string;
-        followerUserId: string;
-        masterTradeId: string;
-        followerTradeId: string | null;
         stakeAmount: Prisma.Decimal;
+        payoutRate: Prisma.Decimal;
         entryPrice: Prisma.Decimal;
         exitPrice: Prisma.Decimal | null;
         profitAmount: Prisma.Decimal;
+        openedAt: Date;
+        closedAt: Date | null;
+        followerUserId: string;
+        socialFollowId: string;
+        masterUserId: string;
+        masterTradeId: string;
+        followerTradeId: string | null;
     })[]>;
     findCopyTradesByMaster(masterUserId: string): Promise<({
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
-            followerUserId: string;
-            traderUserId: string;
             copyPercentage: Prisma.Decimal;
             maxStakeAmount: Prisma.Decimal | null;
             minStakeAmount: Prisma.Decimal | null;
             copiedTrades: number;
             totalProfit: Prisma.Decimal;
             totalLoss: Prisma.Decimal;
+            followerUserId: string;
+            traderUserId: string;
         };
         masterUser: {
             id: string;
@@ -586,51 +586,51 @@ export declare class SocialTradingService {
         };
         masterTrade: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
-            expiresAt: Date;
-            openedAt: Date;
-            closedAt: Date | null;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            expiresAt: Date;
+            closedAt: Date | null;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
-            direction: import(".prisma/client").$Enums.TradeDirection;
         };
     } & {
         id: string;
-        payoutRate: Prisma.Decimal;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        openedAt: Date;
-        closedAt: Date | null;
-        socialFollowId: string;
-        masterUserId: string;
-        followerUserId: string;
-        masterTradeId: string;
-        followerTradeId: string | null;
         stakeAmount: Prisma.Decimal;
+        payoutRate: Prisma.Decimal;
         entryPrice: Prisma.Decimal;
         exitPrice: Prisma.Decimal | null;
         profitAmount: Prisma.Decimal;
+        openedAt: Date;
+        closedAt: Date | null;
+        followerUserId: string;
+        socialFollowId: string;
+        masterUserId: string;
+        masterTradeId: string;
+        followerTradeId: string | null;
     })[]>;
     updateCopyTrade(id: string, dto: UpdateCopyTradeDto): Promise<{
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
-            followerUserId: string;
-            traderUserId: string;
             copyPercentage: Prisma.Decimal;
             maxStakeAmount: Prisma.Decimal | null;
             minStakeAmount: Prisma.Decimal | null;
             copiedTrades: number;
             totalProfit: Prisma.Decimal;
             totalLoss: Prisma.Decimal;
+            followerUserId: string;
+            traderUserId: string;
         };
         masterUser: {
             id: string;
@@ -646,36 +646,36 @@ export declare class SocialTradingService {
         };
         masterTrade: {
             id: string;
-            payoutRate: Prisma.Decimal;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
-            expiresAt: Date;
-            openedAt: Date;
-            closedAt: Date | null;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
+            payoutRate: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
             profitAmount: Prisma.Decimal;
+            openedAt: Date;
+            expiresAt: Date;
+            closedAt: Date | null;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
-            direction: import(".prisma/client").$Enums.TradeDirection;
         };
     } & {
         id: string;
-        payoutRate: Prisma.Decimal;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        openedAt: Date;
-        closedAt: Date | null;
-        socialFollowId: string;
-        masterUserId: string;
-        followerUserId: string;
-        masterTradeId: string;
-        followerTradeId: string | null;
         stakeAmount: Prisma.Decimal;
+        payoutRate: Prisma.Decimal;
         entryPrice: Prisma.Decimal;
         exitPrice: Prisma.Decimal | null;
         profitAmount: Prisma.Decimal;
+        openedAt: Date;
+        closedAt: Date | null;
+        followerUserId: string;
+        socialFollowId: string;
+        masterUserId: string;
+        masterTradeId: string;
+        followerTradeId: string | null;
     }>;
     private followInclude;
     private copyTradeInclude;

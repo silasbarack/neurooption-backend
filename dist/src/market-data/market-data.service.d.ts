@@ -1,22 +1,51 @@
-import { MessageEvent, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { Observable } from "rxjs";
-import type { MarketCategory, OtcAsset, OtcCandle, OtcTimeframe } from "./market-data.types";
-export declare class MarketDataService implements OnModuleInit, OnModuleDestroy {
-    private readonly states;
-    private engineTimer;
-    onModuleInit(): void;
-    onModuleDestroy(): void;
-    getAssets(category?: MarketCategory): OtcAsset[];
-    getCandles(symbol: string, timeframe: OtcTimeframe, limit?: number): OtcCandle[];
-    stream(symbol: string, timeframe: OtcTimeframe): Observable<MessageEvent>;
-    private getOrCreateState;
-    private generateInitialCandles;
-    private advanceState;
-    private createAssetBehaviour;
-    private getTimeframeVolatilityFactor;
-    private toPayload;
-    private symbolSeed;
-    private seededDirection;
-    private clamp;
-    private randomNormal;
+import { OnModuleInit } from '@nestjs/common';
+import { PrismaService } from '../config/prisma.service';
+import { OtcEngineService } from './otc-engine.service';
+import { GetCandlesDto } from './dto/get-candles.dto';
+export declare class MarketDataService implements OnModuleInit {
+    private readonly prisma;
+    private readonly otcEngine;
+    private assetsReady;
+    constructor(prisma: PrismaService, otcEngine: OtcEngineService);
+    onModuleInit(): Promise<void>;
+    getAssets(): Promise<{
+        assets: {
+            symbol: string;
+            label: string;
+            category: string;
+            basePrice: number;
+            precision: number;
+            payoutBoost: number;
+            isActive: boolean;
+        }[];
+    }>;
+    getCandles(query: GetCandlesDto): Promise<{
+        asset: {
+            symbol: string;
+            label: string;
+            category: string;
+            basePrice: number;
+            precision: number;
+            payoutBoost: number;
+        };
+        timeframe: string;
+        serverTime: string;
+        candles: {
+            open: number;
+            high: number;
+            low: number;
+            close: number;
+            time: number;
+            openTime: string;
+            closeTime: string;
+        }[];
+    }>;
+    private ensureAssets;
+    private catchUpCandles;
+    private seedInitialCandles;
+    private upsertCandle;
+    private getSeedAsset;
+    private floorToMinute;
+    private getCurrentCandleProgress;
+    private parseLimit;
 }

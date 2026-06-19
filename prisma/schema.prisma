@@ -704,6 +704,44 @@ model SupportTicket {
   notifications Notification[]
 }
 
+model OtcAsset {
+  id          String   @id @default(cuid())
+  symbol      String   @unique
+  label       String
+  category    String
+  basePrice   Decimal  @db.Decimal(24, 10)
+  precision   Int
+  payoutBoost Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candles OtcCandle[]
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model OtcCandle {
+  id          String   @id @default(cuid())
+  assetSymbol String
+  timeframe   String   @default("M1")
+  open        Decimal  @db.Decimal(24, 10)
+  high        Decimal  @db.Decimal(24, 10)
+  low         Decimal  @db.Decimal(24, 10)
+  close       Decimal  @db.Decimal(24, 10)
+  openTime    DateTime
+  closeTime   DateTime
+  source      String   @default("OTC_SYNTHETIC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  asset OtcAsset @relation(fields: [assetSymbol], references: [symbol], onDelete: Cascade)
+
+  @@unique([assetSymbol, timeframe, openTime])
+  @@index([assetSymbol, timeframe, openTime])
+}
+
 model SupportMessage {
   id         String            @id @default(uuid())
   ticketId   String

@@ -12,22 +12,22 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            fullName: string;
             email: string;
+            fullName: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
         createdAt: Date;
+        description: string | null;
         userId: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     }>;
     findAll(): Promise<({
         user: {
@@ -38,22 +38,22 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            fullName: string;
             email: string;
+            fullName: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
         createdAt: Date;
+        description: string | null;
         userId: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
     findOne(id: string): Promise<{
         user: {
@@ -64,22 +64,22 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            fullName: string;
             email: string;
+            fullName: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
         createdAt: Date;
+        description: string | null;
         userId: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     }>;
     findByUser(userId: string): Promise<({
         user: {
@@ -90,22 +90,22 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            fullName: string;
             email: string;
+            fullName: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
         createdAt: Date;
+        description: string | null;
         userId: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
     findByAdmin(adminId: string): Promise<({
         user: {
@@ -116,22 +116,22 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            fullName: string;
             email: string;
+            fullName: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
         createdAt: Date;
+        description: string | null;
         userId: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
     findByTarget(targetType: string, targetId: string): Promise<({
         user: {
@@ -142,21 +142,21 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            fullName: string;
             email: string;
+            fullName: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
         createdAt: Date;
+        description: string | null;
         userId: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
 }

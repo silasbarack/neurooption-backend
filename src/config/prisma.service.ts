@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
@@ -10,13 +6,15 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  private _admin: any;
-  public get admin(): any {
-    return this._admin;
+  constructor() {
+    super({
+      log:
+        process.env.NODE_ENV === 'development'
+          ? ['query', 'info', 'warn', 'error']
+          : ['warn', 'error'],
+    });
   }
-  public set admin(value: any) {
-    this._admin = value;
-  }
+
   async onModuleInit() {
     await this.$connect();
   }
