@@ -1,27 +1,34 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { TradingEngineService } from './trading-engine.service';
-import { CreateTradeDto } from './dto/create-trade.dto';
-import { SettleTradeDto } from './dto/settle-trade.dto';
+import { OpenTradesDto } from './dto/open-trades.dto';
+import { GetTradesDto } from './dto/get-trades.dto';
 
-@Controller('trading-engine')
+@Controller('trading')
 export class TradingEngineController {
   constructor(private readonly tradingEngineService: TradingEngineService) {}
 
-  @Post(':userId/trade')
-  createTrade(
-    @Param('userId') userId: string,
-    @Body() createTradeDto: CreateTradeDto,
-  ) {
-    return this.tradingEngineService.createTrade(userId, createTradeDto);
+  @Get('wallet')
+  getWallet(@Query() query: GetTradesDto) {
+    return this.tradingEngineService.getWallet(query);
   }
 
-  @Post('settle')
-  settleTrade(@Body() settleTradeDto: SettleTradeDto) {
-    return this.tradingEngineService.settleTrade(settleTradeDto);
+  @Post('open')
+  openTrade(@Body() body: OpenTradesDto) {
+    return this.tradingEngineService.getOpenTrades(body);
   }
 
-  @Get(':userId/trades')
-  getUserTrades(@Param('userId') userId: string) {
-    return this.tradingEngineService.getUserTrades(userId);
+  @Get('open')
+  getOpenTrades(@Query() query: GetTradesDto) {
+    return this.tradingEngineService.getOpenTrades(query);
+  }
+
+  @Get('history')
+  getTradeHistory(@Query() query: GetTradesDto) {
+    return this.tradingEngineService.getTradeHistory(query);
+  }
+
+  @Post('settle-expired')
+  settleExpiredTrades(@Query('userId') userId?: string) {
+    return this.tradingEngineService.settleExpiredTrades(userId);
   }
 }

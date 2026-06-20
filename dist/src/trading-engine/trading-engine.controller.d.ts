@@ -1,23 +1,37 @@
 import { TradingEngineService } from './trading-engine.service';
-import { CreateTradeDto } from './dto/create-trade.dto';
-import { SettleTradeDto } from './dto/settle-trade.dto';
+import { OpenTradesDto } from './dto/open-trades.dto';
+import { GetTradesDto } from './dto/get-trades.dto';
 export declare class TradingEngineController {
     private readonly tradingEngineService;
     constructor(tradingEngineService: TradingEngineService);
-    createTrade(userId: string, createTradeDto: CreateTradeDto): Promise<{
-        id: `${string}-${string}-${string}-${string}-${string}`;
-        userId: string;
-        symbol: string;
-        direction: import("./dto/create-trade.dto").TradeDirection;
-        amount: number;
-        expiry: string;
-        timeframe: string;
-        marketType: import("./dto/create-trade.dto").MarketType;
-        entryPrice: number;
-        status: import("./dto/trade-result.dto").TradeStatus;
-        createdAt: Date;
-        expiresAt: Date;
+    getWallet(query: GetTradesDto): Promise<{
+        userId: any;
+        wallet: {
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
+            balance: number;
+            balanceUsd: number;
+            isActive: any;
+            createdAt: any;
+            updatedAt: any;
+        };
     }>;
-    settleTrade(settleTradeDto: SettleTradeDto): Promise<any>;
-    getUserTrades(userId: string): Promise<any[]>;
+    openTrade(body: OpenTradesDto): Promise<{
+        userId: any;
+        trades: any;
+    }>;
+    getOpenTrades(query: GetTradesDto): Promise<{
+        userId: any;
+        trades: any;
+    }>;
+    getTradeHistory(query: GetTradesDto): Promise<{
+        userId: any;
+        trades: any;
+    }>;
+    settleExpiredTrades(userId?: string): Promise<{
+        settledCount: number;
+        settled: any[];
+    }>;
 }

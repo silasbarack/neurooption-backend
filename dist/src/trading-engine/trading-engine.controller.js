@@ -15,47 +15,64 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TradingEngineController = void 0;
 const common_1 = require("@nestjs/common");
 const trading_engine_service_1 = require("./trading-engine.service");
-const create_trade_dto_1 = require("./dto/create-trade.dto");
-const settle_trade_dto_1 = require("./dto/settle-trade.dto");
 let TradingEngineController = class TradingEngineController {
     constructor(tradingEngineService) {
         this.tradingEngineService = tradingEngineService;
     }
-    createTrade(userId, createTradeDto) {
-        return this.tradingEngineService.createTrade(userId, createTradeDto);
+    getWallet(query) {
+        return this.tradingEngineService.getWallet(query);
     }
-    settleTrade(settleTradeDto) {
-        return this.tradingEngineService.settleTrade(settleTradeDto);
+    openTrade(body) {
+        return this.tradingEngineService.getOpenTrades(body);
     }
-    getUserTrades(userId) {
-        return this.tradingEngineService.getUserTrades(userId);
+    getOpenTrades(query) {
+        return this.tradingEngineService.getOpenTrades(query);
+    }
+    getTradeHistory(query) {
+        return this.tradingEngineService.getTradeHistory(query);
+    }
+    settleExpiredTrades(userId) {
+        return this.tradingEngineService.settleExpiredTrades(userId);
     }
 };
 exports.TradingEngineController = TradingEngineController;
 __decorate([
-    (0, common_1.Post)(':userId/trade'),
-    __param(0, (0, common_1.Param)('userId')),
-    __param(1, (0, common_1.Body)()),
+    (0, common_1.Get)('wallet'),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, create_trade_dto_1.CreateTradeDto]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
-], TradingEngineController.prototype, "createTrade", null);
+], TradingEngineController.prototype, "getWallet", null);
 __decorate([
-    (0, common_1.Post)('settle'),
+    (0, common_1.Post)('open'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [settle_trade_dto_1.SettleTradeDto]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
-], TradingEngineController.prototype, "settleTrade", null);
+], TradingEngineController.prototype, "openTrade", null);
 __decorate([
-    (0, common_1.Get)(':userId/trades'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.Get)('open'),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], TradingEngineController.prototype, "getOpenTrades", null);
+__decorate([
+    (0, common_1.Get)('history'),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], TradingEngineController.prototype, "getTradeHistory", null);
+__decorate([
+    (0, common_1.Post)('settle-expired'),
+    __param(0, (0, common_1.Query)('userId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
-], TradingEngineController.prototype, "getUserTrades", null);
+], TradingEngineController.prototype, "settleExpiredTrades", null);
 exports.TradingEngineController = TradingEngineController = __decorate([
-    (0, common_1.Controller)('trading-engine'),
+    (0, common_1.Controller)('trading'),
     __metadata("design:paramtypes", [trading_engine_service_1.TradingEngineService])
 ], TradingEngineController);
 //# sourceMappingURL=trading-engine.controller.js.map
