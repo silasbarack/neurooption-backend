@@ -1,50 +1,10 @@
-export declare enum IndicatorType {
-    SMA = "SMA",
-    EMA = "EMA",
-    WMA = "WMA",
-    RSI = "RSI",
-    MACD = "MACD",
-    BOLLINGER_BANDS = "BOLLINGER_BANDS",
-    STOCHASTIC = "STOCHASTIC",
-    ATR = "ATR",
-    ADX = "ADX",
-    CCI = "CCI",
-    MOMENTUM = "MOMENTUM",
-    ROC = "ROC",
-    WILLIAMS_R = "WILLIAMS_R",
-    PARABOLIC_SAR = "PARABOLIC_SAR",
-    ICHIMOKU = "ICHIMOKU",
-    VWAP = "VWAP",
-    OBV = "OBV",
-    MFI = "MFI",
-    PIVOT_POINTS = "PIVOT_POINTS",
-    SUPERTREND = "SUPERTREND",
-    DONCHIAN_CHANNEL = "DONCHIAN_CHANNEL",
-    KELTNER_CHANNEL = "KELTNER_CHANNEL",
-    STANDARD_DEVIATION = "STANDARD_DEVIATION",
-    ZIGZAG = "ZIGZAG",
-    DEMA = "DEMA",
-    TEMA = "TEMA",
-    TRIX = "TRIX",
-    AROON = "AROON",
-    CHAIKIN_OSCILLATOR = "CHAIKIN_OSCILLATOR",
-    VOLUME_OSCILLATOR = "VOLUME_OSCILLATOR",
-    ALLIGATOR = "ALLIGATOR",
-    FRACTALS = "FRACTALS",
-    AWESOME_OSCILLATOR = "AWESOME_OSCILLATOR",
-    ACCELERATOR_OSCILLATOR = "ACCELERATOR_OSCILLATOR",
-    ENVELOPES = "ENVELOPES",
-    GATOR_OSCILLATOR = "GATOR_OSCILLATOR",
-    DEMARKER = "DEMARKER",
-    RVI = "RVI",
-    ELDER_RAY = "ELDER_RAY",
-    FORCE_INDEX = "FORCE_INDEX",
-    BULLS_POWER = "BULLS_POWER",
-    BEARS_POWER = "BEARS_POWER"
-}
+import { IndicatorType } from '../indicators.constants';
+export { IndicatorType } from '../indicators.constants';
 export declare class IndicatorQueryDto {
-    symbol: string;
-    timeframe: string;
+    symbol?: string;
+    asset?: string;
+    timeframe?: string;
     indicator: IndicatorType;
     period?: number;
+    limit?: number;
 }

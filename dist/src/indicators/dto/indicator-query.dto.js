@@ -10,71 +10,46 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IndicatorQueryDto = exports.IndicatorType = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
-var IndicatorType;
-(function (IndicatorType) {
-    IndicatorType["SMA"] = "SMA";
-    IndicatorType["EMA"] = "EMA";
-    IndicatorType["WMA"] = "WMA";
-    IndicatorType["RSI"] = "RSI";
-    IndicatorType["MACD"] = "MACD";
-    IndicatorType["BOLLINGER_BANDS"] = "BOLLINGER_BANDS";
-    IndicatorType["STOCHASTIC"] = "STOCHASTIC";
-    IndicatorType["ATR"] = "ATR";
-    IndicatorType["ADX"] = "ADX";
-    IndicatorType["CCI"] = "CCI";
-    IndicatorType["MOMENTUM"] = "MOMENTUM";
-    IndicatorType["ROC"] = "ROC";
-    IndicatorType["WILLIAMS_R"] = "WILLIAMS_R";
-    IndicatorType["PARABOLIC_SAR"] = "PARABOLIC_SAR";
-    IndicatorType["ICHIMOKU"] = "ICHIMOKU";
-    IndicatorType["VWAP"] = "VWAP";
-    IndicatorType["OBV"] = "OBV";
-    IndicatorType["MFI"] = "MFI";
-    IndicatorType["PIVOT_POINTS"] = "PIVOT_POINTS";
-    IndicatorType["SUPERTREND"] = "SUPERTREND";
-    IndicatorType["DONCHIAN_CHANNEL"] = "DONCHIAN_CHANNEL";
-    IndicatorType["KELTNER_CHANNEL"] = "KELTNER_CHANNEL";
-    IndicatorType["STANDARD_DEVIATION"] = "STANDARD_DEVIATION";
-    IndicatorType["ZIGZAG"] = "ZIGZAG";
-    IndicatorType["DEMA"] = "DEMA";
-    IndicatorType["TEMA"] = "TEMA";
-    IndicatorType["TRIX"] = "TRIX";
-    IndicatorType["AROON"] = "AROON";
-    IndicatorType["CHAIKIN_OSCILLATOR"] = "CHAIKIN_OSCILLATOR";
-    IndicatorType["VOLUME_OSCILLATOR"] = "VOLUME_OSCILLATOR";
-    IndicatorType["ALLIGATOR"] = "ALLIGATOR";
-    IndicatorType["FRACTALS"] = "FRACTALS";
-    IndicatorType["AWESOME_OSCILLATOR"] = "AWESOME_OSCILLATOR";
-    IndicatorType["ACCELERATOR_OSCILLATOR"] = "ACCELERATOR_OSCILLATOR";
-    IndicatorType["ENVELOPES"] = "ENVELOPES";
-    IndicatorType["GATOR_OSCILLATOR"] = "GATOR_OSCILLATOR";
-    IndicatorType["DEMARKER"] = "DEMARKER";
-    IndicatorType["RVI"] = "RVI";
-    IndicatorType["ELDER_RAY"] = "ELDER_RAY";
-    IndicatorType["FORCE_INDEX"] = "FORCE_INDEX";
-    IndicatorType["BULLS_POWER"] = "BULLS_POWER";
-    IndicatorType["BEARS_POWER"] = "BEARS_POWER";
-})(IndicatorType || (exports.IndicatorType = IndicatorType = {}));
+const indicators_constants_1 = require("../indicators.constants");
+var indicators_constants_2 = require("../indicators.constants");
+Object.defineProperty(exports, "IndicatorType", { enumerable: true, get: function () { return indicators_constants_2.IndicatorType; } });
 class IndicatorQueryDto {
 }
 exports.IndicatorQueryDto = IndicatorQueryDto;
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], IndicatorQueryDto.prototype, "symbol", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], IndicatorQueryDto.prototype, "asset", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], IndicatorQueryDto.prototype, "timeframe", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(IndicatorType),
+    (0, class_validator_1.IsEnum)(indicators_constants_1.IndicatorType),
     __metadata("design:type", String)
 ], IndicatorQueryDto.prototype, "indicator", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], IndicatorQueryDto.prototype, "period", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(20),
+    (0, class_validator_1.Max)(500),
+    __metadata("design:type", Number)
+], IndicatorQueryDto.prototype, "limit", void 0);
 //# sourceMappingURL=indicator-query.dto.js.map

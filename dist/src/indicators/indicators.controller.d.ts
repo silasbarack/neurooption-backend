@@ -4,43 +4,270 @@ export declare class IndicatorsController {
     private readonly indicatorsService;
     constructor(indicatorsService: IndicatorsService);
     listIndicators(): {
-        name: import("./dto/indicator-query.dto").IndicatorType;
+        name: import("./indicators.constants").IndicatorType;
+        label: string;
+        placement: import("./indicators.constants").IndicatorPlacement;
         category: string;
+        defaultParams: {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+            deviation: number;
+        } | {
+            step: number;
+            max: number;
+        } | {
+            conversionPeriod: number;
+            basePeriod: number;
+            spanBPeriod: number;
+            displacement: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+            deviationPercent: number;
+        } | {
+            fastPeriod: number;
+            slowPeriod: number;
+        } | {
+            period: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            fastPeriod: number;
+            slowPeriod: number;
+            signalPeriod: number;
+        } | {
+            period: number;
+            upperLevel: number;
+            lowerLevel: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            period: number;
+        } | {
+            kPeriod: number;
+            dPeriod: number;
+            slowing: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            fastPeriod: number;
+            slowPeriod: number;
+            signalPeriod: number;
+        } | {
+            fastPeriod: number;
+            slowPeriod: number;
+            signalPeriod: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            kPeriod: number;
+            dPeriod: number;
+            slowing: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            period: number;
+        };
     }[];
     calculate(query: IndicatorQueryDto): {
-        symbol: string;
-        timeframe: string;
-        indicator: import("./dto/indicator-query.dto").IndicatorType;
-        values: {
-            time: any;
-            value: number;
-        }[] | {
-            time: any;
-            macd: number;
-            signal: number;
-            histogram: number;
-        }[] | {
-            time: any;
-            upper: number;
-            middle: number;
-            lower: number;
-        }[] | {
-            time: any;
-            k: number;
-            d: any;
-        }[] | {
-            time: any;
-            pivot: number;
-            resistance1: number;
-            support1: number;
-            resistance2: number;
-            support2: number;
-        }[] | {
-            time: any;
-            indicator: import("./dto/indicator-query.dto").IndicatorType;
-            value: any;
-            message: string;
-        }[];
+        indicator: import("./indicators.constants").IndicatorType;
+        label: string;
+        placement: import("./indicators.constants").IndicatorPlacement;
+        params: {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+            deviation: number;
+        } | {
+            period?: number;
+            step: number;
+            max: number;
+        } | {
+            period?: number;
+            conversionPeriod: number;
+            basePeriod: number;
+            spanBPeriod: number;
+            displacement: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+            deviationPercent: number;
+        } | {
+            period?: number;
+            fastPeriod: number;
+            slowPeriod: number;
+        } | {
+            period: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            period?: number;
+            fastPeriod: number;
+            slowPeriod: number;
+            signalPeriod: number;
+        } | {
+            period: number;
+            upperLevel: number;
+            lowerLevel: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            period: number;
+        } | {
+            period?: number;
+            kPeriod: number;
+            dPeriod: number;
+            slowing: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            period?: number;
+            fastPeriod: number;
+            slowPeriod: number;
+            signalPeriod: number;
+        } | {
+            period?: number;
+            fastPeriod: number;
+            slowPeriod: number;
+            signalPeriod: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period: number;
+        } | {
+            period?: number;
+            kPeriod: number;
+            dPeriod: number;
+            slowing: number;
+            overbought: number;
+            oversold: number;
+        } | {
+            period: number;
+        };
+        message: string;
+        exampleBody: {
+            indicator: import("./indicators.constants").IndicatorType;
+            candles: {
+                time: number;
+                open: number;
+                high: number;
+                low: number;
+                close: number;
+            }[];
+            params: {
+                period: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+                deviation: number;
+            } | {
+                period?: number;
+                step: number;
+                max: number;
+            } | {
+                period?: number;
+                conversionPeriod: number;
+                basePeriod: number;
+                spanBPeriod: number;
+                displacement: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+                deviationPercent: number;
+            } | {
+                period?: number;
+                fastPeriod: number;
+                slowPeriod: number;
+            } | {
+                period: number;
+                overbought: number;
+                oversold: number;
+            } | {
+                period?: number;
+                fastPeriod: number;
+                slowPeriod: number;
+                signalPeriod: number;
+            } | {
+                period: number;
+                upperLevel: number;
+                lowerLevel: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+                overbought: number;
+                oversold: number;
+            } | {
+                period: number;
+            } | {
+                period?: number;
+                kPeriod: number;
+                dPeriod: number;
+                slowing: number;
+                overbought: number;
+                oversold: number;
+            } | {
+                period?: number;
+                fastPeriod: number;
+                slowPeriod: number;
+                signalPeriod: number;
+            } | {
+                period?: number;
+                fastPeriod: number;
+                slowPeriod: number;
+                signalPeriod: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+            } | {
+                period: number;
+            } | {
+                period?: number;
+                kPeriod: number;
+                dPeriod: number;
+                slowing: number;
+                overbought: number;
+                oversold: number;
+            } | {
+                period: number;
+            };
+        };
         generatedAt: Date;
     };
 }

@@ -9,6 +9,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IndicatorsModule = void 0;
 const common_1 = require("@nestjs/common");
 const candles_module_1 = require("../candles/candles.module");
+const market_data_module_1 = require("../market-data/market-data.module");
+const indicators_calculator_service_1 = require("./indicators-calculator.service");
 const indicators_controller_1 = require("./indicators.controller");
 const indicators_service_1 = require("./indicators.service");
 let IndicatorsModule = class IndicatorsModule {
@@ -16,10 +18,10 @@ let IndicatorsModule = class IndicatorsModule {
 exports.IndicatorsModule = IndicatorsModule;
 exports.IndicatorsModule = IndicatorsModule = __decorate([
     (0, common_1.Module)({
-        imports: [candles_module_1.CandlesModule],
+        imports: [candles_module_1.CandlesModule, market_data_module_1.MarketDataModule],
         controllers: [indicators_controller_1.IndicatorsController],
-        providers: [indicators_service_1.IndicatorsService],
-        exports: [indicators_service_1.IndicatorsService],
+        providers: [indicators_service_1.IndicatorsService, indicators_calculator_service_1.IndicatorsCalculatorService],
+        exports: [indicators_service_1.IndicatorsService, indicators_calculator_service_1.IndicatorsCalculatorService],
     })
 ], IndicatorsModule);
 //# sourceMappingURL=indicators.module.js.map
