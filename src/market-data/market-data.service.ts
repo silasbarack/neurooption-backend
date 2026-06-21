@@ -65,9 +65,7 @@ export class MarketDataService {
     for (let index = 0; index < limit; index += 1) {
       const candleStart = firstStart + index * intervalMs;
 
-      candles.push(
-        this.buildCanonicalCandle(asset, timeframe, candleStart, now),
-      );
+      candles.push(this.buildCandle(asset, timeframe, candleStart, now));
     }
 
     return {
@@ -87,7 +85,7 @@ export class MarketDataService {
     };
   }
 
-  private buildCanonicalCandle(
+  private buildCandle(
     asset: MarketAsset,
     timeframe: string,
     candleStart: number,
@@ -101,9 +99,8 @@ export class MarketDataService {
     const open = this.priceAt(asset, candleStart);
     const close = this.priceAt(asset, effectiveEnd);
 
+    const sampleStepMs = this.getSampleStepMs(timeframeSeconds);
     const prices: number[] = [open, close];
-
-    const sampleStepMs = this.getCanonicalSampleStepMs(timeframeSeconds);
 
     for (
       let sampleTime = candleStart + sampleStepMs;
@@ -116,12 +113,14 @@ export class MarketDataService {
     const bodyHigh = Math.max(...prices);
     const bodyLow = Math.min(...prices);
 
-    const wick = this.buildRealisticWick(
+    const wick = this.buildWick(
       asset,
       timeframe,
       candleStart,
       bodyHigh,
       bodyLow,
+      effectiveEnd,
+      candleEnd,
     );
 
     return {
@@ -136,52 +135,63 @@ export class MarketDataService {
     };
   }
 
+  /**
+   * One canonical OTC price function.
+   * Every timeframe uses this same function, so S5 cannot change the asset structure.
+   */
   private priceAt(asset: MarketAsset, timeMs: number): number {
     const seed = this.assetSeed(asset.symbol);
     const seconds = timeMs / 1000;
 
-    const slowStructure =
-      Math.sin(seconds / (1400 + (seed % 300)) + seed * 0.003) *
+    const macroTrend =
+      Math.sin(seconds / (1800 + (seed % 400)) + seed * 0.0021) *
       asset.volatility *
-      1.35;
+      1.15;
 
-    const mediumStructure =
-      Math.sin(seconds / (390 + (seed % 95)) + seed * 0.011) *
+    const marketSwing =
+      Math.sin(seconds / (520 + (seed % 120)) + seed * 0.0087) *
       asset.volatility *
-      0.85;
+      0.82;
 
-    const shortStructure =
-      Math.sin(seconds / (72 + (seed % 21)) + seed * 0.021) *
+    const intradayWave =
+      Math.sin(seconds / (130 + (seed % 40)) + seed * 0.018) *
       asset.volatility *
-      0.42;
+      0.44;
 
-    const microMovement =
-      this.smoothNoise(asset.symbol, Math.floor(timeMs / 2500), 0.4) *
+    const tickPulse =
+      Math.sin(seconds / (8.5 + (seed % 5)) + seed * 0.044) *
       asset.volatility *
-      0.22;
+      0.095;
+
+    const smoothTickNoise =
+      this.interpolatedNoise(asset.symbol, timeMs, 900) *
+      asset.volatility *
+      0.16;
 
     const sessionPressure =
-      this.sessionVolatilityMultiplier(timeMs) * asset.volatility * 0.16;
+      this.sessionVolatilityMultiplier(timeMs) * asset.volatility * 0.11;
 
     const totalMove =
-      slowStructure +
-      mediumStructure +
-      shortStructure +
-      microMovement +
+      macroTrend +
+      marketSwing +
+      intradayWave +
+      tickPulse +
+      smoothTickNoise +
       sessionPressure;
 
-    const price = asset.basePrice * (1 + totalMove);
-
-    return Math.max(price, asset.basePrice * 0.05);
+    return Math.max(asset.basePrice * (1 + totalMove), asset.basePrice * 0.05);
   }
 
-  private getCanonicalSampleStepMs(timeframeSeconds: number) {
-    if (timeframeSeconds <= 5) return 1000;
-    if (timeframeSeconds <= 15) return 2500;
-    if (timeframeSeconds <= 30) return 5000;
-    if (timeframeSeconds <= 60) return 5000;
-    if (timeframeSeconds <= 180) return 10000;
-    if (timeframeSeconds <= 300) return 15000;
+  private getSampleStepMs(timeframeSeconds: number) {
+    if (timeframeSeconds <= 5) return 500;
+    if (timeframeSeconds <= 10) return 700;
+    if (timeframeSeconds <= 15) return 900;
+    if (timeframeSeconds <= 30) return 1500;
+    if (timeframeSeconds <= 60) return 2500;
+    if (timeframeSeconds <= 120) return 4000;
+    if (timeframeSeconds <= 180) return 6000;
+    if (timeframeSeconds <= 300) return 10000;
+    if (timeframeSeconds <= 600) return 15000;
     if (timeframeSeconds <= 900) return 30000;
     if (timeframeSeconds <= 1800) return 60000;
     if (timeframeSeconds <= 3600) return 120000;
@@ -189,15 +199,22 @@ export class MarketDataService {
     return 300000;
   }
 
-  private buildRealisticWick(
+  private buildWick(
     asset: MarketAsset,
     timeframe: string,
     candleStart: number,
     bodyHigh: number,
     bodyLow: number,
+    effectiveEnd: number,
+    candleEnd: number,
   ) {
     const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
-    const bodyRange = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.00002);
+    const progress = Math.min(
+      Math.max((effectiveEnd - candleStart) / (candleEnd - candleStart), 0.05),
+      1,
+    );
+
+    const bodyRange = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.000015);
     const timeframeWeight = Math.sqrt(Math.max(timeframeSeconds, 5) / 60);
 
     const upperRandom = this.seededRandom(
@@ -209,8 +226,9 @@ export class MarketDataService {
     );
 
     const maxWick =
-      bodyRange * (0.12 + timeframeWeight * 0.08) +
-      asset.basePrice * asset.volatility * 0.01;
+      (bodyRange * (0.1 + timeframeWeight * 0.06) +
+        asset.basePrice * asset.volatility * 0.006) *
+      progress;
 
     return {
       high: bodyHigh + maxWick * upperRandom,
@@ -233,22 +251,28 @@ export class MarketDataService {
     return Math.floor(base + random * base * 2.5);
   }
 
+  private interpolatedNoise(key: string, timeMs: number, bucketMs: number) {
+    const bucket = Math.floor(timeMs / bucketMs);
+    const bucketStart = bucket * bucketMs;
+    const progress = (timeMs - bucketStart) / bucketMs;
+
+    const smoothProgress = progress * progress * (3 - 2 * progress);
+
+    const current = this.seededRandom(`${key}:tick:${bucket}`);
+    const next = this.seededRandom(`${key}:tick:${bucket + 1}`);
+
+    return (current * (1 - smoothProgress) + next * smoothProgress - 0.5) * 2;
+  }
+
   private sessionVolatilityMultiplier(timeMs: number) {
     const utcHour = new Date(timeMs).getUTCHours();
 
-    if (utcHour >= 7 && utcHour <= 11) return 0.18;
-    if (utcHour >= 12 && utcHour <= 16) return 0.28;
-    if (utcHour >= 17 && utcHour <= 21) return 0.2;
-    if (utcHour >= 0 && utcHour <= 5) return -0.08;
+    if (utcHour >= 7 && utcHour <= 11) return 0.14;
+    if (utcHour >= 12 && utcHour <= 16) return 0.24;
+    if (utcHour >= 17 && utcHour <= 21) return 0.18;
+    if (utcHour >= 0 && utcHour <= 5) return -0.06;
 
-    return 0.04;
-  }
-
-  private smoothNoise(key: string, bucket: number, smoothness: number) {
-    const current = this.seededRandom(`${key}:${bucket}`);
-    const next = this.seededRandom(`${key}:${bucket + 1}`);
-
-    return (current * (1 - smoothness) + next * smoothness - 0.5) * 2;
+    return 0.035;
   }
 
   private seededRandom(input: string) {
@@ -294,11 +318,11 @@ export class MarketDataService {
 
     let maxLimit = 500;
 
-    if (timeframeSeconds >= 14400) maxLimit = 100;
-    else if (timeframeSeconds >= 3600) maxLimit = 140;
-    else if (timeframeSeconds >= 1800) maxLimit = 180;
-    else if (timeframeSeconds >= 900) maxLimit = 220;
-    else if (timeframeSeconds >= 300) maxLimit = 260;
+    if (timeframeSeconds >= 14400) maxLimit = 90;
+    else if (timeframeSeconds >= 3600) maxLimit = 120;
+    else if (timeframeSeconds >= 1800) maxLimit = 160;
+    else if (timeframeSeconds >= 900) maxLimit = 200;
+    else if (timeframeSeconds >= 300) maxLimit = 240;
 
     return Math.min(Math.max(requested, 20), maxLimit);
   }

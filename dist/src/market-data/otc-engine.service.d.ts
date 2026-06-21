@@ -1,4 +1,5 @@
-import { SeedAsset } from './market-data.constants';
+import { MarketAsset } from './market-data.constants';
+type SeedAsset = MarketAsset;
 export type GeneratedCandle = {
     open: number;
     high: number;
@@ -20,3 +21,4 @@ export declare class OtcEngineService {
     private roundPrice;
     private clamp;
 }
+export {};

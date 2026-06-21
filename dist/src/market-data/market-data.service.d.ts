@@ -39,16 +39,16 @@ export declare class MarketDataService {
     };
     private buildCandle;
     private priceAt;
+    private getSampleStepMs;
     private buildWick;
     private buildTickVolume;
-    private getSampleCount;
+    private interpolatedNoise;
     private sessionVolatilityMultiplier;
-    private smoothNoise;
     private seededRandom;
     private assetSeed;
     private roundPrice;
-    private normalizeLimit;
     private normalizeTimeframe;
+    private normalizeLimit;
     private findAsset;
 }
 export {};
