@@ -1,13 +1,28 @@
-export type SeedAsset = {
+export type AssetCategory = 'Currencies' | 'Cryptocurrencies' | 'Stocks' | 'Indices' | 'Commodities';
+export type MarketAsset = {
     symbol: string;
     label: string;
-    category: string;
+    category: AssetCategory;
     basePrice: number;
     precision: number;
     payoutBoost: number;
+    volatility: number;
+    isActive: boolean;
 };
-export declare const OTC_TIMEFRAME = "M1";
-export declare const M1_CANDLE_MS = 60000;
-export declare const DEFAULT_CANDLE_LIMIT = 120;
-export declare const MAX_CANDLE_LIMIT = 500;
-export declare const OTC_ASSETS: SeedAsset[];
+export type SeedAsset = MarketAsset;
+export type SeededAsset = MarketAsset;
+export type OtcCandle = {
+    time: number;
+    openTime: string;
+    closeTime: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+};
+export declare const TIMEFRAME_SECONDS: Record<string, number>;
+export declare const SUPPORTED_TIMEFRAMES: string[];
+export declare const MARKET_ASSETS: MarketAsset[];
+export declare const M1_CANDLE_MS: number;
+export type SeedAseet = MarketAsset;

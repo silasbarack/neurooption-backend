@@ -5,224 +5,233 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketDataService = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../config/prisma.service");
-const otc_engine_service_1 = require("./otc-engine.service");
 const market_data_constants_1 = require("./market-data.constants");
 let MarketDataService = class MarketDataService {
-    constructor(prisma, otcEngine) {
-        this.prisma = prisma;
-        this.otcEngine = otcEngine;
-        this.assetsReady = false;
-    }
-    async onModuleInit() {
-        await this.ensureAssets();
-    }
-    async getAssets() {
-        await this.ensureAssets();
-        const assets = await this.prisma.otcAsset.findMany({
-            where: { isActive: true },
-            orderBy: [{ category: 'asc' }, { symbol: 'asc' }],
-        });
+    getAssets() {
         return {
-            assets: assets.map((asset) => ({
+            serverTime: new Date().toISOString(),
+            categories: this.getCategories(),
+            assets: market_data_constants_1.MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => ({
                 symbol: asset.symbol,
                 label: asset.label,
                 category: asset.category,
-                basePrice: Number(asset.basePrice),
+                basePrice: asset.basePrice,
                 precision: asset.precision,
                 payoutBoost: asset.payoutBoost,
                 isActive: asset.isActive,
             })),
         };
     }
-    async getCandles(query) {
-        await this.ensureAssets();
-        const symbol = query.asset || query.symbol || 'EUR/USD OTC';
-        const timeframe = query.timeframe || market_data_constants_1.OTC_TIMEFRAME;
-        if (timeframe !== market_data_constants_1.OTC_TIMEFRAME) {
-            throw new common_1.BadRequestException('Only M1 timeframe is currently supported.');
+    getCategories() {
+        return Array.from(new Set(market_data_constants_1.MARKET_ASSETS.map((asset) => asset.category)));
+    }
+    getTick(assetSymbol) {
+        const asset = this.findAsset(assetSymbol);
+        const now = Date.now();
+        const price = this.roundPrice(this.priceAt(asset, now), asset.precision);
+        return {
+            asset: asset.symbol,
+            price,
+            time: now,
+            serverTime: new Date(now).toISOString(),
+        };
+    }
+    getCandles(query) {
+        const asset = this.findAsset(query.asset);
+        const timeframe = this.normalizeTimeframe(query.timeframe);
+        const seconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
+        const intervalMs = seconds * 1000;
+        const limit = this.normalizeLimit(query.limit);
+        const now = Date.now();
+        const currentCandleStart = Math.floor(now / intervalMs) * intervalMs;
+        const firstStart = currentCandleStart - intervalMs * (limit - 1);
+        const candles = [];
+        for (let index = 0; index < limit; index += 1) {
+            const candleStart = firstStart + index * intervalMs;
+            const candle = this.buildCandle(asset, timeframe, candleStart, now);
+            candles.push(candle);
         }
-        const limit = this.parseLimit(query.limit);
-        const seedAsset = this.getSeedAsset(symbol);
-        if (!seedAsset) {
-            throw new common_1.BadRequestException(`Unsupported OTC asset: ${symbol}`);
-        }
-        await this.catchUpCandles(seedAsset);
-        const rows = await this.prisma.otcCandle.findMany({
-            where: {
-                assetSymbol: seedAsset.symbol,
-                timeframe: market_data_constants_1.OTC_TIMEFRAME,
-            },
-            orderBy: { openTime: 'desc' },
-            take: limit,
-        });
-        const candles = rows.reverse().map((candle) => ({
-            open: Number(candle.open),
-            high: Number(candle.high),
-            low: Number(candle.low),
-            close: Number(candle.close),
-            time: candle.openTime.getTime(),
-            openTime: candle.openTime.toISOString(),
-            closeTime: candle.closeTime.toISOString(),
-        }));
         return {
             asset: {
-                symbol: seedAsset.symbol,
-                label: seedAsset.label,
-                category: seedAsset.category,
-                basePrice: seedAsset.basePrice,
-                precision: seedAsset.precision,
-                payoutBoost: seedAsset.payoutBoost,
+                symbol: asset.symbol,
+                label: asset.label,
+                category: asset.category,
+                basePrice: asset.basePrice,
+                precision: asset.precision,
+                payoutBoost: asset.payoutBoost,
+                isActive: asset.isActive,
             },
-            timeframe: market_data_constants_1.OTC_TIMEFRAME,
-            serverTime: new Date().toISOString(),
+            timeframe,
+            timeframeSeconds: seconds,
+            serverTime: new Date(now).toISOString(),
             candles,
         };
     }
-    async ensureAssets() {
-        if (this.assetsReady)
-            return;
-        for (const asset of market_data_constants_1.OTC_ASSETS) {
-            await this.prisma.otcAsset.upsert({
-                where: { symbol: asset.symbol },
-                update: {
-                    label: asset.label,
-                    category: asset.category,
-                    basePrice: asset.basePrice.toString(),
-                    precision: asset.precision,
-                    payoutBoost: asset.payoutBoost,
-                    isActive: true,
-                },
-                create: {
-                    symbol: asset.symbol,
-                    label: asset.label,
-                    category: asset.category,
-                    basePrice: asset.basePrice.toString(),
-                    precision: asset.precision,
-                    payoutBoost: asset.payoutBoost,
-                    isActive: true,
-                },
-            });
-        }
-        this.assetsReady = true;
-    }
-    async catchUpCandles(asset) {
-        const now = new Date();
-        const currentOpenTime = this.floorToMinute(now);
-        const currentProgress = this.getCurrentCandleProgress(now);
-        const latest = await this.prisma.otcCandle.findFirst({
-            where: {
-                assetSymbol: asset.symbol,
-                timeframe: market_data_constants_1.OTC_TIMEFRAME,
-            },
-            orderBy: { openTime: 'desc' },
-        });
-        if (!latest) {
-            await this.seedInitialCandles(asset, currentOpenTime, currentProgress);
-            return;
-        }
-        if (latest.openTime.getTime() === currentOpenTime.getTime()) {
-            const previous = await this.prisma.otcCandle.findFirst({
-                where: {
-                    assetSymbol: asset.symbol,
-                    timeframe: market_data_constants_1.OTC_TIMEFRAME,
-                    openTime: {
-                        lt: currentOpenTime,
-                    },
-                },
-                orderBy: { openTime: 'desc' },
-            });
-            const previousClose = previous ? Number(previous.close) : Number(latest.open);
-            const candle = this.otcEngine.generateCandle(asset, previousClose, currentOpenTime, currentProgress);
-            await this.upsertCandle(asset.symbol, candle);
-            return;
-        }
-        let previousClose = Number(latest.close);
-        let nextOpenTime = new Date(latest.openTime.getTime() + market_data_constants_1.M1_CANDLE_MS);
-        let generatedCount = 0;
-        while (nextOpenTime.getTime() <= currentOpenTime.getTime()) {
-            const isCurrentCandle = nextOpenTime.getTime() === currentOpenTime.getTime();
-            const progress = isCurrentCandle ? currentProgress : 1;
-            const candle = this.otcEngine.generateCandle(asset, previousClose, nextOpenTime, progress);
-            await this.upsertCandle(asset.symbol, candle);
-            previousClose = candle.close;
-            nextOpenTime = new Date(nextOpenTime.getTime() + market_data_constants_1.M1_CANDLE_MS);
-            generatedCount += 1;
-            if (generatedCount > 5000) {
-                break;
+    buildCandle(asset, timeframe, candleStart, now) {
+        const seconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
+        const intervalMs = seconds * 1000;
+        const candleEnd = candleStart + intervalMs;
+        const effectiveEnd = Math.min(candleEnd, now);
+        const open = this.priceAt(asset, candleStart);
+        const close = this.priceAt(asset, effectiveEnd);
+        const sampleCount = this.getSampleCount(seconds);
+        const prices = [open, close];
+        for (let index = 1; index < sampleCount; index += 1) {
+            const ratio = index / sampleCount;
+            const sampleTime = candleStart + Math.floor((effectiveEnd - candleStart) * ratio);
+            if (sampleTime <= candleStart || sampleTime >= effectiveEnd) {
+                continue;
             }
+            prices.push(this.priceAt(asset, sampleTime));
         }
+        const bodyHigh = Math.max(...prices);
+        const bodyLow = Math.min(...prices);
+        const wick = this.buildWick(asset, candleStart, timeframe, bodyHigh, bodyLow);
+        const high = Math.max(bodyHigh, wick.high);
+        const low = Math.min(bodyLow, wick.low);
+        return {
+            time: candleStart,
+            openTime: new Date(candleStart).toISOString(),
+            closeTime: new Date(candleEnd).toISOString(),
+            open: this.roundPrice(open, asset.precision),
+            high: this.roundPrice(high, asset.precision),
+            low: this.roundPrice(low, asset.precision),
+            close: this.roundPrice(close, asset.precision),
+            volume: this.buildTickVolume(asset, candleStart, timeframe),
+        };
     }
-    async seedInitialCandles(asset, currentOpenTime, currentProgress) {
-        const backfillCount = market_data_constants_1.DEFAULT_CANDLE_LIMIT;
-        let openTime = new Date(currentOpenTime.getTime() - (backfillCount - 1) * market_data_constants_1.M1_CANDLE_MS);
-        let previousClose = asset.basePrice;
-        for (let index = 0; index < backfillCount; index += 1) {
-            const isCurrentCandle = openTime.getTime() === currentOpenTime.getTime();
-            const progress = isCurrentCandle ? currentProgress : 1;
-            const candle = this.otcEngine.generateCandle(asset, previousClose, openTime, progress);
-            await this.upsertCandle(asset.symbol, candle);
-            previousClose = candle.close;
-            openTime = new Date(openTime.getTime() + market_data_constants_1.M1_CANDLE_MS);
+    priceAt(asset, timeMs) {
+        const seed = this.assetSeed(asset.symbol);
+        const seconds = timeMs / 1000;
+        const slowTrend = Math.sin(seconds / (540 + (seed % 90)) + seed * 0.001) *
+            asset.volatility *
+            1.2;
+        const mediumWave = Math.sin(seconds / (92 + (seed % 33)) + seed * 0.017) *
+            asset.volatility *
+            0.75;
+        const fastWave = Math.sin(seconds / (16 + (seed % 7)) + seed * 0.031) *
+            asset.volatility *
+            0.32;
+        const microNoise = this.smoothNoise(asset.symbol, Math.floor(timeMs / 1400), 0.23) *
+            asset.volatility *
+            0.45;
+        const sessionPressure = this.sessionVolatilityMultiplier(timeMs) * asset.volatility * 0.18;
+        const directionBias = Math.sin(seconds / (1300 + (seed % 300)) + seed * 0.006) *
+            asset.volatility *
+            0.45;
+        const totalMove = slowTrend +
+            mediumWave +
+            fastWave +
+            microNoise +
+            sessionPressure +
+            directionBias;
+        const price = asset.basePrice * (1 + totalMove);
+        return Math.max(price, asset.basePrice * 0.05);
+    }
+    buildWick(asset, candleStart, timeframe, bodyHigh, bodyLow) {
+        const seconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
+        const baseRange = asset.basePrice * asset.volatility;
+        const timeframeMultiplier = Math.sqrt(Math.max(seconds, 5) / 60);
+        const randomA = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:wick-a`);
+        const randomB = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:wick-b`);
+        const wickSizeHigh = baseRange * timeframeMultiplier * (0.08 + randomA * 0.22);
+        const wickSizeLow = baseRange * timeframeMultiplier * (0.08 + randomB * 0.22);
+        return {
+            high: bodyHigh + wickSizeHigh,
+            low: bodyLow - wickSizeLow,
+        };
+    }
+    buildTickVolume(asset, candleStart, timeframe) {
+        const seconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
+        const base = Math.max(8, Math.floor(seconds / 2));
+        const random = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:volume`);
+        return Math.floor(base + random * base * 3);
+    }
+    getSampleCount(seconds) {
+        if (seconds <= 5)
+            return 4;
+        if (seconds <= 15)
+            return 5;
+        if (seconds <= 30)
+            return 6;
+        if (seconds <= 60)
+            return 8;
+        if (seconds <= 180)
+            return 10;
+        if (seconds <= 300)
+            return 12;
+        if (seconds <= 900)
+            return 16;
+        if (seconds <= 1800)
+            return 20;
+        return 24;
+    }
+    sessionVolatilityMultiplier(timeMs) {
+        const date = new Date(timeMs);
+        const utcHour = date.getUTCHours();
+        if (utcHour >= 7 && utcHour <= 16)
+            return 0.22;
+        if (utcHour >= 13 && utcHour <= 21)
+            return 0.3;
+        if (utcHour >= 0 && utcHour <= 5)
+            return -0.12;
+        return 0.05;
+    }
+    smoothNoise(key, bucket, smoothness) {
+        const current = this.seededRandom(`${key}:${bucket}`);
+        const next = this.seededRandom(`${key}:${bucket + 1}`);
+        const ratio = smoothness;
+        return (current * (1 - ratio) + next * ratio - 0.5) * 2;
+    }
+    seededRandom(input) {
+        let hash = 2166136261;
+        for (let index = 0; index < input.length; index += 1) {
+            hash ^= input.charCodeAt(index);
+            hash +=
+                (hash << 1) +
+                    (hash << 4) +
+                    (hash << 7) +
+                    (hash << 8) +
+                    (hash << 24);
         }
+        const normalized = Math.abs(hash >>> 0) / 4294967295;
+        return normalized;
     }
-    async upsertCandle(assetSymbol, candle) {
-        await this.prisma.otcCandle.upsert({
-            where: {
-                assetSymbol_timeframe_openTime: {
-                    assetSymbol,
-                    timeframe: market_data_constants_1.OTC_TIMEFRAME,
-                    openTime: candle.openTime,
-                },
-            },
-            update: {
-                open: candle.open.toString(),
-                high: candle.high.toString(),
-                low: candle.low.toString(),
-                close: candle.close.toString(),
-                closeTime: candle.closeTime,
-            },
-            create: {
-                assetSymbol,
-                timeframe: market_data_constants_1.OTC_TIMEFRAME,
-                open: candle.open.toString(),
-                high: candle.high.toString(),
-                low: candle.low.toString(),
-                close: candle.close.toString(),
-                openTime: candle.openTime,
-                closeTime: candle.closeTime,
-            },
-        });
+    assetSeed(symbol) {
+        return Math.floor(this.seededRandom(symbol) * 1000000);
     }
-    getSeedAsset(symbol) {
-        return market_data_constants_1.OTC_ASSETS.find((asset) => asset.symbol.toLowerCase() === symbol.toLowerCase());
+    roundPrice(price, precision) {
+        return Number(price.toFixed(precision));
     }
-    floorToMinute(date) {
-        const value = new Date(date);
-        value.setSeconds(0, 0);
-        return value;
+    normalizeLimit(limit) {
+        if (!limit || Number.isNaN(limit))
+            return 180;
+        return Math.min(Math.max(Number(limit), 20), 500);
     }
-    getCurrentCandleProgress(now) {
-        const elapsedMs = now.getSeconds() * 1000 + now.getMilliseconds();
-        return Math.min(Math.max(elapsedMs / market_data_constants_1.M1_CANDLE_MS, 0.01), 1);
+    normalizeTimeframe(timeframe) {
+        const normalized = (timeframe || 'M1').toUpperCase();
+        if (!market_data_constants_1.TIMEFRAME_SECONDS[normalized]) {
+            throw new common_1.BadRequestException(`Unsupported timeframe: ${timeframe}. Supported: ${Object.keys(market_data_constants_1.TIMEFRAME_SECONDS).join(', ')}`);
+        }
+        return normalized;
     }
-    parseLimit(limit) {
-        const parsed = Number(limit || market_data_constants_1.DEFAULT_CANDLE_LIMIT);
-        if (!Number.isFinite(parsed))
-            return market_data_constants_1.DEFAULT_CANDLE_LIMIT;
-        return Math.min(Math.max(Math.floor(parsed), 20), market_data_constants_1.MAX_CANDLE_LIMIT);
+    findAsset(symbol) {
+        const normalized = symbol.trim().toLowerCase();
+        const asset = market_data_constants_1.MARKET_ASSETS.find((item) => item.symbol.toLowerCase() === normalized);
+        if (!asset) {
+            throw new common_1.BadRequestException(`Unsupported asset: ${symbol}`);
+        }
+        if (!asset.isActive) {
+            throw new common_1.BadRequestException(`Asset is not active: ${symbol}`);
+        }
+        return asset;
     }
 };
 exports.MarketDataService = MarketDataService;
 exports.MarketDataService = MarketDataService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        otc_engine_service_1.OtcEngineService])
+    (0, common_1.Injectable)()
 ], MarketDataService);
 //# sourceMappingURL=market-data.service.js.map

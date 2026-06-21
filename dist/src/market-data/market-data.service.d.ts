@@ -1,51 +1,54 @@
-import { OnModuleInit } from '@nestjs/common';
-import { PrismaService } from '../config/prisma.service';
-import { OtcEngineService } from './otc-engine.service';
-import { GetCandlesDto } from './dto/get-candles.dto';
-export declare class MarketDataService implements OnModuleInit {
-    private readonly prisma;
-    private readonly otcEngine;
-    private assetsReady;
-    constructor(prisma: PrismaService, otcEngine: OtcEngineService);
-    onModuleInit(): Promise<void>;
-    getAssets(): Promise<{
+import { OtcCandle } from './market-data.constants';
+import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
+type OtcTick = {
+    asset: string;
+    price: number;
+    time: number;
+    serverTime: string;
+};
+export declare class MarketDataService {
+    getAssets(): {
+        serverTime: string;
+        categories: import("./market-data.constants").AssetCategory[];
         assets: {
             symbol: string;
             label: string;
-            category: string;
+            category: import("./market-data.constants").AssetCategory;
             basePrice: number;
             precision: number;
             payoutBoost: number;
             isActive: boolean;
         }[];
-    }>;
-    getCandles(query: GetCandlesDto): Promise<{
+    };
+    getCategories(): import("./market-data.constants").AssetCategory[];
+    getTick(assetSymbol: string): OtcTick;
+    getCandles(query: MarketCandlesQueryDto): {
         asset: {
             symbol: string;
             label: string;
-            category: string;
+            category: import("./market-data.constants").AssetCategory;
             basePrice: number;
             precision: number;
             payoutBoost: number;
+            isActive: boolean;
         };
         timeframe: string;
+        timeframeSeconds: number;
         serverTime: string;
-        candles: {
-            open: number;
-            high: number;
-            low: number;
-            close: number;
-            time: number;
-            openTime: string;
-            closeTime: string;
-        }[];
-    }>;
-    private ensureAssets;
-    private catchUpCandles;
-    private seedInitialCandles;
-    private upsertCandle;
-    private getSeedAsset;
-    private floorToMinute;
-    private getCurrentCandleProgress;
-    private parseLimit;
+        candles: OtcCandle[];
+    };
+    private buildCandle;
+    private priceAt;
+    private buildWick;
+    private buildTickVolume;
+    private getSampleCount;
+    private sessionVolatilityMultiplier;
+    private smoothNoise;
+    private seededRandom;
+    private assetSeed;
+    private roundPrice;
+    private normalizeLimit;
+    private normalizeTimeframe;
+    private findAsset;
 }
+export {};

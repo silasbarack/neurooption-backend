@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { MarketDataService } from './market-data.service';
-import { GetCandlesDto } from './dto/get-candles.dto';
+import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
+import { MarketTickQueryDto } from './dto/market-tick-query.dto';
 
 @Controller('market-data')
 export class MarketDataController {
@@ -12,7 +13,12 @@ export class MarketDataController {
   }
 
   @Get('candles')
-  getCandles(@Query() query: GetCandlesDto) {
+  getCandles(@Query() query: MarketCandlesQueryDto) {
     return this.marketDataService.getCandles(query);
+  }
+
+  @Get('tick')
+  getTick(@Query() query: MarketTickQueryDto) {
+    return this.marketDataService.getTick(query.asset);
   }
 }

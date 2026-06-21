@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketDataController = void 0;
 const common_1 = require("@nestjs/common");
 const market_data_service_1 = require("./market-data.service");
+const market_candles_query_dto_1 = require("./dto/market-candles-query.dto");
+const market_tick_query_dto_1 = require("./dto/market-tick-query.dto");
 let MarketDataController = class MarketDataController {
     constructor(marketDataService) {
         this.marketDataService = marketDataService;
@@ -24,6 +26,9 @@ let MarketDataController = class MarketDataController {
     }
     getCandles(query) {
         return this.marketDataService.getCandles(query);
+    }
+    getTick(query) {
+        return this.marketDataService.getTick(query.asset);
     }
 };
 exports.MarketDataController = MarketDataController;
@@ -37,9 +42,16 @@ __decorate([
     (0, common_1.Get)('candles'),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [market_candles_query_dto_1.MarketCandlesQueryDto]),
     __metadata("design:returntype", void 0)
 ], MarketDataController.prototype, "getCandles", null);
+__decorate([
+    (0, common_1.Get)('tick'),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [market_tick_query_dto_1.MarketTickQueryDto]),
+    __metadata("design:returntype", void 0)
+], MarketDataController.prototype, "getTick", null);
 exports.MarketDataController = MarketDataController = __decorate([
     (0, common_1.Controller)('market-data'),
     __metadata("design:paramtypes", [market_data_service_1.MarketDataService])

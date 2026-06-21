@@ -10,15 +10,13 @@ exports.MarketDataModule = void 0;
 const common_1 = require("@nestjs/common");
 const market_data_controller_1 = require("./market-data.controller");
 const market_data_service_1 = require("./market-data.service");
-const otc_engine_service_1 = require("./otc-engine.service");
-const prisma_service_1 = require("../config/prisma.service");
 let MarketDataModule = class MarketDataModule {
 };
 exports.MarketDataModule = MarketDataModule;
 exports.MarketDataModule = MarketDataModule = __decorate([
     (0, common_1.Module)({
         controllers: [market_data_controller_1.MarketDataController],
-        providers: [market_data_service_1.MarketDataService, otc_engine_service_1.OtcEngineService, prisma_service_1.PrismaService],
+        providers: [market_data_service_1.MarketDataService],
         exports: [market_data_service_1.MarketDataService],
     })
 ], MarketDataModule);

@@ -330,7 +330,7 @@ export class TradingEngineService {
     await this.marketDataService.getCandles({
       asset: trade.assetSymbol,
       timeframe: trade.timeframe,
-      limit: '5',
+      limit: 5,
     });
 
     const expiryCandle = await (this.prisma as any).otcCandle.findFirst({
@@ -463,7 +463,7 @@ export class TradingEngineService {
     const candleResponse = await this.marketDataService.getCandles({
       asset: assetSymbol,
       timeframe,
-      limit: '3',
+      limit: 3,
     });
 
     const latest = candleResponse.candles[candleResponse.candles.length - 1];
