@@ -1,253 +1,228 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import {
-  Prisma,
-  TransactionStatus,
-  TransactionType,
-} from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { AccountType } from '../trading-engine/trading-engine.types';
 
-import { PrismaService } from '../config/prisma.service';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
-import { TransactionQueryDto } from './dto/transaction-query.dto';
-import { UpdateTransactionStatusDto } from './dto/update-transaction-status.dto';
+export type TransactionType =
+  | 'TRADE_STAKE'
+  | 'TRADE_WIN_RETURN'
+  | 'TRADE_DRAW_REFUND'
+  | 'TRADE_LOSS'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'WITHDRAWAL_PROCESSING'
+  | 'WITHDRAWAL_COMPLETED'
+  | 'WITHDRAWAL_FAILED'
+  | 'WITHDRAWAL_REJECTED'
+  | 'WITHDRAWAL_CANCELLED'
+  | 'ADJUSTMENT';
+
+export type TransactionStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export type TransactionRecord = {
+  id: string;
+  userId: string;
+  accountType: AccountType;
+  tradeId?: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  amountUsd: number;
+  balanceAfterUsd?: number;
+  description: string;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 @Injectable()
 export class TransactionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly transactions: TransactionRecord[] = [];
 
-  async create(dto: CreateTransactionDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: dto.userId },
-    });
+  create(record: any): TransactionRecord {
+    const now = new Date().toISOString();
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const transaction: TransactionRecord = {
+      id: String(record?.id ?? this.createId('txn')),
+      userId: String(record?.userId ?? 'demo-user'),
+      accountType: String(record?.accountType ?? 'QT Demo') as AccountType,
+      tradeId: record?.tradeId === undefined ? undefined : String(record.tradeId),
+      type: this.normalizeType(record?.type),
+      status: this.normalizeStatus(record?.status ?? 'COMPLETED'),
+      amountUsd: Number(record?.amountUsd ?? record?.amount ?? 0),
+      balanceAfterUsd:
+        record?.balanceAfterUsd === undefined
+          ? undefined
+          : Number(record.balanceAfterUsd),
+      description: String(record?.description ?? 'Transaction record'),
+      reason: record?.reason === undefined ? undefined : String(record.reason),
+      createdAt: String(record?.createdAt ?? now),
+      updatedAt: String(record?.updatedAt ?? now),
+    };
 
-    const wallet = await this.prisma.wallet.findUnique({
-      where: { id: dto.walletId },
-    });
-
-    if (!wallet) {
-      throw new NotFoundException('Wallet not found');
-    }
-
-    if (wallet.userId !== dto.userId) {
-      throw new BadRequestException('Wallet does not belong to this user');
-    }
-
-    return this.prisma.transaction.create({
-      data: {
-        userId: dto.userId,
-        walletId: dto.walletId,
-        type: dto.type,
-        status: dto.status ?? TransactionStatus.PENDING,
-        amount: new Prisma.Decimal(dto.amount),
-        reference: dto.reference,
-        description: dto.description,
-      },
-      include: this.includeRelations(),
-    });
-  }
-
-  async findAll(query: TransactionQueryDto) {
-    return this.prisma.transaction.findMany({
-      where: {
-        userId: query.userId,
-        walletId: query.walletId,
-        type: query.type,
-        status: query.status,
-      },
-      include: this.includeRelations(),
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
-
-  async findOne(id: string) {
-    const transaction = await this.prisma.transaction.findUnique({
-      where: { id },
-      include: this.includeRelations(),
-    });
-
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
-
+    this.transactions.push(transaction);
     return transaction;
   }
 
-  async findByUser(userId: string) {
-    return this.prisma.transaction.findMany({
-      where: { userId },
-      include: this.includeRelations(),
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
+  findAll(query?: any): TransactionRecord[] {
+    let records = [...this.transactions];
 
-  async updateStatus(
-    id: string,
-    dto: UpdateTransactionStatusDto,
-  ) {
-    const transaction = await this.prisma.transaction.findUnique({
-      where: { id },
-      include: {
-        wallet: true,
-      },
-    });
-
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
-
-    if (transaction.status === TransactionStatus.COMPLETED) {
-      throw new BadRequestException(
-        'Completed transaction cannot be changed',
+    if (query?.userId) {
+      records = records.filter(
+        (transaction) => transaction.userId === String(query.userId),
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.transaction.update({
-        where: { id },
-        data: {
-          status: dto.status,
-          description: dto.description ?? transaction.description,
-        },
-        include: this.includeRelations(),
-      });
-
-      if (dto.status === TransactionStatus.COMPLETED) {
-        await this.applyWalletEffect(tx, {
-          walletId: transaction.walletId,
-          type: transaction.type,
-          amount: transaction.amount,
-        });
-      }
-
-      return updated;
-    });
-  }
-
-  async markProcessing(id: string) {
-    return this.updateStatus(id, {
-      status: TransactionStatus.PENDING,
-    });
-  }
-
-  async markCompleted(id: string) {
-    return this.updateStatus(id, {
-      status: TransactionStatus.COMPLETED,
-    });
-  }
-
-  async markFailed(id: string, reason?: string) {
-    return this.updateStatus(id, {
-      status: TransactionStatus.FAILED,
-      description: reason,
-    });
-  }
-
-  async markRejected(id: string, reason?: string) {
-    return this.updateStatus(id, {
-      status: TransactionStatus.REJECTED,
-      description: reason,
-    });
-  }
-
-  async markCancelled(id: string, reason?: string) {
-    return this.updateStatus(id, {
-      status: TransactionStatus.CANCELLED,
-      description: reason,
-    });
-  }
-
-  private async applyWalletEffect(
-    tx: Prisma.TransactionClient,
-    params: {
-      walletId: string;
-      type: TransactionType;
-      amount: Prisma.Decimal;
-    },
-  ) {
-    const wallet = await tx.wallet.findUnique({
-      where: { id: params.walletId },
-    });
-
-    if (!wallet) {
-      throw new NotFoundException('Wallet not found');
+    if (query?.type) {
+      records = records.filter(
+        (transaction) =>
+          transaction.type === String(query.type).toUpperCase(),
+      );
     }
 
-    if (this.isCredit(params.type)) {
-      return tx.wallet.update({
-        where: { id: params.walletId },
-        data: {
-          balance: {
-            increment: params.amount,
-          },
-        },
-      });
+    if (query?.status) {
+      records = records.filter(
+        (transaction) =>
+          transaction.status === String(query.status).toUpperCase(),
+      );
     }
 
-    if (this.isDebit(params.type)) {
-      if (wallet.balance.lessThan(params.amount)) {
-        throw new BadRequestException('Insufficient wallet balance');
-      }
-
-      return tx.wallet.update({
-        where: { id: params.walletId },
-        data: {
-          balance: {
-            decrement: params.amount,
-          },
-        },
-      });
-    }
-
-    throw new BadRequestException('Unsupported transaction type');
+    return records.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }
 
-  private isCredit(type: TransactionType) {
-    const creditTypes: TransactionType[] = [
-      TransactionType.DEPOSIT,
-      TransactionType.TRADE_PROFIT,
-      TransactionType.BONUS,
-      TransactionType.REFUND,
-      TransactionType.ADMIN_ADJUSTMENT,
-    ];
-
-    return creditTypes.includes(type);
+  findByUser(userId: string): TransactionRecord[] {
+    return this.findAll({ userId });
   }
 
-  private isDebit(type: TransactionType) {
-    const debitTypes: TransactionType[] = [
-      TransactionType.WITHDRAWAL,
-      TransactionType.TRADE_STAKE,
-    ];
-
-    return debitTypes.includes(type);
+  findOne(id: string): TransactionRecord | null {
+    return this.transactions.find((transaction) => transaction.id === id) ?? null;
   }
 
-  private includeRelations() {
-    return {
-      user: {
-        select: {
-          id: true,
-          fullname: true,
-          email: true,
-          phone: true,
-        },
-      },
-      wallet: true,
-      deposit: true,
-      withdrawal: true,
-      payout: true,
-      notifications: true,
+  findByTrade(tradeId: string): TransactionRecord[] {
+    return this.transactions.filter(
+      (transaction) => transaction.tradeId === tradeId,
+    );
+  }
+
+  updateStatus(id: string, dto: any): TransactionRecord | null {
+    const status = this.normalizeStatus(dto?.status ?? dto);
+    const reason = dto?.reason === undefined ? undefined : String(dto.reason);
+
+    return this.patch(id, {
+      status,
+      reason,
+    });
+  }
+
+  markProcessing(id: string, dto?: any): TransactionRecord | null {
+    return this.patch(id, {
+      status: 'PROCESSING',
+      reason: this.extractReason(dto),
+    });
+  }
+
+  markCompleted(id: string, dto?: any): TransactionRecord | null {
+    return this.patch(id, {
+      status: 'COMPLETED',
+      reason: this.extractReason(dto),
+    });
+  }
+
+  markFailed(id: string, reasonOrDto?: any): TransactionRecord | null {
+    return this.patch(id, {
+      status: 'FAILED',
+      reason: this.extractReason(reasonOrDto),
+    });
+  }
+
+  markRejected(id: string, reasonOrDto?: any): TransactionRecord | null {
+    return this.patch(id, {
+      status: 'REJECTED',
+      reason: this.extractReason(reasonOrDto),
+    });
+  }
+
+  markCancelled(id: string, reasonOrDto?: any): TransactionRecord | null {
+    return this.patch(id, {
+      status: 'CANCELLED',
+      reason: this.extractReason(reasonOrDto),
+    });
+  }
+
+  private patch(id: string, patch: Partial<TransactionRecord>) {
+    const index = this.transactions.findIndex(
+      (transaction) => transaction.id === id,
+    );
+
+    if (index < 0) return null;
+
+    const updated: TransactionRecord = {
+      ...this.transactions[index],
+      ...patch,
+      updatedAt: new Date().toISOString(),
     };
+
+    this.transactions[index] = updated;
+    return updated;
+  }
+
+  private normalizeType(type: any): TransactionType {
+    const value = String(type ?? 'ADJUSTMENT').toUpperCase();
+
+    const allowed: TransactionType[] = [
+      'TRADE_STAKE',
+      'TRADE_WIN_RETURN',
+      'TRADE_DRAW_REFUND',
+      'TRADE_LOSS',
+      'DEPOSIT',
+      'WITHDRAWAL',
+      'WITHDRAWAL_PROCESSING',
+      'WITHDRAWAL_COMPLETED',
+      'WITHDRAWAL_FAILED',
+      'WITHDRAWAL_REJECTED',
+      'WITHDRAWAL_CANCELLED',
+      'ADJUSTMENT',
+    ];
+
+    return allowed.includes(value as TransactionType)
+      ? (value as TransactionType)
+      : 'ADJUSTMENT';
+  }
+
+  private normalizeStatus(status: any): TransactionStatus {
+    const value = String(status ?? 'PENDING').toUpperCase();
+
+    const allowed: TransactionStatus[] = [
+      'PENDING',
+      'PROCESSING',
+      'COMPLETED',
+      'FAILED',
+      'REJECTED',
+      'CANCELLED',
+    ];
+
+    return allowed.includes(value as TransactionStatus)
+      ? (value as TransactionStatus)
+      : 'PENDING';
+  }
+
+  private extractReason(reasonOrDto?: any): string | undefined {
+    if (reasonOrDto === undefined || reasonOrDto === null) return undefined;
+
+    if (typeof reasonOrDto === 'string') return reasonOrDto;
+
+    if (reasonOrDto.reason !== undefined) return String(reasonOrDto.reason);
+
+    return undefined;
+  }
+
+  private createId(prefix: string) {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   }
 }

@@ -1,37 +1,41 @@
 import { TradingEngineService } from './trading-engine.service';
-import { OpenTradesDto } from './dto/open-trades.dto';
-import { GetTradesDto } from './dto/get-trades.dto';
+import { PlaceTradeDto } from './dto/place-trade.dto';
+import { AccountCurrency, AccountType } from './trading-engine.types';
 export declare class TradingEngineController {
     private readonly tradingEngineService;
     constructor(tradingEngineService: TradingEngineService);
-    getWallet(query: GetTradesDto): Promise<{
-        userId: any;
+    placeTrade(dto: PlaceTradeDto): {
+        trade: import("./trading-engine.types").PlacedTrade;
         wallet: {
-            id: any;
-            userId: any;
-            accountType: any;
-            currency: any;
-            balance: number;
+            userId: string;
+            accountType: AccountType;
+            currency: AccountCurrency;
             balanceUsd: number;
-            isActive: any;
-            createdAt: any;
-            updatedAt: any;
+            balance: number;
+            updatedAt: string;
         };
-    }>;
-    openTrade(body: OpenTradesDto): Promise<{
-        userId: any;
-        trades: any;
-    }>;
-    getOpenTrades(query: GetTradesDto): Promise<{
-        userId: any;
-        trades: any;
-    }>;
-    getTradeHistory(query: GetTradesDto): Promise<{
-        userId: any;
-        trades: any;
-    }>;
-    settleExpiredTrades(userId?: string): Promise<{
-        settledCount: number;
-        settled: any[];
-    }>;
+    };
+    settleTrade(tradeId: string): {
+        trade: import("./trading-engine.types").PlacedTrade;
+        wallet: {
+            userId: string;
+            accountType: AccountType;
+            currency: AccountCurrency;
+            balanceUsd: number;
+            balance: number;
+            updatedAt: string;
+        };
+    };
+    getOpenTrades(userId?: string): import("./trading-engine.types").PlacedTrade[];
+    getTradeHistory(userId?: string): import("./trading-engine.types").PlacedTrade[];
+    getAllTrades(userId?: string): import("./trading-engine.types").PlacedTrade[];
+    getWallet(userId?: string, accountType?: AccountType, currency?: AccountCurrency): {
+        userId: string;
+        accountType: AccountType;
+        currency: AccountCurrency;
+        balanceUsd: number;
+        balance: number;
+        updatedAt: string;
+    };
+    getTransactions(userId?: string): import("../transactions/transactions.service").TransactionRecord[];
 }

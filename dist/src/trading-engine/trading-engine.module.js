@@ -8,8 +8,10 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TradingEngineModule = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../config/prisma.service");
 const market_data_module_1 = require("../market-data/market-data.module");
+const wallets_module_1 = require("../wallets/wallets.module");
+const transactions_module_1 = require("../transactions/transactions.module");
+const trades_module_1 = require("../trades/trades.module");
 const trading_engine_controller_1 = require("./trading-engine.controller");
 const trading_engine_service_1 = require("./trading-engine.service");
 let TradingEngineModule = class TradingEngineModule {
@@ -17,9 +19,9 @@ let TradingEngineModule = class TradingEngineModule {
 exports.TradingEngineModule = TradingEngineModule;
 exports.TradingEngineModule = TradingEngineModule = __decorate([
     (0, common_1.Module)({
-        imports: [market_data_module_1.MarketDataModule],
+        imports: [market_data_module_1.MarketDataModule, wallets_module_1.WalletsModule, transactions_module_1.TransactionsModule, trades_module_1.TradesModule],
         controllers: [trading_engine_controller_1.TradingEngineController],
-        providers: [trading_engine_service_1.TradingEngineService, prisma_service_1.PrismaService],
+        providers: [trading_engine_service_1.TradingEngineService],
         exports: [trading_engine_service_1.TradingEngineService],
     })
 ], TradingEngineModule);

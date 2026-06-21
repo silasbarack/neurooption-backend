@@ -8,19 +8,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletsModule = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../common/prisma.service");
-const emails_module_1 = require("../emails/emails.module");
-const notifications_module_1 = require("../notifications/notifications.module");
-const wallets_controller_1 = require("./wallets.controller");
 const wallets_service_1 = require("./wallets.service");
 let WalletsModule = class WalletsModule {
 };
 exports.WalletsModule = WalletsModule;
 exports.WalletsModule = WalletsModule = __decorate([
     (0, common_1.Module)({
-        imports: [emails_module_1.EmailsModule, notifications_module_1.NotificationsModule],
-        controllers: [wallets_controller_1.WalletsController],
-        providers: [wallets_service_1.WalletsService, prisma_service_1.PrismaService],
+        providers: [wallets_service_1.WalletsService],
         exports: [wallets_service_1.WalletsService],
     })
 ], WalletsModule);
