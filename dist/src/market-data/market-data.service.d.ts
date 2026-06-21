@@ -39,13 +39,15 @@ export declare class MarketDataService {
     };
     private buildCandle;
     private priceAt;
-    private getSampleStepMs;
+    private getAssetMarketProfile;
+    private getCategoryMovementMultiplier;
+    private assetImpulse;
     private buildWick;
+    private getSampleStepMs;
     private buildTickVolume;
     private interpolatedNoise;
     private sessionVolatilityMultiplier;
     private seededRandom;
-    private assetSeed;
     private roundPrice;
     private normalizeTimeframe;
     private normalizeLimit;

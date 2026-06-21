@@ -96,31 +96,165 @@ let MarketDataService = class MarketDataService {
         };
     }
     priceAt(asset, timeMs) {
-        const seed = this.assetSeed(asset.symbol);
+        const profile = this.getAssetMarketProfile(asset);
         const seconds = timeMs / 1000;
-        const macroTrend = Math.sin(seconds / (1800 + (seed % 400)) + seed * 0.0021) *
+        const categoryMultiplier = this.getCategoryMovementMultiplier(asset.category);
+        const macroTrend = Math.sin(seconds / profile.macroCycle + profile.phaseA) *
             asset.volatility *
-            1.15;
-        const marketSwing = Math.sin(seconds / (520 + (seed % 120)) + seed * 0.0087) *
+            profile.macroStrength *
+            categoryMultiplier;
+        const marketSwing = Math.sin(seconds / profile.swingCycle + profile.phaseB) *
             asset.volatility *
-            0.82;
-        const intradayWave = Math.sin(seconds / (130 + (seed % 40)) + seed * 0.018) *
+            profile.swingStrength *
+            categoryMultiplier;
+        const intradayWave = Math.sin(seconds / profile.intradayCycle + profile.phaseC) *
             asset.volatility *
-            0.44;
-        const tickPulse = Math.sin(seconds / (8.5 + (seed % 5)) + seed * 0.044) *
+            profile.intradayStrength *
+            categoryMultiplier;
+        const microPulse = Math.sin(seconds / profile.microCycle + profile.phaseA * 0.71) *
             asset.volatility *
-            0.095;
-        const smoothTickNoise = this.interpolatedNoise(asset.symbol, timeMs, 900) *
+            profile.microStrength *
+            categoryMultiplier;
+        const smoothNoise = this.interpolatedNoise(asset.symbol, timeMs, profile.noiseBucketMs) *
             asset.volatility *
-            0.16;
-        const sessionPressure = this.sessionVolatilityMultiplier(timeMs) * asset.volatility * 0.11;
+            profile.noiseStrength *
+            categoryMultiplier;
+        const impulse = this.assetImpulse(asset, timeMs, profile) *
+            asset.volatility *
+            profile.impulseStrength *
+            categoryMultiplier;
+        const drift = Math.sin(seconds / (profile.macroCycle * 2.9) + profile.phaseB) *
+            asset.volatility *
+            profile.driftStrength *
+            profile.direction;
+        const sessionPressure = this.sessionVolatilityMultiplier(asset.category, timeMs) *
+            asset.volatility *
+            0.1 *
+            categoryMultiplier;
         const totalMove = macroTrend +
             marketSwing +
             intradayWave +
-            tickPulse +
-            smoothTickNoise +
+            microPulse +
+            smoothNoise +
+            impulse +
+            drift +
             sessionPressure;
         return Math.max(asset.basePrice * (1 + totalMove), asset.basePrice * 0.05);
+    }
+    getAssetMarketProfile(asset) {
+        const key = asset.symbol;
+        const category = asset.category;
+        const r1 = this.seededRandom(`${key}:profile:1`);
+        const r2 = this.seededRandom(`${key}:profile:2`);
+        const r3 = this.seededRandom(`${key}:profile:3`);
+        const r4 = this.seededRandom(`${key}:profile:4`);
+        const r5 = this.seededRandom(`${key}:profile:5`);
+        const r6 = this.seededRandom(`${key}:profile:6`);
+        const r7 = this.seededRandom(`${key}:profile:7`);
+        const r8 = this.seededRandom(`${key}:profile:8`);
+        const r9 = this.seededRandom(`${key}:profile:9`);
+        const r10 = this.seededRandom(`${key}:profile:10`);
+        let categoryMacroBase = 1800;
+        let categorySwingBase = 520;
+        let categoryIntradayBase = 130;
+        let categoryMicroBase = 8.5;
+        let categoryImpulseBase = 900;
+        if (category === 'Cryptocurrencies') {
+            categoryMacroBase = 1300;
+            categorySwingBase = 360;
+            categoryIntradayBase = 80;
+            categoryMicroBase = 5.5;
+            categoryImpulseBase = 520;
+        }
+        if (category === 'Commodities') {
+            categoryMacroBase = 2100;
+            categorySwingBase = 680;
+            categoryIntradayBase = 160;
+            categoryMicroBase = 10;
+            categoryImpulseBase = 760;
+        }
+        if (category === 'Stocks') {
+            categoryMacroBase = 2600;
+            categorySwingBase = 780;
+            categoryIntradayBase = 210;
+            categoryMicroBase = 13;
+            categoryImpulseBase = 1200;
+        }
+        if (category === 'Indices') {
+            categoryMacroBase = 2300;
+            categorySwingBase = 620;
+            categoryIntradayBase = 170;
+            categoryMicroBase = 11;
+            categoryImpulseBase = 980;
+        }
+        return {
+            macroCycle: categoryMacroBase * (0.55 + r1 * 1.25),
+            swingCycle: categorySwingBase * (0.45 + r2 * 1.4),
+            intradayCycle: categoryIntradayBase * (0.45 + r3 * 1.6),
+            microCycle: categoryMicroBase * (0.65 + r4 * 1.35),
+            noiseBucketMs: Math.floor(650 + r5 * 2200),
+            eventCycle: categoryImpulseBase * (0.55 + r6 * 1.8),
+            macroStrength: 0.7 + r2 * 1.1,
+            swingStrength: 0.35 + r3 * 1.25,
+            intradayStrength: 0.18 + r4 * 0.75,
+            microStrength: 0.035 + r5 * 0.11,
+            noiseStrength: 0.05 + r6 * 0.2,
+            impulseStrength: 0.04 + r7 * 0.34,
+            driftStrength: 0.04 + r8 * 0.22,
+            phaseA: r7 * Math.PI * 2,
+            phaseB: r8 * Math.PI * 2,
+            phaseC: r9 * Math.PI * 2,
+            direction: r10 >= 0.5 ? 1 : -1,
+        };
+    }
+    getCategoryMovementMultiplier(category) {
+        if (category === 'Cryptocurrencies')
+            return 1.45;
+        if (category === 'Commodities')
+            return 1.18;
+        if (category === 'Stocks')
+            return 0.92;
+        if (category === 'Indices')
+            return 0.78;
+        return 1;
+    }
+    assetImpulse(asset, timeMs, profile) {
+        const seconds = timeMs / 1000;
+        const bucket = Math.floor(seconds / profile.eventCycle);
+        const bucketStart = bucket * profile.eventCycle;
+        const progress = (seconds - bucketStart) / profile.eventCycle;
+        const eventChance = this.seededRandom(`${asset.symbol}:event:${bucket}`);
+        const directionSeed = this.seededRandom(`${asset.symbol}:event-dir:${bucket}`);
+        if (eventChance < 0.72)
+            return 0;
+        const direction = directionSeed >= 0.5 ? 1 : -1;
+        const attack = Math.min(progress / 0.22, 1);
+        const decay = Math.max(1 - (progress - 0.22) / 0.78, 0);
+        const shape = attack * decay;
+        return direction * shape;
+    }
+    buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, effectiveEnd, candleEnd) {
+        const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
+        const progress = Math.min(Math.max((effectiveEnd - candleStart) / (candleEnd - candleStart), 0.05), 1);
+        const bodyRange = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.000015);
+        const timeframeWeight = Math.sqrt(Math.max(timeframeSeconds, 5) / 60);
+        const upperRandom = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:upper-wick`);
+        const lowerRandom = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:lower-wick`);
+        const categoryWickMultiplier = asset.category === 'Cryptocurrencies'
+            ? 1.35
+            : asset.category === 'Commodities'
+                ? 1.18
+                : asset.category === 'Stocks'
+                    ? 0.9
+                    : 1;
+        const maxWick = (bodyRange * (0.08 + timeframeWeight * 0.065) +
+            asset.basePrice * asset.volatility * 0.006) *
+            progress *
+            categoryWickMultiplier;
+        return {
+            high: bodyHigh + maxWick * upperRandom,
+            low: bodyLow - maxWick * lowerRandom,
+        };
     }
     getSampleStepMs(timeframeSeconds) {
         if (timeframeSeconds <= 5)
@@ -149,24 +283,18 @@ let MarketDataService = class MarketDataService {
             return 120000;
         return 300000;
     }
-    buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, effectiveEnd, candleEnd) {
-        const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
-        const progress = Math.min(Math.max((effectiveEnd - candleStart) / (candleEnd - candleStart), 0.05), 1);
-        const bodyRange = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.000015);
-        const timeframeWeight = Math.sqrt(Math.max(timeframeSeconds, 5) / 60);
-        const upperRandom = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:upper-wick`);
-        const lowerRandom = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:lower-wick`);
-        const maxWick = (bodyRange * (0.1 + timeframeWeight * 0.06) +
-            asset.basePrice * asset.volatility * 0.006) *
-            progress;
-        return {
-            high: bodyHigh + maxWick * upperRandom,
-            low: bodyLow - maxWick * lowerRandom,
-        };
-    }
     buildTickVolume(asset, timeframe, candleStart) {
         const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
-        const base = Math.max(10, Math.floor(timeframeSeconds / 3));
+        const categoryMultiplier = asset.category === 'Cryptocurrencies'
+            ? 2.4
+            : asset.category === 'Commodities'
+                ? 1.7
+                : asset.category === 'Stocks'
+                    ? 1.2
+                    : asset.category === 'Indices'
+                        ? 1.45
+                        : 1;
+        const base = Math.max(10, Math.floor((timeframeSeconds / 3) * categoryMultiplier));
         const random = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:volume`);
         return Math.floor(base + random * base * 2.5);
     }
@@ -179,8 +307,29 @@ let MarketDataService = class MarketDataService {
         const next = this.seededRandom(`${key}:tick:${bucket + 1}`);
         return (current * (1 - smoothProgress) + next * smoothProgress - 0.5) * 2;
     }
-    sessionVolatilityMultiplier(timeMs) {
+    sessionVolatilityMultiplier(category, timeMs) {
         const utcHour = new Date(timeMs).getUTCHours();
+        if (category === 'Cryptocurrencies') {
+            if (utcHour >= 0 && utcHour <= 5)
+                return 0.18;
+            if (utcHour >= 12 && utcHour <= 20)
+                return 0.28;
+            return 0.1;
+        }
+        if (category === 'Commodities') {
+            if (utcHour >= 6 && utcHour <= 11)
+                return 0.14;
+            if (utcHour >= 12 && utcHour <= 18)
+                return 0.26;
+            return 0.04;
+        }
+        if (category === 'Stocks' || category === 'Indices') {
+            if (utcHour >= 13 && utcHour <= 20)
+                return 0.24;
+            if (utcHour >= 7 && utcHour <= 11)
+                return 0.08;
+            return -0.02;
+        }
         if (utcHour >= 7 && utcHour <= 11)
             return 0.14;
         if (utcHour >= 12 && utcHour <= 16)
@@ -203,9 +352,6 @@ let MarketDataService = class MarketDataService {
                     (hash << 24);
         }
         return Math.abs(hash >>> 0) / 4294967295;
-    }
-    assetSeed(symbol) {
-        return Math.floor(this.seededRandom(symbol) * 1000000);
     }
     roundPrice(price, precision) {
         return Number(price.toFixed(precision));
