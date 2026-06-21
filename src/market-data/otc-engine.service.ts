@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { M1_CANDLE_MS, SeedAsset } from './market-data.constants';
+import { M1_CANDLE_MS, MarketAsset } from './market-data.constants';
+
+type SeedAsset = MarketAsset;
 
 export type GeneratedCandle = {
   open: number;

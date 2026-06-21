@@ -52,9 +52,9 @@ export class MarketDataService {
   getCandles(query: MarketCandlesQueryDto) {
     const asset = this.findAsset(query.asset);
     const timeframe = this.normalizeTimeframe(query.timeframe);
-    const seconds = TIMEFRAME_SECONDS[timeframe];
-    const intervalMs = seconds * 1000;
-    const limit = this.normalizeLimit(query.limit);
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const intervalMs = timeframeSeconds * 1000;
+    const limit = this.normalizeLimit(query.limit, timeframeSeconds);
 
     const now = Date.now();
     const currentCandleStart = Math.floor(now / intervalMs) * intervalMs;
@@ -64,9 +64,10 @@ export class MarketDataService {
 
     for (let index = 0; index < limit; index += 1) {
       const candleStart = firstStart + index * intervalMs;
-      const candle = this.buildCandle(asset, timeframe, candleStart, now);
 
-      candles.push(candle);
+      candles.push(
+        this.buildCanonicalCandle(asset, timeframe, candleStart, now),
+      );
     }
 
     return {
@@ -80,56 +81,58 @@ export class MarketDataService {
         isActive: asset.isActive,
       },
       timeframe,
-      timeframeSeconds: seconds,
+      timeframeSeconds,
       serverTime: new Date(now).toISOString(),
       candles,
     };
   }
 
-  private buildCandle(
+  private buildCanonicalCandle(
     asset: MarketAsset,
     timeframe: string,
     candleStart: number,
     now: number,
   ): OtcCandle {
-    const seconds = TIMEFRAME_SECONDS[timeframe];
-    const intervalMs = seconds * 1000;
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const intervalMs = timeframeSeconds * 1000;
     const candleEnd = candleStart + intervalMs;
-
     const effectiveEnd = Math.min(candleEnd, now);
+
     const open = this.priceAt(asset, candleStart);
     const close = this.priceAt(asset, effectiveEnd);
 
-    const sampleCount = this.getSampleCount(seconds);
     const prices: number[] = [open, close];
 
-    for (let index = 1; index < sampleCount; index += 1) {
-      const ratio = index / sampleCount;
-      const sampleTime = candleStart + Math.floor((effectiveEnd - candleStart) * ratio);
+    const sampleStepMs = this.getCanonicalSampleStepMs(timeframeSeconds);
 
-      if (sampleTime <= candleStart || sampleTime >= effectiveEnd) {
-        continue;
-      }
-
+    for (
+      let sampleTime = candleStart + sampleStepMs;
+      sampleTime < effectiveEnd;
+      sampleTime += sampleStepMs
+    ) {
       prices.push(this.priceAt(asset, sampleTime));
     }
 
     const bodyHigh = Math.max(...prices);
     const bodyLow = Math.min(...prices);
 
-    const wick = this.buildWick(asset, candleStart, timeframe, bodyHigh, bodyLow);
-    const high = Math.max(bodyHigh, wick.high);
-    const low = Math.min(bodyLow, wick.low);
+    const wick = this.buildRealisticWick(
+      asset,
+      timeframe,
+      candleStart,
+      bodyHigh,
+      bodyLow,
+    );
 
     return {
       time: candleStart,
       openTime: new Date(candleStart).toISOString(),
       closeTime: new Date(candleEnd).toISOString(),
       open: this.roundPrice(open, asset.precision),
-      high: this.roundPrice(high, asset.precision),
-      low: this.roundPrice(low, asset.precision),
+      high: this.roundPrice(Math.max(bodyHigh, wick.high), asset.precision),
+      low: this.roundPrice(Math.min(bodyLow, wick.low), asset.precision),
       close: this.roundPrice(close, asset.precision),
-      volume: this.buildTickVolume(asset, candleStart, timeframe),
+      volume: this.buildTickVolume(asset, timeframe, candleStart),
     };
   }
 
@@ -137,111 +140,115 @@ export class MarketDataService {
     const seed = this.assetSeed(asset.symbol);
     const seconds = timeMs / 1000;
 
-    const slowTrend =
-      Math.sin(seconds / (540 + (seed % 90)) + seed * 0.001) *
+    const slowStructure =
+      Math.sin(seconds / (1400 + (seed % 300)) + seed * 0.003) *
       asset.volatility *
-      1.2;
+      1.35;
 
-    const mediumWave =
-      Math.sin(seconds / (92 + (seed % 33)) + seed * 0.017) *
+    const mediumStructure =
+      Math.sin(seconds / (390 + (seed % 95)) + seed * 0.011) *
       asset.volatility *
-      0.75;
+      0.85;
 
-    const fastWave =
-      Math.sin(seconds / (16 + (seed % 7)) + seed * 0.031) *
+    const shortStructure =
+      Math.sin(seconds / (72 + (seed % 21)) + seed * 0.021) *
       asset.volatility *
-      0.32;
+      0.42;
 
-    const microNoise =
-      this.smoothNoise(asset.symbol, Math.floor(timeMs / 1400), 0.23) *
+    const microMovement =
+      this.smoothNoise(asset.symbol, Math.floor(timeMs / 2500), 0.4) *
       asset.volatility *
-      0.45;
+      0.22;
 
     const sessionPressure =
-      this.sessionVolatilityMultiplier(timeMs) * asset.volatility * 0.18;
-
-    const directionBias =
-      Math.sin(seconds / (1300 + (seed % 300)) + seed * 0.006) *
-      asset.volatility *
-      0.45;
+      this.sessionVolatilityMultiplier(timeMs) * asset.volatility * 0.16;
 
     const totalMove =
-      slowTrend +
-      mediumWave +
-      fastWave +
-      microNoise +
-      sessionPressure +
-      directionBias;
+      slowStructure +
+      mediumStructure +
+      shortStructure +
+      microMovement +
+      sessionPressure;
 
     const price = asset.basePrice * (1 + totalMove);
 
     return Math.max(price, asset.basePrice * 0.05);
   }
 
-  private buildWick(
+  private getCanonicalSampleStepMs(timeframeSeconds: number) {
+    if (timeframeSeconds <= 5) return 1000;
+    if (timeframeSeconds <= 15) return 2500;
+    if (timeframeSeconds <= 30) return 5000;
+    if (timeframeSeconds <= 60) return 5000;
+    if (timeframeSeconds <= 180) return 10000;
+    if (timeframeSeconds <= 300) return 15000;
+    if (timeframeSeconds <= 900) return 30000;
+    if (timeframeSeconds <= 1800) return 60000;
+    if (timeframeSeconds <= 3600) return 120000;
+
+    return 300000;
+  }
+
+  private buildRealisticWick(
     asset: MarketAsset,
-    candleStart: number,
     timeframe: string,
+    candleStart: number,
     bodyHigh: number,
     bodyLow: number,
   ) {
-    const seconds = TIMEFRAME_SECONDS[timeframe];
-    const baseRange = asset.basePrice * asset.volatility;
-    const timeframeMultiplier = Math.sqrt(Math.max(seconds, 5) / 60);
-    const randomA = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:wick-a`);
-    const randomB = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:wick-b`);
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const bodyRange = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.00002);
+    const timeframeWeight = Math.sqrt(Math.max(timeframeSeconds, 5) / 60);
 
-    const wickSizeHigh = baseRange * timeframeMultiplier * (0.08 + randomA * 0.22);
-    const wickSizeLow = baseRange * timeframeMultiplier * (0.08 + randomB * 0.22);
+    const upperRandom = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:upper-wick`,
+    );
+
+    const lowerRandom = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:lower-wick`,
+    );
+
+    const maxWick =
+      bodyRange * (0.12 + timeframeWeight * 0.08) +
+      asset.basePrice * asset.volatility * 0.01;
 
     return {
-      high: bodyHigh + wickSizeHigh,
-      low: bodyLow - wickSizeLow,
+      high: bodyHigh + maxWick * upperRandom,
+      low: bodyLow - maxWick * lowerRandom,
     };
   }
 
   private buildTickVolume(
     asset: MarketAsset,
-    candleStart: number,
     timeframe: string,
+    candleStart: number,
   ) {
-    const seconds = TIMEFRAME_SECONDS[timeframe];
-    const base = Math.max(8, Math.floor(seconds / 2));
-    const random = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:volume`);
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const base = Math.max(10, Math.floor(timeframeSeconds / 3));
 
-    return Math.floor(base + random * base * 3);
-  }
+    const random = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:volume`,
+    );
 
-  private getSampleCount(seconds: number) {
-    if (seconds <= 5) return 4;
-    if (seconds <= 15) return 5;
-    if (seconds <= 30) return 6;
-    if (seconds <= 60) return 8;
-    if (seconds <= 180) return 10;
-    if (seconds <= 300) return 12;
-    if (seconds <= 900) return 16;
-    if (seconds <= 1800) return 20;
-
-    return 24;
+    return Math.floor(base + random * base * 2.5);
   }
 
   private sessionVolatilityMultiplier(timeMs: number) {
-    const date = new Date(timeMs);
-    const utcHour = date.getUTCHours();
+    const utcHour = new Date(timeMs).getUTCHours();
 
-    if (utcHour >= 7 && utcHour <= 16) return 0.22;
-    if (utcHour >= 13 && utcHour <= 21) return 0.3;
-    if (utcHour >= 0 && utcHour <= 5) return -0.12;
+    if (utcHour >= 7 && utcHour <= 11) return 0.18;
+    if (utcHour >= 12 && utcHour <= 16) return 0.28;
+    if (utcHour >= 17 && utcHour <= 21) return 0.2;
+    if (utcHour >= 0 && utcHour <= 5) return -0.08;
 
-    return 0.05;
+    return 0.04;
   }
 
   private smoothNoise(key: string, bucket: number, smoothness: number) {
     const current = this.seededRandom(`${key}:${bucket}`);
     const next = this.seededRandom(`${key}:${bucket + 1}`);
-    const ratio = smoothness;
 
-    return (current * (1 - ratio) + next * ratio - 0.5) * 2;
+    return (current * (1 - smoothness) + next * smoothness - 0.5) * 2;
   }
 
   private seededRandom(input: string) {
@@ -257,9 +264,7 @@ export class MarketDataService {
         (hash << 24);
     }
 
-    const normalized = Math.abs(hash >>> 0) / 4294967295;
-
-    return normalized;
+    return Math.abs(hash >>> 0) / 4294967295;
   }
 
   private assetSeed(symbol: string) {
@@ -268,12 +273,6 @@ export class MarketDataService {
 
   private roundPrice(price: number, precision: number) {
     return Number(price.toFixed(precision));
-  }
-
-  private normalizeLimit(limit?: number) {
-    if (!limit || Number.isNaN(limit)) return 180;
-
-    return Math.min(Math.max(Number(limit), 20), 500);
   }
 
   private normalizeTimeframe(timeframe?: string) {
@@ -288,6 +287,20 @@ export class MarketDataService {
     }
 
     return normalized;
+  }
+
+  private normalizeLimit(limit: number | undefined, timeframeSeconds: number) {
+    const requested = Number(limit || 180);
+
+    let maxLimit = 500;
+
+    if (timeframeSeconds >= 14400) maxLimit = 100;
+    else if (timeframeSeconds >= 3600) maxLimit = 140;
+    else if (timeframeSeconds >= 1800) maxLimit = 180;
+    else if (timeframeSeconds >= 900) maxLimit = 220;
+    else if (timeframeSeconds >= 300) maxLimit = 260;
+
+    return Math.min(Math.max(requested, 20), maxLimit);
   }
 
   private findAsset(symbol: string) {
