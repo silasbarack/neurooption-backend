@@ -6,13 +6,13 @@ export declare class AssetsController {
     constructor(assetsService: AssetsService);
     findAll(query: AssetsQueryDto): Promise<{
         symbol: string;
-        category: import(".prisma/client").$Enums.AssetCategory;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        isActive: boolean;
+        category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
+        isActive: boolean;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
     }[]>;
     getSummary(): Promise<{
@@ -43,24 +43,24 @@ export declare class AssetsController {
     }>;
     findBySymbol(symbol: string, marketType?: MarketType): Promise<{
         symbol: string;
-        category: import(".prisma/client").$Enums.AssetCategory;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        isActive: boolean;
+        category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
+        isActive: boolean;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
     }>;
     findById(id: string): Promise<{
         symbol: string;
-        category: import(".prisma/client").$Enums.AssetCategory;
         id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        isActive: boolean;
+        category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
+        isActive: boolean;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
     }>;
 }

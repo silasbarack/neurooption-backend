@@ -7,14 +7,14 @@ export declare class AdminController {
     constructor(adminService: AdminService);
     create(dto: CreateAdminDto): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }>;
     login(dto: AdminLoginDto): Promise<{
         message: string;
@@ -23,68 +23,68 @@ export declare class AdminController {
     }>;
     findAll(): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }>;
     update(id: string, dto: UpdateAdminDto): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }>;
     disable(id: string): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }>;
     enable(id: string): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }>;
     delete(id: string): Promise<{
         id: string;
-        email: string;
-        phone: string | null;
-        fullName: string;
-        passwordHash: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
         isActive: boolean;
+        passwordHash: string;
+        fullName: string;
+        email: string;
+        phone: string | null;
+        role: import(".prisma/client").$Enums.AdminRole;
     }>;
 }

@@ -5,6 +5,7 @@ export type AccountCurrency = 'USD' | 'KES' | 'UGX' | 'TZS' | 'NGN' | 'XOF' | 'E
 export type PlacedTrade = {
     id: string;
     userId: string;
+    walletId?: string | null;
     asset: string;
     timeframe: string;
     side: TradeSide;

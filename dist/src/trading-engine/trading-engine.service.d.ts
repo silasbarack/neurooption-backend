@@ -11,40 +11,75 @@ export declare class TradingEngineService {
     private readonly tradesService;
     private readonly settlementTimers;
     constructor(marketDataService: MarketDataService, walletsService: WalletsService, transactionsService: TransactionsService, tradesService: TradesService);
-    placeTrade(dto: PlaceTradeDto): {
+    placeTrade(dto: PlaceTradeDto): Promise<{
         trade: PlacedTrade;
         wallet: {
-            userId: string;
-            accountType: AccountType;
-            currency: AccountCurrency;
-            balanceUsd: number;
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
             balance: number;
-            updatedAt: string;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
         };
-    };
-    settleTrade(tradeId: string): {
+    }>;
+    settleTrade(tradeId: string): Promise<{
         trade: PlacedTrade;
         wallet: {
-            userId: string;
-            accountType: AccountType;
-            currency: AccountCurrency;
-            balanceUsd: number;
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
             balance: number;
-            updatedAt: string;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
         };
-    };
-    getOpenTrades(userId?: string): PlacedTrade[];
-    getTradeHistory(userId?: string): PlacedTrade[];
-    getAllTrades(userId?: string): PlacedTrade[];
-    getWallet(userId?: string, accountType?: AccountType, currency?: AccountCurrency): {
-        userId: string;
-        accountType: AccountType;
-        currency: AccountCurrency;
-        balanceUsd: number;
+    }>;
+    getOpenTrades(userId?: string): Promise<PlacedTrade[]>;
+    getTradeHistory(userId?: string): Promise<PlacedTrade[]>;
+    getAllTrades(userId?: string): Promise<PlacedTrade[]>;
+    getWallet(userId?: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
+        id: any;
+        userId: any;
+        accountType: any;
+        currency: any;
         balance: number;
-        updatedAt: string;
-    };
-    getTransactions(userId?: string): import("../transactions/transactions.service").TransactionRecord[];
+        balanceUsd: number;
+        locked: number;
+        lockedUsd: number;
+        createdAt: any;
+        updatedAt: any;
+    }>;
+    getTransactions(userId?: string): Promise<{
+        id: any;
+        userId: any;
+        walletId: any;
+        tradeId: any;
+        accountType: any;
+        currency: any;
+        type: any;
+        status: any;
+        amount: number;
+        amountUsd: number;
+        balanceAfter: number;
+        balanceAfterUsd: number;
+        description: any;
+        reference: any;
+        reason: any;
+        metadata: any;
+        createdAt: any;
+        updatedAt: any;
+    }[]>;
+    settleExpiredTrades(userId?: string): Promise<{
+        userId: string;
+        settled: number;
+    }>;
     private applySettlement;
     private calculateResultStatus;
     private calculatePayoutPercent;
@@ -52,5 +87,4 @@ export declare class TradingEngineService {
     private clearSettlementTimer;
     private validateTradeInput;
     private findAsset;
-    private createId;
 }

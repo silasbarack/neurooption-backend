@@ -5,82 +5,59 @@ import { WalletsService } from './wallets.service';
 export declare class WalletsController {
     private readonly walletsService;
     constructor(walletsService: WalletsService);
-    getWallets(userId: string): {
+    getWallets(userId: string): Promise<{
+        id: string;
         userId: string;
-        accountType: import("../trading-engine/trading-engine.types").AccountType;
-        currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-        balanceUsd: number;
-        balance: number;
-        updatedAt: string;
-    }[];
-    deposit(dto: DepositDto): {
+        accountType: string;
+        currency: string;
+        balance: import("@prisma/client/runtime/library").Decimal;
+        balanceUsd: import("@prisma/client/runtime/library").Decimal;
+        locked: import("@prisma/client/runtime/library").Decimal;
+        lockedUsd: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+    }[]>;
+    deposit(dto: DepositDto): Promise<{
         message: string;
         wallet: {
-            userId: string;
-            accountType: import("../trading-engine/trading-engine.types").AccountType;
-            currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-            balanceUsd: number;
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
             balance: number;
-            updatedAt: string;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
         };
-    };
-    withdraw(dto: WithdrawDto): {
+    }>;
+    withdraw(dto: WithdrawDto): Promise<{
         message: string;
-        withdrawal: {
-            id: string;
-            userId: string;
-            accountType: import("../trading-engine/trading-engine.types").AccountType;
-            currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-            amount: number;
-            amountUsd: number;
-            status: "PROCESSING" | "PENDING" | "COMPLETED" | "REJECTED" | "CANCELLED";
-            reason?: string;
-            createdAt: string;
-            updatedAt: string;
-        };
         wallet: {
-            userId: string;
-            accountType: import("../trading-engine/trading-engine.types").AccountType;
-            currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-            balanceUsd: number;
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
             balance: number;
-            updatedAt: string;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
         };
-    };
-    markWithdrawalProcessing(transactionId: string): {
+    }>;
+    markWithdrawalProcessing(transactionId: string): Promise<{
         id: string;
-        userId: string;
-        accountType: import("../trading-engine/trading-engine.types").AccountType;
-        currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-        amount: number;
-        amountUsd: number;
-        status: "PROCESSING" | "PENDING" | "COMPLETED" | "REJECTED" | "CANCELLED";
-        reason?: string;
-        createdAt: string;
-        updatedAt: string;
-    };
-    completeWithdrawal(transactionId: string): {
+        status: string;
+    }>;
+    completeWithdrawal(transactionId: string): Promise<{
         id: string;
-        userId: string;
-        accountType: import("../trading-engine/trading-engine.types").AccountType;
-        currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-        amount: number;
-        amountUsd: number;
-        status: "PROCESSING" | "PENDING" | "COMPLETED" | "REJECTED" | "CANCELLED";
-        reason?: string;
-        createdAt: string;
-        updatedAt: string;
-    };
-    rejectWithdrawal(transactionId: string, dto: RejectWithdrawalDto): {
+        status: string;
+    }>;
+    rejectWithdrawal(transactionId: string, dto: RejectWithdrawalDto): Promise<{
         id: string;
-        userId: string;
-        accountType: import("../trading-engine/trading-engine.types").AccountType;
-        currency: import("../trading-engine/trading-engine.types").AccountCurrency;
-        amount: number;
-        amountUsd: number;
-        status: "PROCESSING" | "PENDING" | "COMPLETED" | "REJECTED" | "CANCELLED";
-        reason?: string;
-        createdAt: string;
-        updatedAt: string;
-    };
+        status: string;
+        reason: any;
+    }>;
 }

@@ -12,19 +12,19 @@ export declare class AuditLogsService {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
+        userId: string | null;
         createdAt: Date;
         description: string | null;
-        userId: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -38,19 +38,19 @@ export declare class AuditLogsService {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
+        userId: string | null;
         createdAt: Date;
         description: string | null;
-        userId: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -64,19 +64,19 @@ export declare class AuditLogsService {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
+        userId: string | null;
         createdAt: Date;
         description: string | null;
-        userId: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -90,19 +90,19 @@ export declare class AuditLogsService {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
+        userId: string | null;
         createdAt: Date;
         description: string | null;
-        userId: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -116,19 +116,19 @@ export declare class AuditLogsService {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
+        userId: string | null;
         createdAt: Date;
         description: string | null;
-        userId: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -142,19 +142,19 @@ export declare class AuditLogsService {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
         id: string;
+        userId: string | null;
         createdAt: Date;
         description: string | null;
-        userId: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;

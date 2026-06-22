@@ -20,6 +20,7 @@ export type AccountCurrency =
 export type PlacedTrade = {
   id: string;
   userId: string;
+  walletId?: string | null;
   asset: string;
   timeframe: string;
   side: TradeSide;

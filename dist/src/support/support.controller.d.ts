@@ -8,17 +8,17 @@ export declare class SupportController {
     createTicket(dto: CreateSupportTicketDto): Promise<{
         user: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            passwordHash: string;
+            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
-            fullName: string;
-            passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
-            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         messages: {
             id: string;
@@ -30,26 +30,26 @@ export declare class SupportController {
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
     getTickets(): Promise<({
         user: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            passwordHash: string;
+            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
-            fullName: string;
-            passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
-            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         messages: {
             id: string;
@@ -61,26 +61,26 @@ export declare class SupportController {
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     })[]>;
     getTicket(id: string): Promise<{
         user: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            passwordHash: string;
+            fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
-            fullName: string;
-            passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
-            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
         messages: {
             id: string;
@@ -92,10 +92,10 @@ export declare class SupportController {
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
     getUserTickets(userId: string): Promise<({
@@ -109,10 +109,10 @@ export declare class SupportController {
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     })[]>;
     sendMessage(dto: CreateSupportMessageDto): Promise<{
@@ -125,26 +125,26 @@ export declare class SupportController {
     }>;
     updateStatus(id: string, dto: UpdateSupportTicketStatusDto): Promise<{
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
     resolve(id: string): Promise<{
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
     close(id: string): Promise<{
         id: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
 }

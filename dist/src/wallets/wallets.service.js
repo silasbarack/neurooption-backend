@@ -5,73 +5,67 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletsService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
+const prisma_service_1 = require("../config/prisma.service");
 const trading_engine_types_1 = require("../trading-engine/trading-engine.types");
 let WalletsService = class WalletsService {
-    constructor() {
-        this.wallets = new Map();
-        this.withdrawals = new Map();
+    constructor(prisma) {
+        this.prisma = prisma;
     }
-    getWallet(userId) {
-        const wallet = this.ensureWallet(userId);
-        return {
-            userId: wallet.userId,
-            balancesUsd: { ...wallet.balancesUsd },
-            updatedAt: wallet.updatedAt,
-        };
+    async getWallet(userId) {
+        return this.prisma.engineWallet.findMany({
+            where: { userId: userId?.trim() || 'demo-user' },
+            orderBy: [{ accountType: 'asc' }, { currency: 'asc' }],
+        });
     }
-    getUserWallets(userIdOrQuery = 'demo-user', accountType, currency) {
+    async getUserWallets(userIdOrQuery = 'demo-user') {
         const userId = typeof userIdOrQuery === 'object'
             ? String(userIdOrQuery?.userId ?? 'demo-user')
             : String(userIdOrQuery ?? 'demo-user');
-        const selectedCurrency = currency ??
-            (typeof userIdOrQuery === 'object'
-                ? userIdOrQuery?.currency
-                : undefined) ??
-            'USD';
-        const wallet = this.ensureWallet(userId);
-        const accountTypes = accountType
-            ? [accountType]
-            : ['QT Demo', 'QT Real'];
-        return accountTypes.map((type) => this.getBalance(userId, type, selectedCurrency));
+        return this.getWallet(userId);
     }
-    getBalance(userId, accountType = 'QT Demo', currency = 'USD') {
-        const wallet = this.ensureWallet(userId);
-        const usdBalance = wallet.balancesUsd[accountType] ?? 0;
-        return {
-            userId,
-            accountType,
-            currency,
-            balanceUsd: Number(usdBalance.toFixed(2)),
-            balance: Number((0, trading_engine_types_1.usdToCurrency)(usdBalance, currency).toFixed(2)),
-            updatedAt: wallet.updatedAt,
-        };
+    async getBalance(userId, accountType = 'QT Demo', currency = 'USD') {
+        const wallet = await this.ensureWallet(userId, accountType, currency);
+        return this.formatWallet(wallet);
     }
-    debit(userId, accountType, amountUsd) {
+    async debit(userId, accountType, amountUsd) {
         if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
             throw new common_1.BadRequestException('Debit amount must be greater than zero.');
         }
-        const wallet = this.ensureWallet(userId);
-        const currentBalance = wallet.balancesUsd[accountType] ?? 0;
-        if (currentBalance < amountUsd) {
+        const wallet = await this.ensureWallet(userId, accountType, 'USD');
+        const currentUsd = Number(wallet.balanceUsd);
+        if (currentUsd < amountUsd) {
             throw new common_1.BadRequestException('Insufficient balance.');
         }
-        wallet.balancesUsd[accountType] = Number((currentBalance - amountUsd).toFixed(8));
-        wallet.updatedAt = new Date().toISOString();
-        return this.getWallet(userId);
+        return this.prisma.engineWallet.update({
+            where: { id: wallet.id },
+            data: {
+                balanceUsd: new client_1.Prisma.Decimal(currentUsd - amountUsd),
+                balance: new client_1.Prisma.Decimal(Number(wallet.balance) - amountUsd),
+            },
+        });
     }
-    credit(userId, accountType, amountUsd) {
+    async credit(userId, accountType, amountUsd) {
         if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
             throw new common_1.BadRequestException('Credit amount must be greater than zero.');
         }
-        const wallet = this.ensureWallet(userId);
-        wallet.balancesUsd[accountType] = Number(((wallet.balancesUsd[accountType] ?? 0) + amountUsd).toFixed(8));
-        wallet.updatedAt = new Date().toISOString();
-        return this.getWallet(userId);
+        const wallet = await this.ensureWallet(userId, accountType, 'USD');
+        const currentUsd = Number(wallet.balanceUsd);
+        return this.prisma.engineWallet.update({
+            where: { id: wallet.id },
+            data: {
+                balanceUsd: new client_1.Prisma.Decimal(currentUsd + amountUsd),
+                balance: new client_1.Prisma.Decimal(Number(wallet.balance) + amountUsd),
+            },
+        });
     }
-    deposit(dto) {
+    async deposit(dto) {
         const userId = String(dto?.userId ?? 'demo-user');
         const accountType = String(dto?.accountType ?? 'QT Demo');
         const currency = String(dto?.currency ?? 'USD');
@@ -80,13 +74,20 @@ let WalletsService = class WalletsService {
             throw new common_1.BadRequestException('Deposit amount must be greater than zero.');
         }
         const amountUsd = dto?.amountUsd !== undefined ? Number(dto.amountUsd) : (0, trading_engine_types_1.currencyToUsd)(amount, currency);
-        this.credit(userId, accountType, amountUsd);
+        const wallet = await this.ensureWallet(userId, accountType, currency);
+        const updatedWallet = await this.prisma.engineWallet.update({
+            where: { id: wallet.id },
+            data: {
+                balanceUsd: new client_1.Prisma.Decimal(Number(wallet.balanceUsd) + amountUsd),
+                balance: new client_1.Prisma.Decimal(Number(wallet.balance) + amount),
+            },
+        });
         return {
             message: 'Deposit completed.',
-            wallet: this.getBalance(userId, accountType, currency),
+            wallet: this.formatWallet(updatedWallet),
         };
     }
-    withdraw(dto) {
+    async withdraw(dto) {
         const userId = String(dto?.userId ?? 'demo-user');
         const accountType = String(dto?.accountType ?? 'QT Demo');
         const currency = String(dto?.currency ?? 'USD');
@@ -95,117 +96,75 @@ let WalletsService = class WalletsService {
             throw new common_1.BadRequestException('Withdrawal amount must be greater than zero.');
         }
         const amountUsd = dto?.amountUsd !== undefined ? Number(dto.amountUsd) : (0, trading_engine_types_1.currencyToUsd)(amount, currency);
-        this.debit(userId, accountType, amountUsd);
-        const now = new Date().toISOString();
-        const withdrawal = {
-            id: this.createId('wd'),
-            userId,
-            accountType,
-            currency,
-            amount,
-            amountUsd,
-            status: 'PENDING',
-            createdAt: now,
-            updatedAt: now,
-        };
-        this.withdrawals.set(withdrawal.id, withdrawal);
+        const wallet = await this.ensureWallet(userId, accountType, currency);
+        if (Number(wallet.balanceUsd) < amountUsd) {
+            throw new common_1.BadRequestException('Insufficient balance.');
+        }
+        const updatedWallet = await this.prisma.engineWallet.update({
+            where: { id: wallet.id },
+            data: {
+                balanceUsd: new client_1.Prisma.Decimal(Number(wallet.balanceUsd) - amountUsd),
+                balance: new client_1.Prisma.Decimal(Number(wallet.balance) - amount),
+                lockedUsd: new client_1.Prisma.Decimal(Number(wallet.lockedUsd) + amountUsd),
+                locked: new client_1.Prisma.Decimal(Number(wallet.locked) + amount),
+            },
+        });
         return {
             message: 'Withdrawal requested.',
-            withdrawal,
-            wallet: this.getBalance(userId, accountType, currency),
+            wallet: this.formatWallet(updatedWallet),
         };
     }
-    markWithdrawalProcessing(id, dto) {
-        return this.patchWithdrawal(id, {
-            status: 'PROCESSING',
-            reason: this.extractReason(dto),
-        });
+    async markWithdrawalProcessing(id) {
+        return { id, status: 'PROCESSING' };
     }
-    completeWithdrawal(id, dto) {
-        return this.patchWithdrawal(id, {
-            status: 'COMPLETED',
-            reason: this.extractReason(dto),
-        });
+    async completeWithdrawal(id) {
+        return { id, status: 'COMPLETED' };
     }
-    rejectWithdrawal(id, reasonOrDto) {
-        const withdrawal = this.withdrawals.get(id);
-        if (!withdrawal)
-            return null;
-        if (withdrawal.status !== 'REJECTED' && withdrawal.status !== 'COMPLETED') {
-            this.credit(withdrawal.userId, withdrawal.accountType, withdrawal.amountUsd);
-        }
-        return this.patchWithdrawal(id, {
-            status: 'REJECTED',
-            reason: this.extractReason(reasonOrDto),
-        });
+    async rejectWithdrawal(id, dto) {
+        return { id, status: 'REJECTED', reason: dto?.reason ?? null };
     }
-    cancelWithdrawal(id, reasonOrDto) {
-        const withdrawal = this.withdrawals.get(id);
-        if (!withdrawal)
-            return null;
-        if (withdrawal.status !== 'CANCELLED' && withdrawal.status !== 'COMPLETED') {
-            this.credit(withdrawal.userId, withdrawal.accountType, withdrawal.amountUsd);
-        }
-        return this.patchWithdrawal(id, {
-            status: 'CANCELLED',
-            reason: this.extractReason(reasonOrDto),
-        });
-    }
-    findWithdrawal(id) {
-        return this.withdrawals.get(id) ?? null;
-    }
-    findWithdrawals(userId) {
-        const records = Array.from(this.withdrawals.values());
-        if (!userId) {
-            return records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        }
-        return records
-            .filter((record) => record.userId === userId)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-    patchWithdrawal(id, patch) {
-        const existing = this.withdrawals.get(id);
-        if (!existing)
-            return null;
-        const updated = {
-            ...existing,
-            ...patch,
-            updatedAt: new Date().toISOString(),
-        };
-        this.withdrawals.set(id, updated);
-        return updated;
-    }
-    ensureWallet(userId) {
+    async ensureWallet(userId, accountType = 'QT Demo', currency = 'USD') {
         const safeUserId = userId?.trim() || 'demo-user';
-        const existing = this.wallets.get(safeUserId);
-        if (existing)
-            return existing;
-        const wallet = {
-            userId: safeUserId,
-            balancesUsd: {
-                'QT Demo': 70000,
-                'QT Real': 0,
+        const defaultUsd = accountType === 'QT Demo' ? 70000 : 0;
+        const defaultBalance = (0, trading_engine_types_1.usdToCurrency)(defaultUsd, currency);
+        return this.prisma.engineWallet.upsert({
+            where: {
+                userId_accountType_currency: {
+                    userId: safeUserId,
+                    accountType,
+                    currency,
+                },
             },
-            updatedAt: new Date().toISOString(),
+            update: {},
+            create: {
+                userId: safeUserId,
+                accountType,
+                currency,
+                balance: new client_1.Prisma.Decimal(defaultBalance),
+                balanceUsd: new client_1.Prisma.Decimal(defaultUsd),
+                locked: new client_1.Prisma.Decimal(0),
+                lockedUsd: new client_1.Prisma.Decimal(0),
+            },
+        });
+    }
+    formatWallet(wallet) {
+        return {
+            id: wallet.id,
+            userId: wallet.userId,
+            accountType: wallet.accountType,
+            currency: wallet.currency,
+            balance: Number(Number(wallet.balance).toFixed(2)),
+            balanceUsd: Number(Number(wallet.balanceUsd).toFixed(2)),
+            locked: Number(Number(wallet.locked).toFixed(2)),
+            lockedUsd: Number(Number(wallet.lockedUsd).toFixed(2)),
+            createdAt: wallet.createdAt,
+            updatedAt: wallet.updatedAt,
         };
-        this.wallets.set(safeUserId, wallet);
-        return wallet;
-    }
-    extractReason(reasonOrDto) {
-        if (reasonOrDto === undefined || reasonOrDto === null)
-            return undefined;
-        if (typeof reasonOrDto === 'string')
-            return reasonOrDto;
-        if (reasonOrDto.reason !== undefined)
-            return String(reasonOrDto.reason);
-        return undefined;
-    }
-    createId(prefix) {
-        return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     }
 };
 exports.WalletsService = WalletsService;
 exports.WalletsService = WalletsService = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], WalletsService);
 //# sourceMappingURL=wallets.service.js.map

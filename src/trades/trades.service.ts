@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+
+import { PrismaService } from '../config/prisma.service';
 import {
   AccountCurrency,
   AccountType,
@@ -9,148 +12,250 @@ import {
 
 @Injectable()
 export class TradesService {
-  private readonly trades = new Map<string, PlacedTrade>();
+  constructor(private readonly prisma: PrismaService) {}
 
-  create(input: any): PlacedTrade {
+  async create(input: any): Promise<PlacedTrade> {
     const now = Date.now();
 
     const stakeAmount = Number(input.stakeAmount ?? input.amount ?? 0);
     const stakeUsd = Number(input.stakeUsd ?? stakeAmount ?? 0);
     const payoutPercent = Number(input.payoutPercent ?? 0);
+
     const expectedProfitAmount = Number(
       input.expectedProfitAmount ?? stakeAmount * (payoutPercent / 100),
     );
-    const expectedProfitUsd = Number(input.expectedProfitUsd ?? expectedProfitAmount);
+
+    const expectedProfitUsd = Number(
+      input.expectedProfitUsd ?? expectedProfitAmount,
+    );
+
     const expectedReturnAmount = Number(
       input.expectedReturnAmount ?? stakeAmount + expectedProfitAmount,
     );
-    const expectedReturnUsd = Number(input.expectedReturnUsd ?? expectedReturnAmount);
 
-    const trade: PlacedTrade = {
-      id: String(input.id ?? this.createId('trade')),
-      userId: String(input.userId ?? 'demo-user'),
-      asset: String(input.asset ?? input.symbol ?? 'EUR/USD OTC'),
-      timeframe: String(input.timeframe ?? 'M1').toUpperCase(),
-      side: String(input.side ?? 'BUY').toUpperCase() as TradeSide,
-      accountType: String(input.accountType ?? 'QT Demo') as AccountType,
-      currency: String(input.currency ?? 'USD') as AccountCurrency,
+    const expectedReturnUsd = Number(
+      input.expectedReturnUsd ?? expectedReturnAmount,
+    );
 
-      stakeAmount,
-      stakeUsd,
+    const entryTimeMs = Number(input.entryTime ?? now);
+    const expirySeconds = Number(input.expirySeconds ?? 60);
+    const expiryTimeMs = Number(
+      input.expiryTime ?? entryTimeMs + expirySeconds * 1000,
+    );
 
-      payoutPercent,
-      expectedProfitAmount,
-      expectedProfitUsd,
-      expectedReturnAmount,
-      expectedReturnUsd,
+    const trade = await this.prisma.engineTrade.create({
+      data: {
+        id: input.id === undefined ? undefined : String(input.id),
+        userId: String(input.userId ?? 'demo-user'),
+        walletId:
+          input.walletId === undefined || input.walletId === null
+            ? undefined
+            : String(input.walletId),
 
-      entryPrice: Number(input.entryPrice ?? 0),
-      entryTime: Number(input.entryTime ?? now),
-      expirySeconds: Number(input.expirySeconds ?? 60),
-      expiryTime: Number(input.expiryTime ?? now + Number(input.expirySeconds ?? 60) * 1000),
+        asset: String(input.asset ?? input.symbol ?? 'EUR/USD OTC'),
+        timeframe: String(input.timeframe ?? 'M1').toUpperCase(),
+        side: String(input.side ?? 'BUY').toUpperCase(),
+        status: String(input.status ?? 'PENDING').toUpperCase(),
 
-      status: String(input.status ?? 'PENDING').toUpperCase() as TradeStatus,
-      closePrice: input.closePrice === undefined ? undefined : Number(input.closePrice),
-      settledAt: input.settledAt === undefined ? undefined : Number(input.settledAt),
+        accountType: String(input.accountType ?? 'QT Demo'),
+        currency: String(input.currency ?? 'USD'),
 
-      resultAmount:
-        input.resultAmount === undefined ? undefined : Number(input.resultAmount),
-      resultUsd: input.resultUsd === undefined ? undefined : Number(input.resultUsd),
-      profitAmount:
-        input.profitAmount === undefined ? undefined : Number(input.profitAmount),
-      profitUsd: input.profitUsd === undefined ? undefined : Number(input.profitUsd),
-    };
+        stakeAmount: new Prisma.Decimal(stakeAmount),
+        stakeUsd: new Prisma.Decimal(stakeUsd),
 
-    this.trades.set(trade.id, trade);
-    return trade;
+        payoutPercent: new Prisma.Decimal(payoutPercent),
+        expectedProfitAmount: new Prisma.Decimal(expectedProfitAmount),
+        expectedProfitUsd: new Prisma.Decimal(expectedProfitUsd),
+        expectedReturnAmount: new Prisma.Decimal(expectedReturnAmount),
+        expectedReturnUsd: new Prisma.Decimal(expectedReturnUsd),
+
+        entryPrice: new Prisma.Decimal(Number(input.entryPrice ?? 0)),
+        closePrice:
+          input.closePrice === undefined || input.closePrice === null
+            ? undefined
+            : new Prisma.Decimal(Number(input.closePrice)),
+
+        entryTime: new Date(entryTimeMs),
+        expiryTime: new Date(expiryTimeMs),
+        expirySeconds,
+
+        settledAt:
+          input.settledAt === undefined || input.settledAt === null
+            ? undefined
+            : new Date(Number(input.settledAt)),
+
+        resultAmount:
+          input.resultAmount === undefined || input.resultAmount === null
+            ? undefined
+            : new Prisma.Decimal(Number(input.resultAmount)),
+
+        resultUsd:
+          input.resultUsd === undefined || input.resultUsd === null
+            ? undefined
+            : new Prisma.Decimal(Number(input.resultUsd)),
+
+        profitAmount:
+          input.profitAmount === undefined || input.profitAmount === null
+            ? undefined
+            : new Prisma.Decimal(Number(input.profitAmount)),
+
+        profitUsd:
+          input.profitUsd === undefined || input.profitUsd === null
+            ? undefined
+            : new Prisma.Decimal(Number(input.profitUsd)),
+
+        metadata: input.metadata ?? undefined,
+      },
+    });
+
+    return this.formatTrade(trade);
   }
 
-  update(tradeId: string, patch: Partial<PlacedTrade>): PlacedTrade | null {
-    const existing = this.trades.get(tradeId);
+  async update(
+    tradeId: string,
+    patch: Partial<PlacedTrade>,
+  ): Promise<PlacedTrade | null> {
+    const existing = await this.prisma.engineTrade.findUnique({
+      where: { id: tradeId },
+    });
 
     if (!existing) return null;
 
-    const updated: PlacedTrade = {
-      ...existing,
-      ...patch,
-    };
+    const updated = await this.prisma.engineTrade.update({
+      where: { id: tradeId },
+      data: {
+        status: patch.status,
 
-    this.trades.set(tradeId, updated);
-    return updated;
+        closePrice:
+          patch.closePrice === undefined || patch.closePrice === null
+            ? undefined
+            : new Prisma.Decimal(Number(patch.closePrice)),
+
+        settledAt:
+          patch.settledAt === undefined || patch.settledAt === null
+            ? undefined
+            : new Date(Number(patch.settledAt)),
+
+        resultAmount:
+          patch.resultAmount === undefined || patch.resultAmount === null
+            ? undefined
+            : new Prisma.Decimal(Number(patch.resultAmount)),
+
+        resultUsd:
+          patch.resultUsd === undefined || patch.resultUsd === null
+            ? undefined
+            : new Prisma.Decimal(Number(patch.resultUsd)),
+
+        profitAmount:
+          patch.profitAmount === undefined || patch.profitAmount === null
+            ? undefined
+            : new Prisma.Decimal(Number(patch.profitAmount)),
+
+        profitUsd:
+          patch.profitUsd === undefined || patch.profitUsd === null
+            ? undefined
+            : new Prisma.Decimal(Number(patch.profitUsd)),
+      },
+    });
+
+    return this.formatTrade(updated);
   }
 
-  findAll(query?: any): PlacedTrade[] {
-    let records = Array.from(this.trades.values());
+  async findAll(query?: any): Promise<PlacedTrade[]> {
+    const records = await this.prisma.engineTrade.findMany({
+      where: {
+        userId: query?.userId ? String(query.userId) : undefined,
+        status: query?.status ? String(query.status).toUpperCase() : undefined,
+        asset: query?.asset ? String(query.asset) : undefined,
+      },
+      orderBy: { entryTime: 'desc' },
+      take: Math.min(Number(query?.take ?? query?.limit ?? 100), 200),
+      skip: Number(query?.skip ?? 0),
+    });
 
-    if (query?.userId) {
-      records = records.filter((trade) => trade.userId === String(query.userId));
-    }
-
-    if (query?.status) {
-      records = records.filter(
-        (trade) => trade.status === String(query.status).toUpperCase(),
-      );
-    }
-
-    if (query?.asset) {
-      records = records.filter(
-        (trade) => trade.asset.toLowerCase() === String(query.asset).toLowerCase(),
-      );
-    }
-
-    return records.sort((a, b) => b.entryTime - a.entryTime);
+    return records.map((record) => this.formatTrade(record));
   }
 
-  findByUser(userId: string): PlacedTrade[] {
+  async findByUser(userId: string): Promise<PlacedTrade[]> {
     return this.findAllByUser(userId);
   }
 
-  findAllByUser(userId: string): PlacedTrade[] {
-    return Array.from(this.trades.values())
-      .filter((trade) => trade.userId === userId)
-      .sort((a, b) => b.entryTime - a.entryTime);
+  async findAllByUser(userId: string): Promise<PlacedTrade[]> {
+    return this.findAll({ userId });
   }
 
-  findOpenByUser(userId: string): PlacedTrade[] {
-    return Array.from(this.trades.values())
-      .filter((trade) => trade.userId === userId && trade.status === 'PENDING')
-      .sort((a, b) => b.entryTime - a.entryTime);
+  async findOpenByUser(userId: string): Promise<PlacedTrade[]> {
+    const records = await this.prisma.engineTrade.findMany({
+      where: {
+        userId,
+        status: 'PENDING',
+      },
+      orderBy: { entryTime: 'desc' },
+    });
+
+    return records.map((record) => this.formatTrade(record));
   }
 
-  findHistoryByUser(userId: string): PlacedTrade[] {
-    return Array.from(this.trades.values())
-      .filter((trade) => trade.userId === userId && trade.status !== 'PENDING')
-      .sort((a, b) => (b.settledAt ?? b.entryTime) - (a.settledAt ?? a.entryTime));
+  async findHistoryByUser(userId: string): Promise<PlacedTrade[]> {
+    const records = await this.prisma.engineTrade.findMany({
+      where: {
+        userId,
+        status: {
+          not: 'PENDING',
+        },
+      },
+      orderBy: [{ settledAt: 'desc' }, { entryTime: 'desc' }],
+      take: 100,
+    });
+
+    return records.map((record) => this.formatTrade(record));
   }
 
-  findOne(tradeId: string): PlacedTrade | null {
+  async findOne(tradeId: string): Promise<PlacedTrade | null> {
     return this.findById(tradeId);
   }
 
-  findById(tradeId: string): PlacedTrade | null {
-    return this.trades.get(tradeId) ?? null;
+  async findById(tradeId: string): Promise<PlacedTrade | null> {
+    const trade = await this.prisma.engineTrade.findUnique({
+      where: { id: tradeId },
+    });
+
+    return trade ? this.formatTrade(trade) : null;
   }
 
-  settle(tradeId: string, dto?: any): PlacedTrade | null {
-    const status = String(dto?.status ?? 'DRAW').toUpperCase() as TradeStatus;
-
+  async settle(tradeId: string, dto?: any): Promise<PlacedTrade | null> {
     return this.update(tradeId, {
-      status,
-      closePrice: dto?.closePrice === undefined ? undefined : Number(dto.closePrice),
+      status: String(dto?.status ?? 'DRAW').toUpperCase() as TradeStatus,
+      closePrice: dto?.closePrice,
       settledAt: Date.now(),
-      resultAmount:
-        dto?.resultAmount === undefined ? undefined : Number(dto.resultAmount),
-      resultUsd: dto?.resultUsd === undefined ? undefined : Number(dto.resultUsd),
-      profitAmount:
-        dto?.profitAmount === undefined ? undefined : Number(dto.profitAmount),
-      profitUsd: dto?.profitUsd === undefined ? undefined : Number(dto.profitUsd),
+      resultAmount: dto?.resultAmount,
+      resultUsd: dto?.resultUsd,
+      profitAmount: dto?.profitAmount,
+      profitUsd: dto?.profitUsd,
     });
   }
 
-  cancel(tradeId: string, reason?: any): PlacedTrade | null {
-    const existing = this.findById(tradeId);
+  async cancel(tradeId: string, reason?: any): Promise<PlacedTrade | null> {
+    const existing = await this.findById(tradeId);
 
     if (!existing) return null;
+
+    const reasonText =
+      typeof reason === 'string'
+        ? reason
+        : reason?.reason
+          ? String(reason.reason)
+          : 'Trade cancelled';
+
+    await this.prisma.engineTrade.update({
+      where: { id: tradeId },
+      data: {
+        metadata: {
+          cancelReason: reasonText,
+          cancelledAt: new Date().toISOString(),
+        },
+      },
+    });
 
     return this.update(tradeId, {
       status: 'LOST',
@@ -163,7 +268,63 @@ export class TradesService {
     });
   }
 
-  private createId(prefix: string) {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  private formatTrade(trade: any): PlacedTrade {
+    return {
+      id: trade.id,
+      userId: trade.userId,
+      walletId: trade.walletId,
+
+      asset: trade.asset,
+      timeframe: trade.timeframe,
+      side: trade.side as TradeSide,
+      accountType: trade.accountType as AccountType,
+      currency: trade.currency as AccountCurrency,
+
+      stakeAmount: Number(trade.stakeAmount),
+      stakeUsd: Number(trade.stakeUsd),
+
+      payoutPercent: Number(trade.payoutPercent),
+      expectedProfitAmount: Number(trade.expectedProfitAmount),
+      expectedProfitUsd: Number(trade.expectedProfitUsd),
+      expectedReturnAmount: Number(trade.expectedReturnAmount),
+      expectedReturnUsd: Number(trade.expectedReturnUsd),
+
+      entryPrice: Number(trade.entryPrice),
+      entryTime: new Date(trade.entryTime).getTime(),
+      expirySeconds: Number(trade.expirySeconds),
+      expiryTime: new Date(trade.expiryTime).getTime(),
+
+      status: trade.status as TradeStatus,
+
+      closePrice:
+        trade.closePrice === null || trade.closePrice === undefined
+          ? undefined
+          : Number(trade.closePrice),
+
+      settledAt:
+        trade.settledAt === null || trade.settledAt === undefined
+          ? undefined
+          : new Date(trade.settledAt).getTime(),
+
+      resultAmount:
+        trade.resultAmount === null || trade.resultAmount === undefined
+          ? undefined
+          : Number(trade.resultAmount),
+
+      resultUsd:
+        trade.resultUsd === null || trade.resultUsd === undefined
+          ? undefined
+          : Number(trade.resultUsd),
+
+      profitAmount:
+        trade.profitAmount === null || trade.profitAmount === undefined
+          ? undefined
+          : Number(trade.profitAmount),
+
+      profitUsd:
+        trade.profitUsd === null || trade.profitUsd === undefined
+          ? undefined
+          : Number(trade.profitUsd),
+    };
   }
 }

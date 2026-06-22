@@ -25,7 +25,7 @@ let TradingEngineService = class TradingEngineService {
         this.tradesService = tradesService;
         this.settlementTimers = new Map();
     }
-    placeTrade(dto) {
+    async placeTrade(dto) {
         const userId = dto.userId?.trim() || 'demo-user';
         const assetSymbol = dto.asset.trim();
         const timeframe = (dto.timeframe || 'M1').toUpperCase();
@@ -54,10 +54,11 @@ let TradingEngineService = class TradingEngineService {
         const expectedReturnUsd = (0, trading_engine_types_1.currencyToUsd)(expectedReturnAmount, currency);
         const entryTime = Date.now();
         const expiryTime = entryTime + expirySeconds * 1000;
-        this.walletsService.debit(userId, accountType, stakeUsd);
-        const trade = {
-            id: this.createId('trade'),
+        const wallet = await this.walletsService.ensureWallet(userId, accountType, currency);
+        await this.walletsService.debit(userId, accountType, stakeUsd);
+        const trade = await this.tradesService.create({
             userId,
+            walletId: wallet.id,
             asset: asset.symbol,
             timeframe,
             side,
@@ -75,72 +76,97 @@ let TradingEngineService = class TradingEngineService {
             expirySeconds,
             expiryTime,
             status: 'PENDING',
-        };
-        this.tradesService.create(trade);
-        this.transactionsService.create({
+            metadata: {
+                source: 'BACKEND_OTC_ENGINE',
+            },
+        });
+        await this.transactionsService.create({
             userId,
+            walletId: wallet.id,
             accountType,
+            currency,
             tradeId: trade.id,
             type: 'TRADE_STAKE',
-            amountUsd: Number((-stakeUsd).toFixed(8)),
+            status: 'COMPLETED',
+            amount: -amount,
+            amountUsd: -stakeUsd,
             description: `${side} stake on ${asset.symbol}`,
         });
         this.scheduleSettlement(trade.id, expiryTime);
         return {
             trade,
-            wallet: this.walletsService.getBalance(userId, accountType, currency),
+            wallet: await this.walletsService.getBalance(userId, accountType, currency),
         };
     }
-    settleTrade(tradeId) {
-        const trade = this.tradesService.findById(tradeId);
+    async settleTrade(tradeId) {
+        const trade = await this.tradesService.findById(tradeId);
         if (!trade) {
             throw new common_1.BadRequestException('Trade not found.');
         }
         if (trade.status !== 'PENDING') {
             return {
                 trade,
-                wallet: this.walletsService.getBalance(trade.userId, trade.accountType, trade.currency),
+                wallet: await this.walletsService.getBalance(trade.userId, trade.accountType, trade.currency),
             };
         }
         const closeTick = this.marketDataService.getTick(trade.asset);
         const closePrice = closeTick.price;
         const status = this.calculateResultStatus(trade.side, trade.entryPrice, closePrice);
-        const settlement = this.applySettlement(trade, status, closePrice);
-        const updatedTrade = this.tradesService.update(trade.id, settlement);
+        const settlement = await this.applySettlement(trade, status, closePrice);
+        const updatedTrade = await this.tradesService.update(trade.id, settlement);
         if (!updatedTrade) {
             throw new common_1.BadRequestException('Could not update trade.');
         }
         this.clearSettlementTimer(trade.id);
         return {
             trade: updatedTrade,
-            wallet: this.walletsService.getBalance(updatedTrade.userId, updatedTrade.accountType, updatedTrade.currency),
+            wallet: await this.walletsService.getBalance(updatedTrade.userId, updatedTrade.accountType, updatedTrade.currency),
         };
     }
-    getOpenTrades(userId = 'demo-user') {
+    async getOpenTrades(userId = 'demo-user') {
+        await this.settleExpiredTrades(userId);
         return this.tradesService.findOpenByUser(userId);
     }
-    getTradeHistory(userId = 'demo-user') {
+    async getTradeHistory(userId = 'demo-user') {
+        await this.settleExpiredTrades(userId);
         return this.tradesService.findHistoryByUser(userId);
     }
-    getAllTrades(userId = 'demo-user') {
+    async getAllTrades(userId = 'demo-user') {
+        await this.settleExpiredTrades(userId);
         return this.tradesService.findAllByUser(userId);
     }
-    getWallet(userId = 'demo-user', accountType = 'QT Demo', currency = 'USD') {
+    async getWallet(userId = 'demo-user', accountType = 'QT Demo', currency = 'USD') {
         return this.walletsService.getBalance(userId, accountType, currency);
     }
-    getTransactions(userId = 'demo-user') {
+    async getTransactions(userId = 'demo-user') {
         return this.transactionsService.findByUser(userId);
     }
-    applySettlement(trade, status, closePrice) {
+    async settleExpiredTrades(userId = 'demo-user') {
+        const openTrades = await this.tradesService.findOpenByUser(userId);
+        const now = Date.now();
+        const dueTrades = openTrades.filter((trade) => trade.expiryTime <= now);
+        for (const trade of dueTrades) {
+            await this.settleTrade(trade.id);
+        }
+        return {
+            userId,
+            settled: dueTrades.length,
+        };
+    }
+    async applySettlement(trade, status, closePrice) {
         const settledAt = Date.now();
         if (status === 'WON') {
-            this.walletsService.credit(trade.userId, trade.accountType, trade.expectedReturnUsd);
-            this.transactionsService.create({
+            await this.walletsService.credit(trade.userId, trade.accountType, trade.expectedReturnUsd);
+            await this.transactionsService.create({
                 userId: trade.userId,
+                walletId: trade.walletId,
                 accountType: trade.accountType,
+                currency: trade.currency,
                 tradeId: trade.id,
                 type: 'TRADE_WIN_RETURN',
-                amountUsd: Number(trade.expectedReturnUsd.toFixed(8)),
+                status: 'COMPLETED',
+                amount: trade.expectedReturnAmount,
+                amountUsd: trade.expectedReturnUsd,
                 description: `Winning return for ${trade.side} on ${trade.asset}`,
             });
             return {
@@ -154,13 +180,17 @@ let TradingEngineService = class TradingEngineService {
             };
         }
         if (status === 'DRAW') {
-            this.walletsService.credit(trade.userId, trade.accountType, trade.stakeUsd);
-            this.transactionsService.create({
+            await this.walletsService.credit(trade.userId, trade.accountType, trade.stakeUsd);
+            await this.transactionsService.create({
                 userId: trade.userId,
+                walletId: trade.walletId,
                 accountType: trade.accountType,
+                currency: trade.currency,
                 tradeId: trade.id,
                 type: 'TRADE_DRAW_REFUND',
-                amountUsd: Number(trade.stakeUsd.toFixed(8)),
+                status: 'COMPLETED',
+                amount: trade.stakeAmount,
+                amountUsd: trade.stakeUsd,
                 description: `Draw refund for ${trade.side} on ${trade.asset}`,
             });
             return {
@@ -173,11 +203,15 @@ let TradingEngineService = class TradingEngineService {
                 profitUsd: 0,
             };
         }
-        this.transactionsService.create({
+        await this.transactionsService.create({
             userId: trade.userId,
+            walletId: trade.walletId,
             accountType: trade.accountType,
+            currency: trade.currency,
             tradeId: trade.id,
             type: 'TRADE_LOSS',
+            status: 'COMPLETED',
+            amount: 0,
             amountUsd: 0,
             description: `Lost ${trade.side} trade on ${trade.asset}`,
         });
@@ -222,11 +256,7 @@ let TradingEngineService = class TradingEngineService {
         this.clearSettlementTimer(tradeId);
         const delayMs = Math.max(expiryTime - Date.now(), 0);
         const timer = setTimeout(() => {
-            try {
-                this.settleTrade(tradeId);
-            }
-            catch {
-            }
+            this.settleTrade(tradeId).catch(() => undefined);
         }, delayMs);
         timer.unref?.();
         this.settlementTimers.set(tradeId, timer);
@@ -267,9 +297,6 @@ let TradingEngineService = class TradingEngineService {
             throw new common_1.BadRequestException(`Unsupported or inactive asset: ${symbol}`);
         }
         return asset;
-    }
-    createId(prefix) {
-        return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
     }
 };
 exports.TradingEngineService = TradingEngineService;

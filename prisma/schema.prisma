@@ -894,3 +894,99 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([createdAt])
 }
+
+model EngineWallet {
+  id          String @id @default(cuid())
+  userId      String
+  accountType String @default("QT Demo")
+  currency    String @default("USD")
+
+  balance    Decimal @default(0) @db.Decimal(30, 10)
+  balanceUsd Decimal @default(0) @db.Decimal(30, 10)
+  locked     Decimal @default(0) @db.Decimal(30, 10)
+  lockedUsd  Decimal @default(0) @db.Decimal(30, 10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, accountType, currency])
+  @@index([userId])
+  @@index([accountType, currency])
+}
+
+model EngineTrade {
+  id       String  @id @default(cuid())
+  userId   String
+  walletId String?
+
+  asset     String
+  timeframe String @default("M1")
+  side      String
+  status    String @default("PENDING")
+
+  accountType String @default("QT Demo")
+  currency    String @default("USD")
+
+  stakeAmount Decimal @db.Decimal(30, 10)
+  stakeUsd    Decimal @db.Decimal(30, 10)
+
+  payoutPercent        Decimal @db.Decimal(10, 4)
+  expectedProfitAmount Decimal @db.Decimal(30, 10)
+  expectedProfitUsd    Decimal @db.Decimal(30, 10)
+  expectedReturnAmount Decimal @db.Decimal(30, 10)
+  expectedReturnUsd    Decimal @db.Decimal(30, 10)
+
+  entryPrice Decimal  @db.Decimal(30, 10)
+  closePrice Decimal? @db.Decimal(30, 10)
+
+  entryTime     DateTime
+  expiryTime    DateTime
+  expirySeconds Int
+  settledAt     DateTime?
+
+  resultAmount Decimal? @db.Decimal(30, 10)
+  resultUsd    Decimal? @db.Decimal(30, 10)
+  profitAmount Decimal? @db.Decimal(30, 10)
+  profitUsd    Decimal? @db.Decimal(30, 10)
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([asset, timeframe])
+  @@index([expiryTime])
+  @@index([createdAt])
+}
+
+model EngineTransaction {
+  id       String  @id @default(cuid())
+  userId   String
+  walletId String?
+  tradeId  String?
+
+  accountType String @default("QT Demo")
+  currency    String @default("USD")
+
+  type   String
+  status String @default("COMPLETED")
+
+  amount          Decimal  @db.Decimal(30, 10)
+  amountUsd       Decimal  @db.Decimal(30, 10)
+  balanceAfter    Decimal? @db.Decimal(30, 10)
+  balanceAfterUsd Decimal? @db.Decimal(30, 10)
+
+  description String?
+  reference   String? @unique
+  reason      String?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([tradeId])
+  @@index([type, status])
+  @@index([createdAt])
+}

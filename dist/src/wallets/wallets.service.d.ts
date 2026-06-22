@@ -1,92 +1,123 @@
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../config/prisma.service';
 import { AccountCurrency, AccountType } from '../trading-engine/trading-engine.types';
-type WithdrawalStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REJECTED' | 'CANCELLED';
-type WithdrawalRecord = {
-    id: string;
-    userId: string;
-    accountType: AccountType;
-    currency: AccountCurrency;
-    amount: number;
-    amountUsd: number;
-    status: WithdrawalStatus;
-    reason?: string;
-    createdAt: string;
-    updatedAt: string;
-};
 export declare class WalletsService {
-    private readonly wallets;
-    private readonly withdrawals;
-    getWallet(userId: string): {
+    private readonly prisma;
+    constructor(prisma: PrismaService);
+    getWallet(userId: string): Promise<{
+        id: string;
         userId: string;
-        balancesUsd: {
-            "QT Demo": number;
-            "QT Real": number;
-        };
-        updatedAt: string;
-    };
-    getUserWallets(userIdOrQuery?: any, accountType?: AccountType, currency?: AccountCurrency): {
+        accountType: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+    }[]>;
+    getUserWallets(userIdOrQuery?: any): Promise<{
+        id: string;
         userId: string;
-        accountType: AccountType;
-        currency: AccountCurrency;
-        balanceUsd: number;
+        accountType: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+    }[]>;
+    getBalance(userId: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
+        id: any;
+        userId: any;
+        accountType: any;
+        currency: any;
         balance: number;
-        updatedAt: string;
-    }[];
-    getBalance(userId: string, accountType?: AccountType, currency?: AccountCurrency): {
-        userId: string;
-        accountType: AccountType;
-        currency: AccountCurrency;
         balanceUsd: number;
-        balance: number;
-        updatedAt: string;
-    };
-    debit(userId: string, accountType: AccountType, amountUsd: number): {
+        locked: number;
+        lockedUsd: number;
+        createdAt: any;
+        updatedAt: any;
+    }>;
+    debit(userId: string, accountType: AccountType, amountUsd: number): Promise<{
+        id: string;
         userId: string;
-        balancesUsd: {
-            "QT Demo": number;
-            "QT Real": number;
-        };
-        updatedAt: string;
-    };
-    credit(userId: string, accountType: AccountType, amountUsd: number): {
+        accountType: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    credit(userId: string, accountType: AccountType, amountUsd: number): Promise<{
+        id: string;
         userId: string;
-        balancesUsd: {
-            "QT Demo": number;
-            "QT Real": number;
-        };
-        updatedAt: string;
-    };
-    deposit(dto: any): {
+        accountType: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    deposit(dto: any): Promise<{
         message: string;
         wallet: {
-            userId: string;
-            accountType: AccountType;
-            currency: AccountCurrency;
-            balanceUsd: number;
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
             balance: number;
-            updatedAt: string;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
         };
-    };
-    withdraw(dto: any): {
+    }>;
+    withdraw(dto: any): Promise<{
         message: string;
-        withdrawal: WithdrawalRecord;
         wallet: {
-            userId: string;
-            accountType: AccountType;
-            currency: AccountCurrency;
-            balanceUsd: number;
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
             balance: number;
-            updatedAt: string;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
         };
-    };
-    markWithdrawalProcessing(id: string, dto?: any): WithdrawalRecord;
-    completeWithdrawal(id: string, dto?: any): WithdrawalRecord;
-    rejectWithdrawal(id: string, reasonOrDto?: any): WithdrawalRecord;
-    cancelWithdrawal(id: string, reasonOrDto?: any): WithdrawalRecord;
-    findWithdrawal(id: string): WithdrawalRecord;
-    findWithdrawals(userId?: string): WithdrawalRecord[];
-    private patchWithdrawal;
-    private ensureWallet;
-    private extractReason;
-    private createId;
+    }>;
+    markWithdrawalProcessing(id: string): Promise<{
+        id: string;
+        status: string;
+    }>;
+    completeWithdrawal(id: string): Promise<{
+        id: string;
+        status: string;
+    }>;
+    rejectWithdrawal(id: string, dto?: any): Promise<{
+        id: string;
+        status: string;
+        reason: any;
+    }>;
+    ensureWallet(userId: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
+        id: string;
+        userId: string;
+        accountType: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    private formatWallet;
 }
-export {};

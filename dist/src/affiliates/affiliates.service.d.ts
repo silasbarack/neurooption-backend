@@ -16,24 +16,24 @@ export declare class AffiliatesService {
         };
         commissions: {
             id: string;
-            status: import(".prisma/client").$Enums.CommissionStatus;
             createdAt: Date;
             updatedAt: Date;
+            status: import(".prisma/client").$Enums.CommissionStatus;
             amount: Prisma.Decimal;
             description: string | null;
             transactionId: string | null;
+            rate: Prisma.Decimal;
+            paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            rate: Prisma.Decimal;
-            paidAt: Date | null;
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.AffiliateStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.AffiliateStatus;
         code: string;
         commissionRate: Prisma.Decimal;
         totalEarned: Prisma.Decimal;
@@ -48,24 +48,24 @@ export declare class AffiliatesService {
         };
         commissions: {
             id: string;
-            status: import(".prisma/client").$Enums.CommissionStatus;
             createdAt: Date;
             updatedAt: Date;
+            status: import(".prisma/client").$Enums.CommissionStatus;
             amount: Prisma.Decimal;
             description: string | null;
             transactionId: string | null;
+            rate: Prisma.Decimal;
+            paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            rate: Prisma.Decimal;
-            paidAt: Date | null;
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.AffiliateStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.AffiliateStatus;
         code: string;
         commissionRate: Prisma.Decimal;
         totalEarned: Prisma.Decimal;
@@ -80,24 +80,24 @@ export declare class AffiliatesService {
         };
         commissions: {
             id: string;
-            status: import(".prisma/client").$Enums.CommissionStatus;
             createdAt: Date;
             updatedAt: Date;
+            status: import(".prisma/client").$Enums.CommissionStatus;
             amount: Prisma.Decimal;
             description: string | null;
             transactionId: string | null;
+            rate: Prisma.Decimal;
+            paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            rate: Prisma.Decimal;
-            paidAt: Date | null;
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.AffiliateStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.AffiliateStatus;
         code: string;
         commissionRate: Prisma.Decimal;
         totalEarned: Prisma.Decimal;
@@ -112,24 +112,24 @@ export declare class AffiliatesService {
         };
         commissions: {
             id: string;
-            status: import(".prisma/client").$Enums.CommissionStatus;
             createdAt: Date;
             updatedAt: Date;
+            status: import(".prisma/client").$Enums.CommissionStatus;
             amount: Prisma.Decimal;
             description: string | null;
             transactionId: string | null;
+            rate: Prisma.Decimal;
+            paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            rate: Prisma.Decimal;
-            paidAt: Date | null;
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.AffiliateStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.AffiliateStatus;
         code: string;
         commissionRate: Prisma.Decimal;
         totalEarned: Prisma.Decimal;
@@ -144,24 +144,24 @@ export declare class AffiliatesService {
         };
         commissions: {
             id: string;
-            status: import(".prisma/client").$Enums.CommissionStatus;
             createdAt: Date;
             updatedAt: Date;
+            status: import(".prisma/client").$Enums.CommissionStatus;
             amount: Prisma.Decimal;
             description: string | null;
             transactionId: string | null;
+            rate: Prisma.Decimal;
+            paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            rate: Prisma.Decimal;
-            paidAt: Date | null;
         }[];
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.AffiliateStatus;
+        userId: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
+        status: import(".prisma/client").$Enums.AffiliateStatus;
         code: string;
         commissionRate: Prisma.Decimal;
         totalEarned: Prisma.Decimal;
@@ -170,22 +170,22 @@ export declare class AffiliatesService {
     createCommission(dto: CreateAffiliateCommissionDto): Promise<{
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            type: import(".prisma/client").$Enums.TransactionType;
-            amount: Prisma.Decimal;
-            reference: string | null;
-            description: string | null;
-            userId: string;
             walletId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            amount: Prisma.Decimal;
+            description: string | null;
+            reference: string | null;
         };
         affiliate: {
             id: string;
-            status: import(".prisma/client").$Enums.AffiliateStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
+            status: import(".prisma/client").$Enums.AffiliateStatus;
             code: string;
             commissionRate: Prisma.Decimal;
             totalEarned: Prisma.Decimal;
@@ -205,37 +205,37 @@ export declare class AffiliatesService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CommissionStatus;
         createdAt: Date;
         updatedAt: Date;
+        status: import(".prisma/client").$Enums.CommissionStatus;
         amount: Prisma.Decimal;
         description: string | null;
         transactionId: string | null;
+        rate: Prisma.Decimal;
+        paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        rate: Prisma.Decimal;
-        paidAt: Date | null;
     }>;
     findAllCommissions(): Promise<({
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            type: import(".prisma/client").$Enums.TransactionType;
-            amount: Prisma.Decimal;
-            reference: string | null;
-            description: string | null;
-            userId: string;
             walletId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            amount: Prisma.Decimal;
+            description: string | null;
+            reference: string | null;
         };
         affiliate: {
             id: string;
-            status: import(".prisma/client").$Enums.AffiliateStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
+            status: import(".prisma/client").$Enums.AffiliateStatus;
             code: string;
             commissionRate: Prisma.Decimal;
             totalEarned: Prisma.Decimal;
@@ -255,37 +255,37 @@ export declare class AffiliatesService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CommissionStatus;
         createdAt: Date;
         updatedAt: Date;
+        status: import(".prisma/client").$Enums.CommissionStatus;
         amount: Prisma.Decimal;
         description: string | null;
         transactionId: string | null;
+        rate: Prisma.Decimal;
+        paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        rate: Prisma.Decimal;
-        paidAt: Date | null;
     })[]>;
     findCommissionsByAffiliate(affiliateId: string): Promise<({
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            type: import(".prisma/client").$Enums.TransactionType;
-            amount: Prisma.Decimal;
-            reference: string | null;
-            description: string | null;
-            userId: string;
             walletId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            amount: Prisma.Decimal;
+            description: string | null;
+            reference: string | null;
         };
         affiliate: {
             id: string;
-            status: import(".prisma/client").$Enums.AffiliateStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
+            status: import(".prisma/client").$Enums.AffiliateStatus;
             code: string;
             commissionRate: Prisma.Decimal;
             totalEarned: Prisma.Decimal;
@@ -305,37 +305,37 @@ export declare class AffiliatesService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CommissionStatus;
         createdAt: Date;
         updatedAt: Date;
+        status: import(".prisma/client").$Enums.CommissionStatus;
         amount: Prisma.Decimal;
         description: string | null;
         transactionId: string | null;
+        rate: Prisma.Decimal;
+        paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        rate: Prisma.Decimal;
-        paidAt: Date | null;
     })[]>;
     updateCommissionStatus(id: string, dto: UpdateCommissionStatusDto): Promise<{
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            type: import(".prisma/client").$Enums.TransactionType;
-            amount: Prisma.Decimal;
-            reference: string | null;
-            description: string | null;
-            userId: string;
             walletId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            amount: Prisma.Decimal;
+            description: string | null;
+            reference: string | null;
         };
         affiliate: {
             id: string;
-            status: import(".prisma/client").$Enums.AffiliateStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
+            status: import(".prisma/client").$Enums.AffiliateStatus;
             code: string;
             commissionRate: Prisma.Decimal;
             totalEarned: Prisma.Decimal;
@@ -355,37 +355,37 @@ export declare class AffiliatesService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CommissionStatus;
         createdAt: Date;
         updatedAt: Date;
+        status: import(".prisma/client").$Enums.CommissionStatus;
         amount: Prisma.Decimal;
         description: string | null;
         transactionId: string | null;
+        rate: Prisma.Decimal;
+        paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        rate: Prisma.Decimal;
-        paidAt: Date | null;
     }>;
     payCommission(id: string, walletId: string): Promise<{
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            type: import(".prisma/client").$Enums.TransactionType;
-            amount: Prisma.Decimal;
-            reference: string | null;
-            description: string | null;
-            userId: string;
             walletId: string;
+            type: import(".prisma/client").$Enums.TransactionType;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            amount: Prisma.Decimal;
+            description: string | null;
+            reference: string | null;
         };
         affiliate: {
             id: string;
-            status: import(".prisma/client").$Enums.AffiliateStatus;
+            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
+            status: import(".prisma/client").$Enums.AffiliateStatus;
             code: string;
             commissionRate: Prisma.Decimal;
             totalEarned: Prisma.Decimal;
@@ -405,17 +405,17 @@ export declare class AffiliatesService {
         };
     } & {
         id: string;
-        status: import(".prisma/client").$Enums.CommissionStatus;
         createdAt: Date;
         updatedAt: Date;
+        status: import(".prisma/client").$Enums.CommissionStatus;
         amount: Prisma.Decimal;
         description: string | null;
         transactionId: string | null;
+        rate: Prisma.Decimal;
+        paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        rate: Prisma.Decimal;
-        paidAt: Date | null;
     }>;
     private affiliateInclude;
     private commissionInclude;
