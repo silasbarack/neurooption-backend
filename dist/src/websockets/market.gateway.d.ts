@@ -1,9 +1,25 @@
 import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { PriceUpdateDto } from './dto/price-update.dto';
-import { CandleUpdateDto } from './dto/candle-update.dto';
+import { Namespace, Socket } from 'socket.io';
+export type MarketPriceUpdate = {
+    symbol: string;
+    price: number;
+    time: number;
+    serverTime: string;
+};
+export type MarketCandleUpdate = {
+    symbol: string;
+    timeframe: string;
+    candle: {
+        time: number;
+        open: number;
+        high: number;
+        low: number;
+        close: number;
+        volume: number;
+    };
+};
 export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
-    server: Server;
+    server: Namespace;
     handleConnection(client: Socket): void;
     handleDisconnect(client: Socket): void;
     subscribeSymbol(client: Socket, data: {
@@ -20,9 +36,9 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
         event: string;
         message: string;
     };
-    broadcastPriceUpdate(dto: PriceUpdateDto): void;
-    broadcastCandleUpdate(dto: CandleUpdateDto): void;
-    broadcastChartUpdate(symbol: string, timeframe: string, chartData: any): void;
-    private getSymbolRoom;
-    private getChartRoom;
+    broadcastPriceUpdate(dto: MarketPriceUpdate): void;
+    broadcastCandleUpdate(dto: MarketCandleUpdate): void;
+    symbolRoom(symbol: string): string;
+    chartRoom(symbol: string, timeframe: string): string;
+    roomSize(room: string): number;
 }

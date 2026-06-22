@@ -69,6 +69,15 @@ let MarketDataService = class MarketDataService {
             candles,
         };
     }
+    getLatestCandle(assetSymbol, timeframe) {
+        const asset = this.findAsset(assetSymbol);
+        const normalized = this.normalizeTimeframe(timeframe);
+        const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[normalized];
+        const intervalMs = timeframeSeconds * 1000;
+        const now = Date.now();
+        const candleStart = Math.floor(now / intervalMs) * intervalMs;
+        return this.buildCandle(asset, normalized, candleStart, now);
+    }
     buildCandle(asset, timeframe, candleStart, now) {
         const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
         const intervalMs = timeframeSeconds * 1000;
@@ -84,7 +93,7 @@ let MarketDataService = class MarketDataService {
         samples.push(open, close);
         const bodyHigh = Math.max(...samples);
         const bodyLow = Math.min(...samples);
-        const wick = this.buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, open, close);
+        const wick = this.buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, open, close, effectiveEnd >= candleEnd);
         return {
             time: candleStart,
             openTime: new Date(candleStart).toISOString(),
@@ -394,9 +403,10 @@ let MarketDataService = class MarketDataService {
         const shape = attack * decay;
         return direction * shape;
     }
-    buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, open, close) {
+    buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, open, close, isClosed) {
         const dna = this.getAssetDna(asset);
         const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
+        const intervalMs = timeframeSeconds * 1000;
         const body = Math.abs(close - open);
         const range = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.00002);
         const tfWeight = Math.sqrt(Math.max(timeframeSeconds, 5) / 60);
@@ -406,10 +416,73 @@ let MarketDataService = class MarketDataService {
             body * 0.22 +
             asset.basePrice * asset.volatility * 0.003;
         const wickSize = wickBase * dna.wickStrength;
+        let upperWick = wickSize * upperSeed;
+        let lowerWick = wickSize * lowerSeed;
+        const prevOpen = this.priceAt(asset, candleStart - intervalMs);
+        const slopeBefore = open - prevOpen;
+        const slopeAfter = isClosed
+            ? this.priceAt(asset, candleStart + 2 * intervalMs) -
+                this.priceAt(asset, candleStart + intervalMs)
+            : 0;
+        const isBullishReversal = isClosed && slopeBefore < 0 && slopeAfter > 0;
+        const isBearishReversal = isClosed && slopeBefore > 0 && slopeAfter < 0;
+        const bodyRatio = body / Math.max(wickBase, asset.basePrice * 10 ** -asset.precision);
+        const patternSeed = this.seededRandom(`${asset.symbol}:${timeframe}:${candleStart}:pattern`);
+        if (bodyRatio < 0.45 && patternSeed < this.regimeIndecisionChance(dna.regime)) {
+            upperWick = wickSize * (0.55 + upperSeed * 0.55);
+            lowerWick = wickSize * (0.55 + lowerSeed * 0.55);
+        }
+        else if (isBullishReversal && patternSeed < this.regimeReversalChance(dna.regime)) {
+            lowerWick = wickSize * (1.3 + lowerSeed * 0.9) + body * 0.15;
+            upperWick = wickSize * (0.05 + upperSeed * 0.12);
+        }
+        else if (isBearishReversal && patternSeed < this.regimeReversalChance(dna.regime)) {
+            upperWick = wickSize * (1.3 + upperSeed * 0.9) + body * 0.15;
+            lowerWick = wickSize * (0.05 + lowerSeed * 0.12);
+        }
+        else if (bodyRatio > 1.3 && patternSeed < this.regimeCleanChance(dna.regime)) {
+            upperWick *= 0.18;
+            lowerWick *= 0.18;
+        }
         return {
-            high: bodyHigh + wickSize * upperSeed,
-            low: bodyLow - wickSize * lowerSeed,
+            high: bodyHigh + upperWick,
+            low: bodyLow - lowerWick,
         };
+    }
+    regimeIndecisionChance(regime) {
+        if (regime === 'FX_RANGE')
+            return 0.55;
+        if (regime === 'FX_BREAKOUT' || regime === 'FX_REVERSAL')
+            return 0.35;
+        if (regime === 'COMMODITY_SWING')
+            return 0.3;
+        if (regime === 'STOCK_STEP')
+            return 0.25;
+        if (regime === 'INDEX_GRIND')
+            return 0.2;
+        if (regime === 'FX_TREND')
+            return 0.18;
+        return 0.15;
+    }
+    regimeReversalChance(regime) {
+        if (regime === 'FX_REVERSAL')
+            return 0.55;
+        if (regime === 'FX_RANGE' || regime === 'COMMODITY_SWING')
+            return 0.48;
+        if (regime === 'CRYPTO_SPIKE')
+            return 0.3;
+        if (regime === 'FX_TREND')
+            return 0.25;
+        return 0.35;
+    }
+    regimeCleanChance(regime) {
+        if (regime === 'FX_BREAKOUT' || regime === 'CRYPTO_SPIKE')
+            return 0.58;
+        if (regime === 'FX_TREND')
+            return 0.5;
+        if (regime === 'STOCK_STEP')
+            return 0.45;
+        return 0.3;
     }
     multiNoise(key, timeMs, bucketMs) {
         const n1 = this.interpolatedNoise(`${key}:n1`, timeMs, bucketMs);

@@ -33,6 +33,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
 import { WalletsModule } from './wallets/wallets.module';
+import { WebsocketsModule } from './websockets/websockets.module';
 
 @Module({
   imports: [
@@ -67,7 +68,8 @@ import { WalletsModule } from './wallets/wallets.module';
     AffiliatesModule,
     TradingAccountsModule,
     RealAccountsModule,
-    DemoAccountsModule
+    DemoAccountsModule,
+    WebsocketsModule,
 
   ],
   

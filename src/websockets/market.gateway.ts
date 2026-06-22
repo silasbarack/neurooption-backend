@@ -1,9 +1,26 @@
-// @ts-ignore: module may not be installed in this environment
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { PriceUpdateDto } from './dto/price-update.dto';
-import { CandleUpdateDto } from './dto/candle-update.dto';
+import { Namespace, Socket } from 'socket.io';
 import { WebsocketEvents } from './websockets-events';
+
+export type MarketPriceUpdate = {
+  symbol: string;
+  price: number;
+  time: number;
+  serverTime: string;
+};
+
+export type MarketCandleUpdate = {
+  symbol: string;
+  timeframe: string;
+  candle: {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  };
+};
 
 @WebSocketGateway({
   namespace: 'market',
@@ -13,7 +30,7 @@ import { WebsocketEvents } from './websockets-events';
 })
 export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server!: Server;
+  server!: Namespace;
 
   handleConnection(client: Socket) {
     client.emit(WebsocketEvents.CONNECTED, {
@@ -31,11 +48,11 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { symbol: string; timeframe?: string },
   ) {
-    const symbolRoom = this.getSymbolRoom(data.symbol);
+    const symbolRoom = this.symbolRoom(data.symbol);
     client.join(symbolRoom);
 
     if (data.timeframe) {
-      client.join(this.getChartRoom(data.symbol, data.timeframe));
+      client.join(this.chartRoom(data.symbol, data.timeframe));
     }
 
     return {
@@ -49,10 +66,10 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { symbol: string; timeframe?: string },
   ) {
-    client.leave(this.getSymbolRoom(data.symbol));
+    client.leave(this.symbolRoom(data.symbol));
 
     if (data.timeframe) {
-      client.leave(this.getChartRoom(data.symbol, data.timeframe));
+      client.leave(this.chartRoom(data.symbol, data.timeframe));
     }
 
     return {
@@ -61,34 +78,25 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
   }
 
-  broadcastPriceUpdate(dto: PriceUpdateDto) {
-    this.server
-      .to(this.getSymbolRoom(dto.symbol))
-      .emit(WebsocketEvents.PRICE_UPDATE, dto);
+  broadcastPriceUpdate(dto: MarketPriceUpdate) {
+    this.server.to(this.symbolRoom(dto.symbol)).emit(WebsocketEvents.PRICE_UPDATE, dto);
   }
 
-  broadcastCandleUpdate(dto: CandleUpdateDto) {
+  broadcastCandleUpdate(dto: MarketCandleUpdate) {
     this.server
-      .to(this.getChartRoom(dto.symbol, dto.timeframe))
+      .to(this.chartRoom(dto.symbol, dto.timeframe))
       .emit(WebsocketEvents.CANDLE_UPDATE, dto);
   }
 
-  broadcastChartUpdate(symbol: string, timeframe: string, chartData: any) {
-    this.server
-      .to(this.getChartRoom(symbol, timeframe))
-      .emit(WebsocketEvents.CHART_UPDATE, {
-        symbol,
-        timeframe,
-        data: chartData,
-        timestamp: new Date(),
-      });
-  }
-
-  private getSymbolRoom(symbol: string) {
+  symbolRoom(symbol: string) {
     return `symbol:${symbol}`;
   }
 
-  private getChartRoom(symbol: string, timeframe: string) {
+  chartRoom(symbol: string, timeframe: string) {
     return `chart:${symbol}:${timeframe}`;
+  }
+
+  roomSize(room: string) {
+    return this.server.adapter.rooms.get(room)?.size ?? 0;
   }
 }

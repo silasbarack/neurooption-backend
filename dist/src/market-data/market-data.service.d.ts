@@ -37,6 +37,7 @@ export declare class MarketDataService {
         serverTime: string;
         candles: OtcCandle[];
     };
+    getLatestCandle(assetSymbol: string, timeframe: string): OtcCandle;
     private buildCandle;
     private priceAt;
     private getAssetDna;
@@ -44,6 +45,9 @@ export declare class MarketDataService {
     private stepMove;
     private impulse;
     private buildWick;
+    private regimeIndecisionChance;
+    private regimeReversalChance;
+    private regimeCleanChance;
     private multiNoise;
     private interpolatedNoise;
     private sessionMove;

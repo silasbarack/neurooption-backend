@@ -42,6 +42,7 @@ const notifications_module_1 = require("./notifications/notifications.module");
 const transactions_module_1 = require("./transactions/transactions.module");
 const users_module_1 = require("./users/users.module");
 const wallets_module_1 = require("./wallets/wallets.module");
+const websockets_module_1 = require("./websockets/websockets.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -79,7 +80,8 @@ exports.AppModule = AppModule = __decorate([
             affiliates_module_1.AffiliatesModule,
             trading_accounts_module_1.TradingAccountsModule,
             real_accounts_module_1.RealAccountsModule,
-            demo_accounts_module_1.DemoAccountsModule
+            demo_accounts_module_1.DemoAccountsModule,
+            websockets_module_1.WebsocketsModule,
         ],
         controllers: [health_controller_1.HealthController],
         providers: [prisma_service_1.PrismaService],

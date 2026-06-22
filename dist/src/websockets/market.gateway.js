@@ -27,10 +27,10 @@ let MarketGateway = class MarketGateway {
         console.log(`Market socket disconnected: ${client.id}`);
     }
     subscribeSymbol(client, data) {
-        const symbolRoom = this.getSymbolRoom(data.symbol);
+        const symbolRoom = this.symbolRoom(data.symbol);
         client.join(symbolRoom);
         if (data.timeframe) {
-            client.join(this.getChartRoom(data.symbol, data.timeframe));
+            client.join(this.chartRoom(data.symbol, data.timeframe));
         }
         return {
             event: websockets_events_1.WebsocketEvents.SUBSCRIBE_SYMBOL,
@@ -38,9 +38,9 @@ let MarketGateway = class MarketGateway {
         };
     }
     unsubscribeSymbol(client, data) {
-        client.leave(this.getSymbolRoom(data.symbol));
+        client.leave(this.symbolRoom(data.symbol));
         if (data.timeframe) {
-            client.leave(this.getChartRoom(data.symbol, data.timeframe));
+            client.leave(this.chartRoom(data.symbol, data.timeframe));
         }
         return {
             event: websockets_events_1.WebsocketEvents.UNSUBSCRIBE_SYMBOL,
@@ -48,36 +48,27 @@ let MarketGateway = class MarketGateway {
         };
     }
     broadcastPriceUpdate(dto) {
-        this.server
-            .to(this.getSymbolRoom(dto.symbol))
-            .emit(websockets_events_1.WebsocketEvents.PRICE_UPDATE, dto);
+        this.server.to(this.symbolRoom(dto.symbol)).emit(websockets_events_1.WebsocketEvents.PRICE_UPDATE, dto);
     }
     broadcastCandleUpdate(dto) {
         this.server
-            .to(this.getChartRoom(dto.symbol, dto.timeframe))
+            .to(this.chartRoom(dto.symbol, dto.timeframe))
             .emit(websockets_events_1.WebsocketEvents.CANDLE_UPDATE, dto);
     }
-    broadcastChartUpdate(symbol, timeframe, chartData) {
-        this.server
-            .to(this.getChartRoom(symbol, timeframe))
-            .emit(websockets_events_1.WebsocketEvents.CHART_UPDATE, {
-            symbol,
-            timeframe,
-            data: chartData,
-            timestamp: new Date(),
-        });
-    }
-    getSymbolRoom(symbol) {
+    symbolRoom(symbol) {
         return `symbol:${symbol}`;
     }
-    getChartRoom(symbol, timeframe) {
+    chartRoom(symbol, timeframe) {
         return `chart:${symbol}:${timeframe}`;
+    }
+    roomSize(room) {
+        return this.server.adapter.rooms.get(room)?.size ?? 0;
     }
 };
 exports.MarketGateway = MarketGateway;
 __decorate([
     (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", socket_io_1.Server)
+    __metadata("design:type", socket_io_1.Namespace)
 ], MarketGateway.prototype, "server", void 0);
 __decorate([
     (0, websockets_1.SubscribeMessage)(websockets_events_1.WebsocketEvents.SUBSCRIBE_SYMBOL),
