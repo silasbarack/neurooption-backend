@@ -113,21 +113,13 @@ export class AuthService {
   }
 
   private async sendEmailSafely(
-    methodName: string,
-    payload: Record<string, any>,
+    label: string,
+    send: () => Promise<boolean>,
   ): Promise<void> {
     try {
-      const emailService = this.emailsService as any;
-      const method = emailService?.[methodName];
-
-      if (typeof method !== 'function') {
-        this.logger.warn(`EmailsService.${methodName} does not exist.`);
-        return;
-      }
-
-      await method.call(emailService, payload);
+      await send();
     } catch (error) {
-      this.logger.error(`${methodName} failed`, error as Error);
+      this.logger.error(`${label} failed`, error as Error);
     }
   }
 
@@ -169,10 +161,12 @@ export class AuthService {
       data: userData as any,
     });
 
-    await this.sendEmailSafely('sendRegistrationEmail', {
-      email: user.email,
-      fullName: this.getUserDisplayName(user),
-    });
+    await this.sendEmailSafely('sendAccountCreatedEmail', () =>
+      this.emailsService.sendAccountCreatedEmail(
+        user.email,
+        this.getUserDisplayName(user),
+      ),
+    );
 
     const token = this.signToken(user);
 
@@ -261,11 +255,13 @@ export class AuthService {
 
     const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${token}`;
 
-    await this.sendEmailSafely('sendPasswordResetEmail', {
-      email: user.email,
-      fullName: this.getUserDisplayName(user),
-      resetUrl,
-    });
+    await this.sendEmailSafely('sendPasswordResetEmail', () =>
+      this.emailsService.sendPasswordResetEmail(
+        user.email,
+        resetUrl,
+        this.getUserDisplayName(user),
+      ),
+    );
 
     return {
       success: true,
@@ -316,10 +312,12 @@ export class AuthService {
       },
     });
 
-    await this.sendEmailSafely('sendPasswordChangedEmail', {
-      email: resetRecord.user.email,
-      fullName: this.getUserDisplayName(resetRecord.user),
-    });
+    await this.sendEmailSafely('sendPasswordChangedEmail', () =>
+      this.emailsService.sendPasswordChangedEmail(
+        resetRecord.user.email,
+        this.getUserDisplayName(resetRecord.user),
+      ),
+    );
 
     return {
       success: true,

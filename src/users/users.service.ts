@@ -64,19 +64,10 @@ export class UsersService {
 
   private async sendAccountDeletedEmailSafely(user: any): Promise<void> {
     try {
-      const emailService = this.emailsService as any;
-
-      if (typeof emailService.sendAccountDeletedEmail !== 'function') {
-        this.logger.warn(
-          'EmailsService.sendAccountDeletedEmail does not exist. Skipping account deletion email.',
-        );
-        return;
-      }
-
-      await emailService.sendAccountDeletedEmail({
-        email: user.email,
-        fullName: this.getUserDisplayName(user),
-      });
+      await this.emailsService.sendAccountDeletedEmail(
+        user.email,
+        this.getUserDisplayName(user),
+      );
     } catch (error) {
       this.logger.error('Account deletion email failed', error as Error);
     }

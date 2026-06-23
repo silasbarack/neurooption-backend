@@ -10,14 +10,6 @@ type EmailTemplate = {
     body: string;
 };
 export declare class EmailsService {
-    sendRegistrationEmail(arg0: {
-        email: string;
-        fullName: string;
-    }): void;
-    sendRegistrationWelcomeEmail(arg0: {
-        email: string;
-        fullName: any;
-    }): void;
     private readonly logger;
     private getTransporterConfig;
     private createTransporter;
@@ -29,6 +21,7 @@ export declare class EmailsService {
     sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean>;
     sendAccountDeletedEmail(email: string, fullName: string): Promise<boolean>;
     sendPasswordResetEmail(email: string, resetLink: string, fullName?: string): Promise<boolean>;
+    sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean>;
     depositSuccessful(data: MoneyEmailData): EmailTemplate;
     withdrawalRequested(data: MoneyEmailData): EmailTemplate;
     withdrawalProcessing(data: MoneyEmailData): EmailTemplate;

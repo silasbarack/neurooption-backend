@@ -16,12 +16,6 @@ type EmailTemplate = {
 
 @Injectable()
 export class EmailsService {
-  sendRegistrationEmail(arg0: { email: string; fullName: string; }) {
-    throw new Error('Method not implemented.');
-  }
-  sendRegistrationWelcomeEmail(arg0: { email: string; fullName: any; }) {
-    throw new Error('Method not implemented.');
-  }
   private readonly logger = new Logger(EmailsService.name);
 
   private getTransporterConfig() {
@@ -169,6 +163,24 @@ Dear ${name},
 We received a request to reset your NeuroOption password.
 Open this secure link to create a new password: ${resetLink}
 This link expires shortly. If you did not request this, please ignore this email.
+      `.trim(),
+    );
+  }
+
+  async sendPasswordChangedEmail(
+    email: string,
+    fullName: string,
+  ): Promise<boolean> {
+    const name = this.formatName(fullName);
+
+    return this.sendEmail(
+      email,
+      'Your NeuroOption password was changed',
+      `
+Dear ${name},
+
+Your NeuroOption password was just changed successfully.
+If you did not make this change, please contact Support Service immediately.
       `.trim(),
     );
   }

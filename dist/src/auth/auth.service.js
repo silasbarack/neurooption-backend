@@ -76,18 +76,12 @@ let AuthService = AuthService_1 = class AuthService {
             email: user.email,
         });
     }
-    async sendEmailSafely(methodName, payload) {
+    async sendEmailSafely(label, send) {
         try {
-            const emailService = this.emailsService;
-            const method = emailService?.[methodName];
-            if (typeof method !== 'function') {
-                this.logger.warn(`EmailsService.${methodName} does not exist.`);
-                return;
-            }
-            await method.call(emailService, payload);
+            await send();
         }
         catch (error) {
-            this.logger.error(`${methodName} failed`, error);
+            this.logger.error(`${label} failed`, error);
         }
     }
     async register(payload) {
@@ -118,10 +112,7 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.prisma.user.create({
             data: userData,
         });
-        await this.sendEmailSafely('sendRegistrationEmail', {
-            email: user.email,
-            fullName: this.getUserDisplayName(user),
-        });
+        await this.sendEmailSafely('sendAccountCreatedEmail', () => this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user)));
         const token = this.signToken(user);
         return {
             success: true,
@@ -189,11 +180,7 @@ let AuthService = AuthService_1 = class AuthService {
             },
         });
         const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${token}`;
-        await this.sendEmailSafely('sendPasswordResetEmail', {
-            email: user.email,
-            fullName: this.getUserDisplayName(user),
-            resetUrl,
-        });
+        await this.sendEmailSafely('sendPasswordResetEmail', () => this.emailsService.sendPasswordResetEmail(user.email, resetUrl, this.getUserDisplayName(user)));
         return {
             success: true,
             message: 'If this email exists, a password reset message has been sent.',
@@ -235,10 +222,7 @@ let AuthService = AuthService_1 = class AuthService {
                 id: resetRecord.id,
             },
         });
-        await this.sendEmailSafely('sendPasswordChangedEmail', {
-            email: resetRecord.user.email,
-            fullName: this.getUserDisplayName(resetRecord.user),
-        });
+        await this.sendEmailSafely('sendPasswordChangedEmail', () => this.emailsService.sendPasswordChangedEmail(resetRecord.user.email, this.getUserDisplayName(resetRecord.user)));
         return {
             success: true,
             message: 'Password reset successfully.',
