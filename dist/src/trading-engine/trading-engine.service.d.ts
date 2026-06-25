@@ -2,6 +2,7 @@ import { MarketDataService } from '../market-data/market-data.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TradesService } from '../trades/trades.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { PlaceTradeDto } from './dto/place-trade.dto';
 import { AccountCurrency, AccountType, PlacedTrade } from './trading-engine.types';
 export declare class TradingEngineService {
@@ -9,8 +10,10 @@ export declare class TradingEngineService {
     private readonly walletsService;
     private readonly transactionsService;
     private readonly tradesService;
+    private readonly ledgerService;
     private readonly settlementTimers;
-    constructor(marketDataService: MarketDataService, walletsService: WalletsService, transactionsService: TransactionsService, tradesService: TradesService);
+    constructor(marketDataService: MarketDataService, walletsService: WalletsService, transactionsService: TransactionsService, tradesService: TradesService, ledgerService: LedgerService);
+    private assertLedgerCurrency;
     placeTrade(dto: PlaceTradeDto): Promise<{
         trade: PlacedTrade;
         wallet: {

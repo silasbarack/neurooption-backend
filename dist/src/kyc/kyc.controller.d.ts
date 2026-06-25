@@ -6,10 +6,10 @@ export declare class KycController {
     constructor(kycService: KycService);
     submit(dto: CreateKycDto): Promise<{
         id: string;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.KycStatus;
+        userId: string;
         rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
@@ -25,22 +25,22 @@ export declare class KycController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.AccountStatus;
             passwordHash: string;
             fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
             role: import(".prisma/client").$Enums.UserRole;
+            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
         };
     } & {
         id: string;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.KycStatus;
+        userId: string;
         rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
@@ -56,22 +56,22 @@ export declare class KycController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.AccountStatus;
             passwordHash: string;
             fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
             role: import(".prisma/client").$Enums.UserRole;
+            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
         };
     } & {
         id: string;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.KycStatus;
+        userId: string;
         rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
@@ -87,22 +87,22 @@ export declare class KycController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.AccountStatus;
             passwordHash: string;
             fullName: string;
             email: string;
             phone: string | null;
             referralCode: string | null;
             role: import(".prisma/client").$Enums.UserRole;
+            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
         };
     } & {
         id: string;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.KycStatus;
+        userId: string;
         rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
@@ -115,10 +115,10 @@ export declare class KycController {
     }>;
     approve(id: string, dto: ReviewKycDto): Promise<{
         id: string;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.KycStatus;
+        userId: string;
         rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
@@ -131,10 +131,10 @@ export declare class KycController {
     }>;
     reject(id: string, dto: ReviewKycDto): Promise<{
         id: string;
-        userId: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.KycStatus;
+        userId: string;
         rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;

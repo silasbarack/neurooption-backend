@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AccountCurrency,
   PaymentDirection,
   Prisma,
   TransactionStatus,
@@ -11,12 +12,19 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../config/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
+import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { UpdateWithdrawalStatusDto } from './dto/update-withdrawal-status.dto';
 
+const LEDGER_CURRENCIES = new Set(Object.values(AccountCurrency));
+
 @Injectable()
 export class WithdrawalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledgerService: LedgerService,
+  ) {}
 
   async create(dto: CreateWithdrawalDto) {
     const wallet = await this.prisma.wallet.findUnique({
@@ -33,6 +41,13 @@ export class WithdrawalsService {
 
     if (wallet.balance.lessThan(amount)) {
       throw new BadRequestException('Insufficient wallet balance');
+    }
+
+    const currency = dto.currency ?? wallet.currency;
+    if (!LEDGER_CURRENCIES.has(currency as AccountCurrency)) {
+      throw new BadRequestException(
+        `Currency ${currency} is not supported by the real-money ledger yet`,
+      );
     }
 
     const gateway = await this.prisma.paymentGateway.findUnique({
@@ -63,6 +78,22 @@ export class WithdrawalsService {
         },
       });
 
+      // Created before the wallet/ledger updates below so we have a real
+      // withdrawalId to pass into ledgerService.requestWithdrawal.
+      const withdrawal = await tx.withdrawal.create({
+        data: {
+          userId: dto.userId,
+          walletId: dto.walletId,
+          gatewayId: gateway.id,
+          transactionId: transaction.id,
+          amount,
+          currency,
+          phone: dto.phone,
+          status: TransactionStatus.PENDING,
+        },
+        include: this.includeRelations(),
+      });
+
       await tx.wallet.update({
         where: { id: dto.walletId },
         data: {
@@ -75,19 +106,23 @@ export class WithdrawalsService {
         },
       });
 
-      return tx.withdrawal.create({
-        data: {
+      // Ledger is the real source of truth for real-money balances; the
+      // Wallet balance/locked update above is kept so existing reads keep
+      // working. This also re-validates available balance from ledger
+      // entries and will throw (rolling back this whole transaction) if
+      // it disagrees with the legacy Wallet-based check above.
+      await this.ledgerService.requestWithdrawal(
+        {
           userId: dto.userId,
-          walletId: dto.walletId,
-          gatewayId: gateway.id,
-          transactionId: transaction.id,
           amount,
-          currency: dto.currency ?? wallet.currency,
-          phone: dto.phone,
-          status: TransactionStatus.PENDING,
+          currency: currency as AccountCurrency,
+          withdrawalId: withdrawal.id,
+          idempotencyKey: `withdrawal-requested-${withdrawal.id}`,
         },
-        include: this.includeRelations(),
-      });
+        tx,
+      );
+
+      return withdrawal;
     });
   }
 
@@ -123,6 +158,7 @@ export class WithdrawalsService {
       include: {
         transaction: true,
         wallet: true,
+        gateway: true,
       },
     });
 
@@ -162,6 +198,19 @@ export class WithdrawalsService {
             },
           },
         });
+
+        await this.ledgerService.markWithdrawalPaid(
+          {
+            userId: withdrawal.userId,
+            amount: withdrawal.amount,
+            currency: withdrawal.currency as AccountCurrency,
+            withdrawalId: withdrawal.id,
+            clearingAccountCode: paymentGatewayTypeToClearingAccountCode(withdrawal.gateway.type),
+            idempotencyKey: `withdrawal-paid-${withdrawal.id}`,
+            description: `Withdrawal paid via ${withdrawal.gateway.type}`,
+          },
+          tx,
+        );
       }
 
       if (
@@ -180,6 +229,18 @@ export class WithdrawalsService {
             },
           },
         });
+
+        await this.ledgerService.rejectWithdrawal(
+          {
+            userId: withdrawal.userId,
+            amount: withdrawal.amount,
+            currency: withdrawal.currency as AccountCurrency,
+            withdrawalId: withdrawal.id,
+            reason: dto.rejectionReason ?? `Withdrawal ${dto.status.toLowerCase()}`,
+            idempotencyKey: `withdrawal-rejected-${withdrawal.id}`,
+          },
+          tx,
+        );
       }
 
       return updated;
@@ -205,7 +266,7 @@ export class WithdrawalsService {
       user: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },

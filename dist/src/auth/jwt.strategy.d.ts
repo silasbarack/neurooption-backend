@@ -10,12 +10,12 @@ export declare class JwtStrategy extends JwtStrategy_base {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.AccountStatus;
         fullName: string;
         email: string;
         phone: string | null;
         referralCode: string | null;
         role: import(".prisma/client").$Enums.UserRole;
+        status: import(".prisma/client").$Enums.AccountStatus;
         kycStatus: import(".prisma/client").$Enums.KycStatus;
         referredById: string | null;
     }>;

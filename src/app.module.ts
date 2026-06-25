@@ -34,6 +34,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
 import { WalletsModule } from './wallets/wallets.module';
 import { WebsocketsModule } from './websockets/websockets.module';
+import { LedgerModule } from './ledger/ledger.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { WebsocketsModule } from './websockets/websockets.module';
     RealAccountsModule,
     DemoAccountsModule,
     WebsocketsModule,
+    LedgerModule,
 
   ],
   

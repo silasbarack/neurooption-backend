@@ -97,6 +97,54 @@ enum TransactionType {
   ADMIN_ADJUSTMENT
 }
 
+// ---------------------------------------------------------------------------
+// Double-entry ledger enums. See the LedgerAccount/LedgerTransaction/
+// LedgerEntry models near the end of this file for the full design.
+// ---------------------------------------------------------------------------
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  REVENUE
+  EXPENSE
+  EQUITY
+}
+
+enum LedgerAccountCode {
+  USER_REAL_AVAILABLE_LIABILITY
+  USER_OPEN_TRADE_ESCROW
+  USER_WITHDRAWAL_PENDING
+  PLATFORM_CASH_MPESA_CLEARING
+  PLATFORM_CASH_CARD_CLEARING
+  PLATFORM_CASH_BANK_CLEARING
+  PLATFORM_CASH_CRYPTO_CLEARING
+  PLATFORM_TRADING_REVENUE
+  PLATFORM_TRADING_PAYOUT_EXPENSE
+  PAYMENT_PROCESSOR_FEES
+  BONUS_LIABILITY
+  SUSPENSE_ACCOUNT
+}
+
+enum LedgerEntrySide {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerTransactionType {
+  DEPOSIT_CONFIRMED
+  WITHDRAWAL_REQUESTED
+  WITHDRAWAL_PAID
+  WITHDRAWAL_REJECTED
+  TRADE_PLACED
+  TRADE_WON
+  TRADE_LOST
+  TRADE_REFUNDED
+  BONUS_GRANTED
+  BONUS_CANCELLED
+  MANUAL_ADJUSTMENT
+  PAYMENT_FEE
+}
+
 enum TransactionStatus {
   PENDING
   PROCESSING
@@ -298,6 +346,8 @@ model User {
   withdrawals          Withdrawal[]
   payouts              Payout[]
   auditLogs            AuditLog[]
+  ledgerAccounts       LedgerAccount[]
+  ledgerTransactions   LedgerTransaction[]
   affiliateProfile     Affiliate?
   affiliateCommissions AffiliateCommission[] @relation("AffiliateCommissionAffiliate")
   referredCommissions  AffiliateCommission[] @relation("AffiliateCommissionReferredUser")
@@ -989,4 +1039,99 @@ model EngineTransaction {
   @@index([tradeId])
   @@index([type, status])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Double-entry ledger
+//
+// Every real-money movement (deposit, withdrawal, trade stake/settlement,
+// bonus, manual adjustment) is recorded as a LedgerTransaction with two or
+// more balanced LedgerEntry rows (sum of debits == sum of credits). Entries
+// are append-only — never updated or deleted, also enforced by a DB trigger
+// in the migration — so the ledger itself is the audit trail. See
+// LedgerService for the posting rules.
+// ---------------------------------------------------------------------------
+
+model LedgerAccount {
+  id     String  @id @default(uuid())
+  userId String?
+
+  code LedgerAccountCode
+  type LedgerAccountType
+
+  currency AccountCurrency
+  name     String
+
+  // System accounts (platform cash clearing, revenue, expense, suspense)
+  // have userId = null and isSystem = true. User accounts (available
+  // balance, open-trade escrow, withdrawal-pending) are scoped to one user.
+  isSystem Boolean @default(false)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User?         @relation(fields: [userId], references: [id])
+  entries LedgerEntry[]
+
+  // One account per user/code/currency triple (and one singleton per
+  // code/currency for system accounts, where userId is null).
+  @@unique([userId, code, currency])
+  @@index([userId])
+  @@index([code])
+}
+
+model LedgerTransaction {
+  id   String                @id @default(uuid())
+  type LedgerTransactionType
+
+  currency    AccountCurrency
+  amount      Decimal         @db.Decimal(18, 2)
+  description String?
+
+  // Prevents a payment webhook (or any retried caller) from posting the
+  // same transaction twice.
+  idempotencyKey String? @unique
+
+  // Audit-friendly references. Intentionally plain string columns (not
+  // enforced foreign keys) because they may point at either the legacy
+  // Trade/Deposit/Withdrawal models or the trading-engine equivalents.
+  userId            String?
+  tradeId           String?
+  depositId         String?
+  withdrawalId      String?
+  externalReference String?
+
+  createdAt DateTime @default(now())
+
+  user    User?         @relation(fields: [userId], references: [id])
+  entries LedgerEntry[]
+
+  @@index([userId])
+  @@index([tradeId])
+  @@index([depositId])
+  @@index([withdrawalId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model LedgerEntry {
+  id            String @id @default(uuid())
+  transactionId String
+  accountId     String
+
+  side     LedgerEntrySide
+  amount   Decimal         @db.Decimal(18, 2)
+  currency AccountCurrency
+  memo     String?
+
+  // Immutable: rows are only ever inserted by LedgerService, never updated
+  // or deleted (also enforced by a DB trigger — see migration).
+  createdAt DateTime @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id])
+  account     LedgerAccount     @relation(fields: [accountId], references: [id])
+
+  @@index([transactionId])
+  @@index([accountId])
 }

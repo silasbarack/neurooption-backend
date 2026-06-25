@@ -10,20 +10,31 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TradingEngineService = void 0;
+const node_crypto_1 = require("node:crypto");
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const market_data_service_1 = require("../market-data/market-data.service");
 const market_data_constants_1 = require("../market-data/market-data.constants");
 const wallets_service_1 = require("../wallets/wallets.service");
 const transactions_service_1 = require("../transactions/transactions.service");
 const trades_service_1 = require("../trades/trades.service");
+const ledger_service_1 = require("../ledger/ledger.service");
 const trading_engine_types_1 = require("./trading-engine.types");
+const LEDGER_CURRENCIES = new Set(Object.values(client_1.AccountCurrency));
 let TradingEngineService = class TradingEngineService {
-    constructor(marketDataService, walletsService, transactionsService, tradesService) {
+    constructor(marketDataService, walletsService, transactionsService, tradesService, ledgerService) {
         this.marketDataService = marketDataService;
         this.walletsService = walletsService;
         this.transactionsService = transactionsService;
         this.tradesService = tradesService;
+        this.ledgerService = ledgerService;
         this.settlementTimers = new Map();
+    }
+    assertLedgerCurrency(currency) {
+        if (!LEDGER_CURRENCIES.has(currency)) {
+            throw new common_1.BadRequestException(`Currency ${currency} is not supported by the real-money ledger yet.`);
+        }
+        return currency;
     }
     async placeTrade(dto) {
         const userId = dto.userId?.trim() || 'demo-user';
@@ -54,9 +65,36 @@ let TradingEngineService = class TradingEngineService {
         const expectedReturnUsd = (0, trading_engine_types_1.currencyToUsd)(expectedReturnAmount, currency);
         const entryTime = Date.now();
         const expiryTime = entryTime + expirySeconds * 1000;
-        const wallet = await this.walletsService.ensureWallet(userId, accountType, currency);
-        await this.walletsService.debit(userId, accountType, stakeUsd);
+        const tradeId = (0, node_crypto_1.randomUUID)();
+        const ledgerCurrency = accountType === 'QT Real' ? this.assertLedgerCurrency(currency) : undefined;
+        if (ledgerCurrency) {
+            await this.ledgerService.placeTrade({
+                userId,
+                tradeId,
+                stakeAmount: amount,
+                currency: ledgerCurrency,
+                idempotencyKey: `trade-placed-${tradeId}`,
+            });
+        }
+        let wallet;
+        try {
+            wallet = await this.walletsService.ensureWallet(userId, accountType, currency);
+            await this.walletsService.debit(userId, accountType, stakeUsd);
+        }
+        catch (err) {
+            if (ledgerCurrency) {
+                await this.ledgerService.refundTrade({
+                    userId,
+                    tradeId,
+                    stakeAmount: amount,
+                    currency: ledgerCurrency,
+                    idempotencyKey: `trade-place-failed-${tradeId}`,
+                });
+            }
+            throw err;
+        }
         const trade = await this.tradesService.create({
+            id: tradeId,
             userId,
             walletId: wallet.id,
             asset: asset.symbol,
@@ -156,6 +194,16 @@ let TradingEngineService = class TradingEngineService {
     async applySettlement(trade, status, closePrice) {
         const settledAt = Date.now();
         if (status === 'WON') {
+            if (trade.accountType === 'QT Real') {
+                await this.ledgerService.settleTradeWon({
+                    userId: trade.userId,
+                    tradeId: trade.id,
+                    stakeAmount: trade.stakeAmount,
+                    profitAmount: trade.expectedProfitAmount,
+                    currency: this.assertLedgerCurrency(trade.currency),
+                    idempotencyKey: `trade-settled-${trade.id}`,
+                });
+            }
             await this.walletsService.credit(trade.userId, trade.accountType, trade.expectedReturnUsd);
             await this.transactionsService.create({
                 userId: trade.userId,
@@ -180,6 +228,15 @@ let TradingEngineService = class TradingEngineService {
             };
         }
         if (status === 'DRAW') {
+            if (trade.accountType === 'QT Real') {
+                await this.ledgerService.refundTrade({
+                    userId: trade.userId,
+                    tradeId: trade.id,
+                    stakeAmount: trade.stakeAmount,
+                    currency: this.assertLedgerCurrency(trade.currency),
+                    idempotencyKey: `trade-settled-${trade.id}`,
+                });
+            }
             await this.walletsService.credit(trade.userId, trade.accountType, trade.stakeUsd);
             await this.transactionsService.create({
                 userId: trade.userId,
@@ -202,6 +259,15 @@ let TradingEngineService = class TradingEngineService {
                 profitAmount: 0,
                 profitUsd: 0,
             };
+        }
+        if (trade.accountType === 'QT Real') {
+            await this.ledgerService.settleTradeLost({
+                userId: trade.userId,
+                tradeId: trade.id,
+                stakeAmount: trade.stakeAmount,
+                currency: this.assertLedgerCurrency(trade.currency),
+                idempotencyKey: `trade-settled-${trade.id}`,
+            });
         }
         await this.transactionsService.create({
             userId: trade.userId,
@@ -305,6 +371,7 @@ exports.TradingEngineService = TradingEngineService = __decorate([
     __metadata("design:paramtypes", [market_data_service_1.MarketDataService,
         wallets_service_1.WalletsService,
         transactions_service_1.TransactionsService,
-        trades_service_1.TradesService])
+        trades_service_1.TradesService,
+        ledger_service_1.LedgerService])
 ], TradingEngineService);
 //# sourceMappingURL=trading-engine.service.js.map

@@ -21,67 +21,67 @@ export declare class PayoutsService {
     updateAssetPayout(dto: UpdateAssetPayoutDto): Promise<{
         symbol: string;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         name: string;
         category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
         isActive: boolean;
         payoutRate: Prisma.Decimal;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     create(dto: CreatePayoutDto): Promise<{
-        wallet: {
-            id: string;
-            userId: string;
-            currency: string;
-            balance: Prisma.Decimal;
-            locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
         };
-        transaction: {
+        wallet: {
             id: string;
-            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
+            userId: string;
+            currency: string;
+            balance: Prisma.Decimal;
+            locked: Prisma.Decimal;
+        };
+        transaction: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            amount: Prisma.Decimal;
+            userId: string;
             description: string | null;
+            amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         trade: {
             id: string;
-            userId: string;
-            status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: Prisma.Decimal;
-            entryPrice: Prisma.Decimal;
-            profitAmount: Prisma.Decimal;
             payoutRate: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.TradeStatus;
             expiresAt: Date;
+            userId: string;
             exitPrice: Prisma.Decimal | null;
+            profitAmount: Prisma.Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: Prisma.Decimal;
+            entryPrice: Prisma.Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
         gateway: {
             id: string;
+            name: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
-            isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -94,16 +94,16 @@ export declare class PayoutsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        tradeId: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
         amount: Prisma.Decimal;
         transactionId: string;
+        walletId: string;
+        currency: string;
         gatewayId: string | null;
+        tradeId: string | null;
     }>;
     createTradeWinPayout(params: {
         userId: string;
@@ -113,58 +113,58 @@ export declare class PayoutsService {
         payoutRate: Prisma.Decimal;
         currency?: string;
     }): Promise<{
-        wallet: {
-            id: string;
-            userId: string;
-            currency: string;
-            balance: Prisma.Decimal;
-            locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
         };
-        transaction: {
+        wallet: {
             id: string;
-            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
+            userId: string;
+            currency: string;
+            balance: Prisma.Decimal;
+            locked: Prisma.Decimal;
+        };
+        transaction: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            amount: Prisma.Decimal;
+            userId: string;
             description: string | null;
+            amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         trade: {
             id: string;
-            userId: string;
-            status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: Prisma.Decimal;
-            entryPrice: Prisma.Decimal;
-            profitAmount: Prisma.Decimal;
             payoutRate: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.TradeStatus;
             expiresAt: Date;
+            userId: string;
             exitPrice: Prisma.Decimal | null;
+            profitAmount: Prisma.Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: Prisma.Decimal;
+            entryPrice: Prisma.Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
         gateway: {
             id: string;
+            name: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
-            isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -177,70 +177,70 @@ export declare class PayoutsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        tradeId: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
         amount: Prisma.Decimal;
         transactionId: string;
+        walletId: string;
+        currency: string;
         gatewayId: string | null;
+        tradeId: string | null;
     }>;
     findAll(): Promise<({
-        wallet: {
-            id: string;
-            userId: string;
-            currency: string;
-            balance: Prisma.Decimal;
-            locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
         };
-        transaction: {
+        wallet: {
             id: string;
-            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
+            userId: string;
+            currency: string;
+            balance: Prisma.Decimal;
+            locked: Prisma.Decimal;
+        };
+        transaction: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            amount: Prisma.Decimal;
+            userId: string;
             description: string | null;
+            amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         trade: {
             id: string;
-            userId: string;
-            status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: Prisma.Decimal;
-            entryPrice: Prisma.Decimal;
-            profitAmount: Prisma.Decimal;
             payoutRate: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.TradeStatus;
             expiresAt: Date;
+            userId: string;
             exitPrice: Prisma.Decimal | null;
+            profitAmount: Prisma.Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: Prisma.Decimal;
+            entryPrice: Prisma.Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
         gateway: {
             id: string;
+            name: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
-            isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -253,70 +253,70 @@ export declare class PayoutsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        tradeId: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
         amount: Prisma.Decimal;
         transactionId: string;
+        walletId: string;
+        currency: string;
         gatewayId: string | null;
+        tradeId: string | null;
     })[]>;
     findByUser(userId: string): Promise<({
-        wallet: {
-            id: string;
-            userId: string;
-            currency: string;
-            balance: Prisma.Decimal;
-            locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
         };
-        transaction: {
+        wallet: {
             id: string;
-            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
+            userId: string;
+            currency: string;
+            balance: Prisma.Decimal;
+            locked: Prisma.Decimal;
+        };
+        transaction: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            amount: Prisma.Decimal;
+            userId: string;
             description: string | null;
+            amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         trade: {
             id: string;
-            userId: string;
-            status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: Prisma.Decimal;
-            entryPrice: Prisma.Decimal;
-            profitAmount: Prisma.Decimal;
             payoutRate: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.TradeStatus;
             expiresAt: Date;
+            userId: string;
             exitPrice: Prisma.Decimal | null;
+            profitAmount: Prisma.Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: Prisma.Decimal;
+            entryPrice: Prisma.Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
         gateway: {
             id: string;
+            name: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
-            isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -329,70 +329,70 @@ export declare class PayoutsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        tradeId: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
         amount: Prisma.Decimal;
         transactionId: string;
+        walletId: string;
+        currency: string;
         gatewayId: string | null;
+        tradeId: string | null;
     })[]>;
     findByTrade(tradeId: string): Promise<({
-        wallet: {
-            id: string;
-            userId: string;
-            currency: string;
-            balance: Prisma.Decimal;
-            locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
         };
-        transaction: {
+        wallet: {
             id: string;
-            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
+            userId: string;
+            currency: string;
+            balance: Prisma.Decimal;
+            locked: Prisma.Decimal;
+        };
+        transaction: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            amount: Prisma.Decimal;
+            userId: string;
             description: string | null;
+            amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         trade: {
             id: string;
-            userId: string;
-            status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: Prisma.Decimal;
-            entryPrice: Prisma.Decimal;
-            profitAmount: Prisma.Decimal;
             payoutRate: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.TradeStatus;
             expiresAt: Date;
+            userId: string;
             exitPrice: Prisma.Decimal | null;
+            profitAmount: Prisma.Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: Prisma.Decimal;
+            entryPrice: Prisma.Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
         gateway: {
             id: string;
+            name: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
-            isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -405,70 +405,70 @@ export declare class PayoutsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        tradeId: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
         amount: Prisma.Decimal;
         transactionId: string;
+        walletId: string;
+        currency: string;
         gatewayId: string | null;
+        tradeId: string | null;
     })[]>;
     findOne(id: string): Promise<{
-        wallet: {
-            id: string;
-            userId: string;
-            currency: string;
-            balance: Prisma.Decimal;
-            locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
-        };
         user: {
             id: string;
             email: string;
             phone: string;
             fullname: never;
         };
-        transaction: {
+        wallet: {
             id: string;
-            userId: string;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
+            userId: string;
+            currency: string;
+            balance: Prisma.Decimal;
+            locked: Prisma.Decimal;
+        };
+        transaction: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
-            amount: Prisma.Decimal;
+            userId: string;
             description: string | null;
+            amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         trade: {
             id: string;
-            userId: string;
-            status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: Prisma.Decimal;
-            entryPrice: Prisma.Decimal;
-            profitAmount: Prisma.Decimal;
             payoutRate: Prisma.Decimal;
+            status: import(".prisma/client").$Enums.TradeStatus;
             expiresAt: Date;
+            userId: string;
             exitPrice: Prisma.Decimal | null;
+            profitAmount: Prisma.Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: Prisma.Decimal;
+            entryPrice: Prisma.Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
         gateway: {
             id: string;
+            name: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
-            name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
-            isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -481,16 +481,16 @@ export declare class PayoutsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        tradeId: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
         amount: Prisma.Decimal;
         transactionId: string;
+        walletId: string;
+        currency: string;
         gatewayId: string | null;
+        tradeId: string | null;
     }>;
     private validatePayoutRate;
     private includeRelations;

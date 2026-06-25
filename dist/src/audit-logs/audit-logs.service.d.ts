@@ -18,13 +18,13 @@ export declare class AuditLogsService {
         };
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
-        description: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -44,13 +44,13 @@ export declare class AuditLogsService {
         };
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
-        description: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -70,13 +70,13 @@ export declare class AuditLogsService {
         };
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
-        description: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -96,13 +96,13 @@ export declare class AuditLogsService {
         };
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
-        description: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -122,13 +122,13 @@ export declare class AuditLogsService {
         };
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
-        description: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;
@@ -148,13 +148,13 @@ export declare class AuditLogsService {
         };
     } & {
         id: string;
-        userId: string | null;
         createdAt: Date;
-        description: string | null;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
         adminId: string | null;

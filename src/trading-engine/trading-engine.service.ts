@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { AccountCurrency as LedgerCurrency } from '@prisma/client';
 import { MarketDataService } from '../market-data/market-data.service';
 import {
   MARKET_ASSETS,
@@ -7,6 +9,7 @@ import {
 import { WalletsService } from '../wallets/wallets.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TradesService } from '../trades/trades.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { PlaceTradeDto } from './dto/place-trade.dto';
 import {
   AccountCurrency,
@@ -17,6 +20,8 @@ import {
   currencyToUsd,
 } from './trading-engine.types';
 
+const LEDGER_CURRENCIES = new Set(Object.values(LedgerCurrency));
+
 @Injectable()
 export class TradingEngineService {
   private readonly settlementTimers = new Map<string, NodeJS.Timeout>();
@@ -26,7 +31,29 @@ export class TradingEngineService {
     private readonly walletsService: WalletsService,
     private readonly transactionsService: TransactionsService,
     private readonly tradesService: TradesService,
+    private readonly ledgerService: LedgerService,
   ) {}
+
+  /**
+   * Real-money trades (accountType === 'QT Real') must be backed by the
+   * double-entry ledger, not just EngineWallet's balance column. Demo
+   * trades never touch the ledger.
+   *
+   * Per explicit product decision: this throws rather than silently
+   * skipping when the ledger rejects a real trade (e.g. because the
+   * trading screen isn't yet sending a real, authenticated userId instead
+   * of the "demo-user" placeholder). That's intentional — it surfaces the
+   * gap loudly instead of letting real-money trades go untracked.
+   */
+  private assertLedgerCurrency(currency: AccountCurrency): LedgerCurrency {
+    if (!LEDGER_CURRENCIES.has(currency as LedgerCurrency)) {
+      throw new BadRequestException(
+        `Currency ${currency} is not supported by the real-money ledger yet.`,
+      );
+    }
+
+    return currency as LedgerCurrency;
+  }
 
   async placeTrade(dto: PlaceTradeDto) {
     const userId = dto.userId?.trim() || 'demo-user';
@@ -67,15 +94,51 @@ export class TradingEngineService {
     const entryTime = Date.now();
     const expiryTime = entryTime + expirySeconds * 1000;
 
-    const wallet = await this.walletsService.ensureWallet(
-      userId,
-      accountType,
-      currency,
-    );
+    // Generated up front (rather than letting Prisma default it) so a
+    // real-money ledger post can reference this trade's id before the
+    // EngineTrade row itself exists.
+    const tradeId = randomUUID();
 
-    await this.walletsService.debit(userId, accountType, stakeUsd);
+    const ledgerCurrency =
+      accountType === 'QT Real' ? this.assertLedgerCurrency(currency) : undefined;
+
+    if (ledgerCurrency) {
+      // Posted before any wallet/trade mutation: if this throws (e.g. the
+      // userId doesn't match a real User row, or available balance is
+      // insufficient per the ledger), nothing else about this trade has
+      // happened yet.
+      await this.ledgerService.placeTrade({
+        userId,
+        tradeId,
+        stakeAmount: amount,
+        currency: ledgerCurrency,
+        idempotencyKey: `trade-placed-${tradeId}`,
+      });
+    }
+
+    let wallet: Awaited<ReturnType<WalletsService['ensureWallet']>>;
+    try {
+      wallet = await this.walletsService.ensureWallet(userId, accountType, currency);
+      await this.walletsService.debit(userId, accountType, stakeUsd);
+    } catch (err) {
+      if (ledgerCurrency) {
+        // The ledger escrow above already committed in its own
+        // transaction; since EngineWallet failed afterward, reverse it so
+        // the ledger doesn't end up holding stake for a trade that was
+        // never actually placed.
+        await this.ledgerService.refundTrade({
+          userId,
+          tradeId,
+          stakeAmount: amount,
+          currency: ledgerCurrency,
+          idempotencyKey: `trade-place-failed-${tradeId}`,
+        });
+      }
+      throw err;
+    }
 
     const trade = await this.tradesService.create({
+      id: tradeId,
       userId,
       walletId: wallet.id,
       asset: asset.symbol,
@@ -218,6 +281,17 @@ export class TradingEngineService {
     const settledAt = Date.now();
 
     if (status === 'WON') {
+      if (trade.accountType === 'QT Real') {
+        await this.ledgerService.settleTradeWon({
+          userId: trade.userId,
+          tradeId: trade.id,
+          stakeAmount: trade.stakeAmount,
+          profitAmount: trade.expectedProfitAmount,
+          currency: this.assertLedgerCurrency(trade.currency),
+          idempotencyKey: `trade-settled-${trade.id}`,
+        });
+      }
+
       await this.walletsService.credit(
         trade.userId,
         trade.accountType,
@@ -249,6 +323,16 @@ export class TradingEngineService {
     }
 
     if (status === 'DRAW') {
+      if (trade.accountType === 'QT Real') {
+        await this.ledgerService.refundTrade({
+          userId: trade.userId,
+          tradeId: trade.id,
+          stakeAmount: trade.stakeAmount,
+          currency: this.assertLedgerCurrency(trade.currency),
+          idempotencyKey: `trade-settled-${trade.id}`,
+        });
+      }
+
       await this.walletsService.credit(
         trade.userId,
         trade.accountType,
@@ -277,6 +361,16 @@ export class TradingEngineService {
         profitAmount: 0,
         profitUsd: 0,
       };
+    }
+
+    if (trade.accountType === 'QT Real') {
+      await this.ledgerService.settleTradeLost({
+        userId: trade.userId,
+        tradeId: trade.id,
+        stakeAmount: trade.stakeAmount,
+        currency: this.assertLedgerCurrency(trade.currency),
+        idempotencyKey: `trade-settled-${trade.id}`,
+      });
     }
 
     await this.transactionsService.create({

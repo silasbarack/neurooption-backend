@@ -13,9 +13,13 @@ exports.DepositsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../config/prisma.service");
+const ledger_service_1 = require("../ledger/ledger.service");
+const ledger_types_1 = require("../ledger/ledger.types");
+const LEDGER_CURRENCIES = new Set(Object.values(client_1.AccountCurrency));
 let DepositsService = class DepositsService {
-    constructor(prisma) {
+    constructor(prisma, ledgerService) {
         this.prisma = prisma;
+        this.ledgerService = ledgerService;
     }
     async create(dto) {
         const user = await this.prisma.user.findUnique({
@@ -100,12 +104,17 @@ let DepositsService = class DepositsService {
             include: {
                 transaction: true,
                 wallet: true,
+                gateway: true,
             },
         });
         if (!deposit)
             throw new common_1.NotFoundException('Deposit not found');
         if (deposit.status === client_1.TransactionStatus.COMPLETED) {
             throw new common_1.BadRequestException('Deposit already completed');
+        }
+        if (dto.status === client_1.TransactionStatus.COMPLETED &&
+            !LEDGER_CURRENCIES.has(deposit.currency)) {
+            throw new common_1.BadRequestException(`Currency ${deposit.currency} is not supported by the real-money ledger yet`);
         }
         return this.prisma.$transaction(async (tx) => {
             const updated = await tx.deposit.update({
@@ -132,6 +141,16 @@ let DepositsService = class DepositsService {
                         },
                     },
                 });
+                await this.ledgerService.confirmDeposit({
+                    userId: deposit.userId,
+                    amount: deposit.amount,
+                    currency: deposit.currency,
+                    clearingAccountCode: (0, ledger_types_1.paymentGatewayTypeToClearingAccountCode)(deposit.gateway.type),
+                    idempotencyKey: deposit.id,
+                    depositId: deposit.id,
+                    externalReference: dto.externalRef ?? deposit.externalRef ?? undefined,
+                    description: `Deposit confirmed via ${deposit.gateway.type}`,
+                }, tx);
             }
             return updated;
         });
@@ -153,7 +172,7 @@ let DepositsService = class DepositsService {
             user: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -167,6 +186,7 @@ let DepositsService = class DepositsService {
 exports.DepositsService = DepositsService;
 exports.DepositsService = DepositsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        ledger_service_1.LedgerService])
 ], DepositsService);
 //# sourceMappingURL=deposits.service.js.map

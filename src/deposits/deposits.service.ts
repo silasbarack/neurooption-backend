@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AccountCurrency,
   PaymentDirection,
   Prisma,
   TransactionStatus,
@@ -11,12 +12,19 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../config/prisma.service';
+import { LedgerService } from '../ledger/ledger.service';
+import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { UpdateDepositStatusDto } from './dto/update-deposit-status.dto';
 
+const LEDGER_CURRENCIES = new Set(Object.values(AccountCurrency));
+
 @Injectable()
 export class DepositsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledgerService: LedgerService,
+  ) {}
 
   async create(dto: CreateDepositDto) {
     const user = await this.prisma.user.findUnique({
@@ -113,6 +121,7 @@ export class DepositsService {
       include: {
         transaction: true,
         wallet: true,
+        gateway: true,
       },
     });
 
@@ -120,6 +129,19 @@ export class DepositsService {
 
     if (deposit.status === TransactionStatus.COMPLETED) {
       throw new BadRequestException('Deposit already completed');
+    }
+
+    // The ledger only models currencies in the AccountCurrency enum.
+    // Deposit.currency is a free-form legacy string column, so guard it
+    // before posting rather than letting Prisma reject an invalid enum
+    // value deep inside the ledger call.
+    if (
+      dto.status === TransactionStatus.COMPLETED &&
+      !LEDGER_CURRENCIES.has(deposit.currency as AccountCurrency)
+    ) {
+      throw new BadRequestException(
+        `Currency ${deposit.currency} is not supported by the real-money ledger yet`,
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -149,6 +171,23 @@ export class DepositsService {
             },
           },
         });
+
+        // Ledger is the real source of truth for real-money balances; the
+        // Wallet.balance increment above is kept so existing reads (e.g.
+        // withdrawals.service.ts's own balance check) keep working.
+        await this.ledgerService.confirmDeposit(
+          {
+            userId: deposit.userId,
+            amount: deposit.amount,
+            currency: deposit.currency as AccountCurrency,
+            clearingAccountCode: paymentGatewayTypeToClearingAccountCode(deposit.gateway.type),
+            idempotencyKey: deposit.id,
+            depositId: deposit.id,
+            externalReference: dto.externalRef ?? deposit.externalRef ?? undefined,
+            description: `Deposit confirmed via ${deposit.gateway.type}`,
+          },
+          tx,
+        );
       }
 
       return updated;
@@ -174,7 +213,7 @@ export class DepositsService {
       user: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },

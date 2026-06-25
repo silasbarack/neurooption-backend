@@ -6,27 +6,27 @@ export declare class WalletsService {
     constructor(prisma: PrismaService);
     getWallet(userId: string): Promise<{
         id: string;
-        userId: string;
-        accountType: string;
-        currency: string;
-        balance: Prisma.Decimal;
-        balanceUsd: Prisma.Decimal;
-        locked: Prisma.Decimal;
-        lockedUsd: Prisma.Decimal;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        accountType: string;
+        balanceUsd: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
     }[]>;
     getUserWallets(userIdOrQuery?: any): Promise<{
         id: string;
-        userId: string;
-        accountType: string;
-        currency: string;
-        balance: Prisma.Decimal;
-        balanceUsd: Prisma.Decimal;
-        locked: Prisma.Decimal;
-        lockedUsd: Prisma.Decimal;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        accountType: string;
+        balanceUsd: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
     }[]>;
     getBalance(userId: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
         id: any;
@@ -42,27 +42,27 @@ export declare class WalletsService {
     }>;
     debit(userId: string, accountType: AccountType, amountUsd: number): Promise<{
         id: string;
-        userId: string;
-        accountType: string;
-        currency: string;
-        balance: Prisma.Decimal;
-        balanceUsd: Prisma.Decimal;
-        locked: Prisma.Decimal;
-        lockedUsd: Prisma.Decimal;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        accountType: string;
+        balanceUsd: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
     }>;
     credit(userId: string, accountType: AccountType, amountUsd: number): Promise<{
         id: string;
-        userId: string;
-        accountType: string;
-        currency: string;
-        balance: Prisma.Decimal;
-        balanceUsd: Prisma.Decimal;
-        locked: Prisma.Decimal;
-        lockedUsd: Prisma.Decimal;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        accountType: string;
+        balanceUsd: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
     }>;
     deposit(dto: any): Promise<{
         message: string;
@@ -109,15 +109,15 @@ export declare class WalletsService {
     }>;
     ensureWallet(userId: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
         id: string;
-        userId: string;
-        accountType: string;
-        currency: string;
-        balance: Prisma.Decimal;
-        balanceUsd: Prisma.Decimal;
-        locked: Prisma.Decimal;
-        lockedUsd: Prisma.Decimal;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
+        currency: string;
+        balance: Prisma.Decimal;
+        locked: Prisma.Decimal;
+        accountType: string;
+        balanceUsd: Prisma.Decimal;
+        lockedUsd: Prisma.Decimal;
     }>;
     private formatWallet;
 }

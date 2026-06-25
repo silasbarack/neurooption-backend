@@ -7,9 +7,9 @@ export declare class AdminController {
     constructor(adminService: AdminService);
     create(dto: CreateAdminDto): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -23,9 +23,9 @@ export declare class AdminController {
     }>;
     findAll(): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -34,9 +34,9 @@ export declare class AdminController {
     }[]>;
     findOne(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -45,9 +45,9 @@ export declare class AdminController {
     }>;
     update(id: string, dto: UpdateAdminDto): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -56,9 +56,9 @@ export declare class AdminController {
     }>;
     disable(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -67,9 +67,9 @@ export declare class AdminController {
     }>;
     enable(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -78,9 +78,9 @@ export declare class AdminController {
     }>;
     delete(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;

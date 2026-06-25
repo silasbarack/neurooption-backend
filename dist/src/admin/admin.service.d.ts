@@ -7,9 +7,9 @@ export declare class AdminService {
     constructor(prisma: PrismaService);
     create(dto: CreateAdminDto): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -23,9 +23,9 @@ export declare class AdminService {
     }>;
     findAll(): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -34,9 +34,9 @@ export declare class AdminService {
     }[]>;
     findOne(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -45,9 +45,9 @@ export declare class AdminService {
     }>;
     update(id: string, dto: UpdateAdminDto): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -56,9 +56,9 @@ export declare class AdminService {
     }>;
     disable(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -67,9 +67,9 @@ export declare class AdminService {
     }>;
     enable(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;
@@ -78,9 +78,9 @@ export declare class AdminService {
     }>;
     delete(id: string): Promise<{
         id: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
         passwordHash: string;
         fullName: string;
         email: string;

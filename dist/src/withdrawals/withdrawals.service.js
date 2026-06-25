@@ -13,9 +13,13 @@ exports.WithdrawalsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../config/prisma.service");
+const ledger_service_1 = require("../ledger/ledger.service");
+const ledger_types_1 = require("../ledger/ledger.types");
+const LEDGER_CURRENCIES = new Set(Object.values(client_1.AccountCurrency));
 let WithdrawalsService = class WithdrawalsService {
-    constructor(prisma) {
+    constructor(prisma, ledgerService) {
         this.prisma = prisma;
+        this.ledgerService = ledgerService;
     }
     async create(dto) {
         const wallet = await this.prisma.wallet.findUnique({
@@ -29,6 +33,10 @@ let WithdrawalsService = class WithdrawalsService {
         const amount = new client_1.Prisma.Decimal(dto.amount);
         if (wallet.balance.lessThan(amount)) {
             throw new common_1.BadRequestException('Insufficient wallet balance');
+        }
+        const currency = dto.currency ?? wallet.currency;
+        if (!LEDGER_CURRENCIES.has(currency)) {
+            throw new common_1.BadRequestException(`Currency ${currency} is not supported by the real-money ledger yet`);
         }
         const gateway = await this.prisma.paymentGateway.findUnique({
             where: {
@@ -55,6 +63,19 @@ let WithdrawalsService = class WithdrawalsService {
                     description: `Withdrawal via ${gateway.type}`,
                 },
             });
+            const withdrawal = await tx.withdrawal.create({
+                data: {
+                    userId: dto.userId,
+                    walletId: dto.walletId,
+                    gatewayId: gateway.id,
+                    transactionId: transaction.id,
+                    amount,
+                    currency,
+                    phone: dto.phone,
+                    status: client_1.TransactionStatus.PENDING,
+                },
+                include: this.includeRelations(),
+            });
             await tx.wallet.update({
                 where: { id: dto.walletId },
                 data: {
@@ -66,19 +87,14 @@ let WithdrawalsService = class WithdrawalsService {
                     },
                 },
             });
-            return tx.withdrawal.create({
-                data: {
-                    userId: dto.userId,
-                    walletId: dto.walletId,
-                    gatewayId: gateway.id,
-                    transactionId: transaction.id,
-                    amount,
-                    currency: dto.currency ?? wallet.currency,
-                    phone: dto.phone,
-                    status: client_1.TransactionStatus.PENDING,
-                },
-                include: this.includeRelations(),
-            });
+            await this.ledgerService.requestWithdrawal({
+                userId: dto.userId,
+                amount,
+                currency: currency,
+                withdrawalId: withdrawal.id,
+                idempotencyKey: `withdrawal-requested-${withdrawal.id}`,
+            }, tx);
+            return withdrawal;
         });
     }
     async findAll() {
@@ -109,6 +125,7 @@ let WithdrawalsService = class WithdrawalsService {
             include: {
                 transaction: true,
                 wallet: true,
+                gateway: true,
             },
         });
         if (!withdrawal)
@@ -143,6 +160,15 @@ let WithdrawalsService = class WithdrawalsService {
                         },
                     },
                 });
+                await this.ledgerService.markWithdrawalPaid({
+                    userId: withdrawal.userId,
+                    amount: withdrawal.amount,
+                    currency: withdrawal.currency,
+                    withdrawalId: withdrawal.id,
+                    clearingAccountCode: (0, ledger_types_1.paymentGatewayTypeToClearingAccountCode)(withdrawal.gateway.type),
+                    idempotencyKey: `withdrawal-paid-${withdrawal.id}`,
+                    description: `Withdrawal paid via ${withdrawal.gateway.type}`,
+                }, tx);
             }
             if (dto.status === client_1.TransactionStatus.REJECTED ||
                 dto.status === client_1.TransactionStatus.FAILED ||
@@ -158,6 +184,14 @@ let WithdrawalsService = class WithdrawalsService {
                         },
                     },
                 });
+                await this.ledgerService.rejectWithdrawal({
+                    userId: withdrawal.userId,
+                    amount: withdrawal.amount,
+                    currency: withdrawal.currency,
+                    withdrawalId: withdrawal.id,
+                    reason: dto.rejectionReason ?? `Withdrawal ${dto.status.toLowerCase()}`,
+                    idempotencyKey: `withdrawal-rejected-${withdrawal.id}`,
+                }, tx);
             }
             return updated;
         });
@@ -179,7 +213,7 @@ let WithdrawalsService = class WithdrawalsService {
             user: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -193,6 +227,7 @@ let WithdrawalsService = class WithdrawalsService {
 exports.WithdrawalsService = WithdrawalsService;
 exports.WithdrawalsService = WithdrawalsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        ledger_service_1.LedgerService])
 ], WithdrawalsService);
 //# sourceMappingURL=withdrawals.service.js.map
