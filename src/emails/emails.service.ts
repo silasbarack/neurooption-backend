@@ -78,17 +78,17 @@ export class EmailsService {
           <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preheader}</div>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f7fa;padding:28px 12px;">
             <tr><td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;box-shadow:0 12px 36px rgba(34,67,98,.08);">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;box-shadow:0 12px 36px rgba(34,67,98,.08);">
                 <tr>
-                  <td style="padding:24px 28px;border-bottom:1px solid #e8eff4;background:linear-gradient(90deg,#ffffff,#effbff);">
-                    <img src="${logoUrl}" alt="NeuroOption" style="display:block;width:230px;max-width:75%;height:auto;">
+                  <td align="center" style="padding:24px 28px;border-bottom:1px solid #e8eff4;background:#ffffff;">
+                    <img src="${logoUrl}" alt="NeuroOption" width="230" style="display:block;width:230px;max-width:75%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
                   </td>
                 </tr>
                 <tr><td style="padding:32px 28px;">${content}</td></tr>
                 <tr>
                   <td style="padding:18px 28px;background:#f8fbfd;border-top:1px solid #e8eff4;color:#8293a5;font-size:12px;line-height:1.6;">
-                    NeuroOption • Secure account communications<br>
-                    Never share verification codes or passwords with anyone.
+                    © NeuroOption. All rights reserved.<br>
+                    Secure account communications • Never share verification codes or passwords with anyone.
                   </td>
                 </tr>
               </table>
