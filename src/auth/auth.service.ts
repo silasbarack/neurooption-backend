@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
 
@@ -28,7 +28,8 @@ type ForgotPasswordPayload = {
 };
 
 type ResetPasswordPayload = {
-  token: string;
+  email: string;
+  code: string;
   password: string;
 };
 
@@ -45,13 +46,6 @@ export class AuthService {
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
-  }
-
-  private getFrontendUrl(): string {
-    return (
-      this.configService.get<string>('FRONTEND_URL') ||
-      'http://localhost:5173'
-    ).replace(/\/+$/, '');
   }
 
   private getUserModelFields(): string[] {
@@ -236,54 +230,56 @@ export class AuthService {
       };
     }
 
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+    const code = String(randomInt(100000, 1000000));
+    const codeHash = createHash('sha256').update(code).digest('hex');
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 10);
 
     await this.prisma.passwordResetToken.deleteMany({
-      where: {
-        userId: user.id,
-      },
+      where: { userId: user.id },
     });
 
     await this.prisma.passwordResetToken.create({
       data: {
         userId: user.id,
-        token,
+        token: codeHash,
         expiresAt,
       },
     });
 
-    const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${token}`;
-
-    await this.sendEmailSafely('sendPasswordResetEmail', () =>
-      this.emailsService.sendPasswordResetEmail(
+    await this.sendEmailSafely('sendPasswordRecoveryCodeEmail', () =>
+      this.emailsService.sendPasswordRecoveryCodeEmail(
         user.email,
-        resetUrl,
+        code,
         this.getUserDisplayName(user),
       ),
     );
 
     return {
       success: true,
-      message: 'If this email exists, a password reset message has been sent.',
+      message: 'If this email exists, a six-digit verification code has been sent.',
     };
   }
 
   async resetPassword(payload: ResetPasswordPayload) {
-    if (!payload.token || !payload.password) {
-      throw new BadRequestException('Token and new password are required.');
+    const email = this.normalizeEmail(payload.email || '');
+    const code = String(payload.code || '').trim();
+
+    if (!email || !/^\d{6}$/.test(code) || !payload.password) {
+      throw new BadRequestException('Email, six-digit verification code and new password are required.');
     }
 
     if (payload.password.length < 6) {
       throw new BadRequestException('Password must be at least 6 characters.');
     }
 
+    const codeHash = createHash('sha256').update(code).digest('hex');
+
     const resetRecord = await this.prisma.passwordResetToken.findFirst({
       where: {
-        token: payload.token,
-        expiresAt: {
-          gt: new Date(),
-        },
+        token: codeHash,
+        used: false,
+        expiresAt: { gt: new Date() },
+        user: { email },
       },
       include: {
         user: true,
@@ -291,7 +287,7 @@ export class AuthService {
     });
 
     if (!resetRecord) {
-      throw new BadRequestException('Invalid or expired reset token.');
+      throw new BadRequestException('Invalid or expired verification code.');
     }
 
     const hashedPassword = await bcrypt.hash(payload.password, 12);
@@ -306,10 +302,13 @@ export class AuthService {
       } as any,
     });
 
-    await this.prisma.passwordResetToken.delete({
-      where: {
-        id: resetRecord.id,
-      },
+    await this.prisma.passwordResetToken.update({
+      where: { id: resetRecord.id },
+      data: { used: true },
+    });
+
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: resetRecord.userId, id: { not: resetRecord.id } },
     });
 
     await this.sendEmailSafely('sendPasswordChangedEmail', () =>
