@@ -193,7 +193,7 @@ export class EmailsService implements OnModuleInit {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;">
                 <tr>
                   <td align="left" bgcolor="#ffffff" style="padding:26px 28px 22px;border-bottom:3px solid #13b9b2;background:#ffffff;">
-                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="230" height="51" border="0" style="display:block;width:230px;max-width:230px;height:auto;border:0;outline:none;text-decoration:none;">
+                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="260" height="50" border="0" style="display:block;width:260px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
                   </td>
                 </tr>
                 <tr><td style="padding:32px 28px;">${content}</td></tr>
