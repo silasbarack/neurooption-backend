@@ -69,7 +69,7 @@ export class EmailsService {
   private brandedHtml(content: string, preheader = ''): string {
     const logoUrl =
       process.env.EMAIL_LOGO_URL ||
-      'https://neurooption-frontend.onrender.com/neurooption-logo.jpg';
+      'https://neurooption-frontend.onrender.com/neurooption-logo-256.jpg';
 
     return `
       <!doctype html>
