@@ -190,17 +190,17 @@ export class EmailsService implements OnModuleInit {
           <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${this.escapeHtml(preheader)}</div>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f7fa;padding:28px 12px;">
             <tr><td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;">
                 <tr>
-                  <td align="left" bgcolor="#ffffff" style="padding:26px 28px 22px;border-bottom:3px solid #13b9b2;background:#ffffff;">
-                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="260" height="50" border="0" style="display:block;width:260px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
+                  <td align="center" bgcolor="#ffffff" style="padding:26px 28px 22px;border-bottom:3px solid #13b9b2;background:#ffffff;">
+                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="260" height="50" border="0" style="display:block;width:260px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
                   </td>
                 </tr>
                 <tr><td style="padding:32px 28px;">${content}</td></tr>
                 <tr>
                   <td style="padding:18px 28px;background:#f8fbfd;border-top:1px solid #e8eff4;color:#8293a5;font-size:12px;line-height:1.6;">
-                    NeuroOption &bull; Secure account communications<br>
-                    Never share verification codes or passwords with anyone.
+                    &copy; NeuroOption. All rights reserved.<br>
+                    Secure account communications &bull; Never share verification codes or passwords with anyone.
                   </td>
                 </tr>
               </table>
