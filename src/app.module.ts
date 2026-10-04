@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AssetsModule } from './assets/assets.module';
 import { AuthModule } from './auth/auth.module';
-import { PrismaService } from './common/prisma.service';
 import { HealthController } from './health/health.controller';
 import { AdminModule } from './admin/admin.module';
 import { ProfileModule } from './profile/profile.module';
@@ -76,6 +75,6 @@ import { LedgerModule } from './ledger/ledger.module';
   ],
   
   controllers: [HealthController],
-  providers: [PrismaService],
+  providers: [],
 })
 export class AppModule {}
