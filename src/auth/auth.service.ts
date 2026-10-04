@@ -155,7 +155,8 @@ export class AuthService {
       data: userData as any,
     });
 
-    await this.sendEmailSafely('sendAccountCreatedEmail', () =>
+    // Don't make the sign-up response wait on the mail provider.
+    void this.sendEmailSafely('sendAccountCreatedEmail', () =>
       this.emailsService.sendAccountCreatedEmail(
         user.email,
         this.getUserDisplayName(user),
