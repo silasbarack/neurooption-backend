@@ -3,11 +3,10 @@ import { MarketDataService } from '../market-data/market-data.service';
 import { MARKET_ASSETS, SUPPORTED_TIMEFRAMES } from '../market-data/market-data.constants';
 import { MarketGateway } from './market.gateway';
 
-const TICK_INTERVAL_MS = 400;
+const TICK_INTERVAL_MS = 250;
 
-// Runs continuously for the lifetime of the process, independent of whether
-// any client is connected — the price feed never stops, it's just only
-// broadcast to rooms that have a subscriber.
+// Drives the in-process OTC market feed at 4 updates/second. Broadcast work is
+// still room-aware, so idle symbols do not consume avoidable Socket.IO bandwidth.
 @Injectable()
 export class MarketTickerService implements OnModuleInit, OnModuleDestroy {
   private intervalHandle: NodeJS.Timeout | null = null;
