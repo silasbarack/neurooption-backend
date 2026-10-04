@@ -336,26 +336,66 @@ export class EmailsService implements OnModuleInit {
   ): Promise<boolean> {
     const name = this.formatName(fullName);
     const safeName = this.escapeHtml(name);
+    const safeEmail = this.escapeHtml(email);
+    const loginUrl = `${this.getFrontendUrl()}/login`;
 
     const body = `
 Dear ${name},
 
-Welcome to NeuroOption. Your account has been created successfully.
-You can now sign in and access your trading dashboard.
+Welcome to NeuroOption! Your account has been created successfully and is ready to use.
+Account email: ${email}
+
+Here is how to get started:
+1. Sign in and practise risk-free on your demo account to get familiar with the platform.
+2. Fund your real account from the Finance section whenever you are ready to trade.
+3. Complete identity verification (KYC) in your profile so withdrawals are processed without delays.
+
+For your security, never share your password or verification codes with anyone. NeuroOption staff will never ask for them.
+If you did not create this account, please contact Support Service immediately.
+
+Sign in: ${loginUrl}
+
 Thank you for choosing NeuroOption.
+The NeuroOption Team
     `.trim();
 
-    const html = this.brandedHtml(`
-      <h1 style="margin:0 0 10px;font-size:28px;color:#10203a;">Welcome to NeuroOption</h1>
-      <p style="margin:0 0 20px;color:#66788e;line-height:1.7;">Hi ${safeName}, your account has been created successfully.</p>
-      <div style="padding:18px;border-radius:14px;background:#edf9fc;border:1px solid #d5eef5;margin:0 0 22px;">
-        <strong style="display:block;color:#0b8ec2;margin-bottom:6px;">Your trading account is ready</strong>
-        <span style="color:#536a80;line-height:1.6;">Sign in to explore your dashboard, OTC markets and account controls.</span>
-      </div>
-      <a href="${this.getFrontendUrl()}/login" style="display:inline-block;padding:13px 22px;border-radius:10px;background:#0b8ec2;color:#ffffff;text-decoration:none;font-weight:700;">Sign in to NeuroOption</a>
-    `, 'Your NeuroOption account has been created successfully.');
+    const step = (num: number, title: string, text: string) => `
+      <tr>
+        <td width="34" valign="top" style="padding:0 0 14px;">
+          <div style="width:26px;height:26px;line-height:26px;border-radius:13px;background:#0b8ec2;color:#ffffff;font-size:13px;font-weight:700;text-align:center;">${num}</div>
+        </td>
+        <td valign="top" style="padding:2px 0 14px;color:#536a80;font-size:14px;line-height:1.6;">
+          <strong style="color:#10203a;">${title}</strong><br>${text}
+        </td>
+      </tr>`;
 
-    return this.sendEmail(email, 'Welcome to NeuroOption', body, html);
+    const html = this.brandedHtml(`
+      <h1 style="margin:0 0 10px;font-size:28px;color:#10203a;">Welcome to NeuroOption, ${safeName}!</h1>
+      <p style="margin:0 0 18px;color:#66788e;line-height:1.7;">Your account has been created successfully and is ready to use. We're glad to have you on board.</p>
+      <div style="padding:16px 18px;border-radius:14px;background:#edf9fc;border:1px solid #d5eef5;margin:0 0 24px;">
+        <span style="display:block;font-size:11px;font-weight:700;letter-spacing:.14em;color:#6f8194;margin-bottom:4px;">ACCOUNT EMAIL</span>
+        <strong style="color:#0b8ec2;font-size:16px;">${safeEmail}</strong>
+      </div>
+      <h2 style="margin:0 0 14px;font-size:17px;color:#10203a;">How to get started</h2>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
+        ${step(1, 'Practise on your demo account', 'Sign in and explore OTC markets, charts and trade controls risk-free.')}
+        ${step(2, 'Fund your real account', 'Make a deposit from the Finance section whenever you are ready to trade.')}
+        ${step(3, 'Verify your identity', 'Complete KYC in your profile so withdrawals are processed without delays.')}
+      </table>
+      <a href="${loginUrl}" style="display:inline-block;padding:13px 24px;border-radius:10px;background:#0b8ec2;color:#ffffff;text-decoration:none;font-weight:700;">Sign in to NeuroOption</a>
+      <p style="margin:26px 0 0;padding-top:18px;border-top:1px solid #e8eff4;color:#8293a5;font-size:13px;line-height:1.6;">
+        For your security, never share your password or verification codes with anyone &mdash; NeuroOption staff will never ask for them.
+        If you did not create this account, please contact Support Service immediately.
+      </p>
+      <p style="margin:16px 0 0;color:#536a80;line-height:1.6;">Thank you for choosing NeuroOption.<br><strong style="color:#10203a;">The NeuroOption Team</strong></p>
+    `, 'Your NeuroOption account is ready. Here is how to get started.');
+
+    return this.sendEmail(
+      email,
+      'Welcome to NeuroOption - your account is ready',
+      body,
+      html,
+    );
   }
 
   async sendAccountDeletedEmail(
