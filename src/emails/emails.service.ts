@@ -89,7 +89,7 @@ export class EmailsService implements OnModuleInit {
     const config: SMTPTransport.Options = {
       auth: {
         user: this.env('SMTP_USER'),
-        // Gmail app passwords are shown as "abcd efgh ijkl mnop".
+        // Gmail shows app passwords in groups of four separated by spaces.
         pass: isGmail
           ? this.env('SMTP_PASS').replace(/\s+/g, '')
           : this.env('SMTP_PASS'),
