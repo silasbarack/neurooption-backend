@@ -12,6 +12,11 @@ export class MarketDataController {
     return this.marketDataService.getAssets();
   }
 
+  @Get('quotes')
+  getQuotes() {
+    return this.marketDataService.getQuotes();
+  }
+
   @Get('candles')
   getCandles(@Query() query: MarketCandlesQueryDto) {
     return this.marketDataService.getCandles(query);

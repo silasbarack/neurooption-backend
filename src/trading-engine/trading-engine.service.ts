@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AccountCurrency as LedgerCurrency } from '@prisma/client';
 import { MarketDataService } from '../market-data/market-data.service';
 import {
@@ -182,6 +182,32 @@ export class TradingEngineService {
       trade,
       wallet: await this.walletsService.getBalance(userId, accountType, currency),
     };
+  }
+
+  /**
+   * Client-requested settlement. Only the trade's owner may ask, and a trade
+   * is never settled before it expires (otherwise a client could close a
+   * winning position early).
+   */
+  async settleTradeForUser(tradeId: string, userId: string) {
+    const trade = await this.tradesService.findById(tradeId);
+
+    if (!trade || trade.userId !== userId) {
+      throw new NotFoundException('Trade not found.');
+    }
+
+    if (trade.status === 'PENDING' && trade.expiryTime > Date.now()) {
+      return {
+        trade,
+        wallet: await this.walletsService.getBalance(
+          trade.userId,
+          trade.accountType,
+          trade.currency,
+        ),
+      };
+    }
+
+    return this.settleTrade(tradeId);
   }
 
   async settleTrade(tradeId: string) {

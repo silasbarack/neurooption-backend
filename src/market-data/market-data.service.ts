@@ -74,6 +74,35 @@ export class MarketDataService {
     };
   }
 
+  /**
+   * Live price, 24h change and the 1-minute payout for every active asset,
+   * for the Markets list. The payout matches what the trading engine pays on
+   * an M1 chart with a 60s expiry.
+   */
+  getQuotes() {
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    return {
+      serverTime: new Date(now).toISOString(),
+      quotes: MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => {
+        const price = this.roundPrice(this.priceAt(asset, now), asset.precision);
+        const previous = this.priceAt(asset, dayAgo);
+        const changePercent = previous ? ((price - previous) / previous) * 100 : 0;
+
+        return {
+          symbol: asset.symbol,
+          label: asset.label,
+          category: asset.category,
+          precision: asset.precision,
+          price,
+          changePercent: Number(changePercent.toFixed(2)),
+          payout: Math.min(Math.max(Math.round(83 + asset.payoutBoost), 20), 92),
+        };
+      }),
+    };
+  }
+
   getCategories() {
     return Array.from(new Set(MARKET_ASSETS.map((asset) => asset.category)));
   }
