@@ -17,6 +17,7 @@ import { AppConfigModule } from './config/config.module';
 import { DemoAccountsModule } from './demo-accounts/demo-accounts.module';
 import { RealAccountsModule } from './real-accounts/real-accounts.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PayoutsModule } from './payouts/payouts.module';
 import { OtcMarketsModule } from './otc-markets/otc-markets.module';
 import { RealMarketsModule } from './real-markets/real-markets.module';
@@ -62,6 +63,7 @@ import { LedgerModule } from './ledger/ledger.module';
     PaymentGatewaysModule,
     DepositsModule,
     WithdrawalsModule,
+    PaymentsModule,
     PayoutsModule,
     SocialTradingModule,
     AuditLogsModule,
