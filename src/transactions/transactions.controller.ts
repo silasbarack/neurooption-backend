@@ -6,13 +6,19 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AdminGuard } from '../auth/admin.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionStatusDto } from './dto/update-transaction-status.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 
+// Money admin endpoints: signed-in admins only. Users manage their own
+// money through /finance/me and /payments/stk.
+@UseGuards(JwtAuthGuard, AdminGuard)
 @Controller('transactions')
 export class TransactionsController {
   constructor(

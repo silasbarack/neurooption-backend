@@ -5,12 +5,18 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+import { AdminGuard } from '../auth/admin.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { UpdateDepositStatusDto } from './dto/update-deposit-status.dto';
 import { DepositsService } from './deposits.service';
 
+// Money admin endpoints: signed-in admins only. Users manage their own
+// money through /finance/me and /payments/stk.
+@UseGuards(JwtAuthGuard, AdminGuard)
 @Controller('deposits')
 export class DepositsController {
   constructor(private readonly service: DepositsService) {}
