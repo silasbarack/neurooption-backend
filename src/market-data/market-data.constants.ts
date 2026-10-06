@@ -29,23 +29,12 @@ export type OtcCandle = {
   volume: number;
 };
 
-export const TIMEFRAME_SECONDS: Record<string, number> = {
-  S5: 5,
-  S10: 10,
-  S15: 15,
-  S30: 30,
-  M1: 60,
-  M2: 120,
-  M3: 180,
-  M5: 300,
-  M10: 600,
-  M15: 900,
-  M30: 1800,
-  H1: 3600,
-  H4: 14400,
-};
-
-export const SUPPORTED_TIMEFRAMES = Object.keys(TIMEFRAME_SECONDS);
+export {
+  TIMEFRAME_SECONDS,
+  SUPPORTED_TIMEFRAMES,
+  TIMEFRAME_MS,
+} from './timeframe.config';
+import { TIMEFRAME_SECONDS } from './timeframe.config';
 
 export const MARKET_ASSETS: MarketAsset[] = [
   // CURRENCIES
