@@ -62,7 +62,11 @@ export class OtcStreamEngineService {
       baselineVolatility * 5.5,
     );
 
-    const regimeDrift = this.regimeDrift(state.regime, state.volatility);
+    const regimeDrift = this.regimeDrift(
+      state.regime,
+      state.volatility,
+      state.trend,
+    );
     const gaussian = this.randomNormal(state);
     const momentumNoise = gaussian * state.volatility * 0.18;
 
@@ -244,10 +248,16 @@ export class OtcStreamEngineService {
     }
   }
 
-  private regimeDrift(regime: OtcRegime, volatility: number) {
+  private regimeDrift(
+    regime: OtcRegime,
+    volatility: number,
+    trend: number,
+  ) {
     if (regime === 'TREND_UP') return volatility * 0.055;
     if (regime === 'TREND_DOWN') return -volatility * 0.055;
-    if (regime === 'BREAKOUT') return volatility * 0.12;
+    if (regime === 'BREAKOUT') {
+      return volatility * 0.12 * (trend === 0 ? 1 : trend);
+    }
     return 0;
   }
 
