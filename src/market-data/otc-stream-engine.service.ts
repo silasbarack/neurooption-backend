@@ -1,0 +1,345 @@
+import { Injectable } from '@nestjs/common';
+import { MARKET_ASSETS, MarketAsset } from './market-data.constants';
+import { NormalizedMarketTick } from './market-tick.types';
+
+type OtcRegime =
+  | 'TREND_UP'
+  | 'TREND_DOWN'
+  | 'RANGE'
+  | 'HIGH_VOLATILITY'
+  | 'LOW_VOLATILITY'
+  | 'BREAKOUT'
+  | 'MEAN_REVERSION';
+
+type OtcState = {
+  price: number;
+  velocity: number;
+  volatility: number;
+  trend: number;
+  meanPrice: number;
+  regime: OtcRegime;
+  spread: number;
+  ticksInRegime: number;
+  regimeLength: number;
+  seed: number;
+  sequence: number;
+  lastTimestamp: number;
+  recentAbsoluteReturn: number;
+};
+
+@Injectable()
+export class OtcStreamEngineService {
+  private readonly states = new Map<string, OtcState>();
+
+  nextTick(symbol: string, now = Date.now()): Omit<
+    NormalizedMarketTick,
+    'serverReceiveTimestamp'
+  > {
+    const asset = this.findAsset(symbol);
+    const state = this.getState(asset, now);
+    const elapsedMs = Math.min(Math.max(now - state.lastTimestamp, 20), 1_000);
+    const dt = elapsedMs / 100;
+
+    if (state.ticksInRegime >= state.regimeLength) {
+      this.transitionRegime(state);
+    }
+
+    const baselineVolatility = this.baseTickVolatility(asset);
+    const volatilityPersistence = 0.965;
+    const volatilityResponse = 0.22;
+    const targetVolatility =
+      baselineVolatility *
+      this.regimeVolatilityMultiplier(state.regime);
+
+    state.volatility =
+      volatilityPersistence * state.volatility +
+      (1 - volatilityPersistence) * targetVolatility +
+      volatilityResponse * state.recentAbsoluteReturn;
+
+    state.volatility = this.clamp(
+      state.volatility,
+      baselineVolatility * 0.3,
+      baselineVolatility * 5.5,
+    );
+
+    const regimeDrift = this.regimeDrift(state.regime, state.volatility);
+    const gaussian = this.randomNormal(state);
+    const momentumNoise = gaussian * state.volatility * 0.18;
+
+    state.velocity =
+      state.velocity * this.regimePersistence(state.regime) +
+      regimeDrift +
+      momentumNoise;
+
+    const meanReversionStrength =
+      state.regime === 'MEAN_REVERSION'
+        ? 0.0032
+        : state.regime === 'RANGE'
+          ? 0.0018
+          : 0.00035;
+
+    const meanReversion =
+      ((state.meanPrice - state.price) / Math.max(state.price, 1e-9)) *
+      meanReversionStrength;
+
+    let shock = 0;
+    const shockRoll = this.nextRandom(state);
+
+    if (shockRoll > 0.9985) {
+      const shockDirection = this.nextRandom(state) >= 0.5 ? 1 : -1;
+      shock =
+        shockDirection *
+        state.volatility *
+        (state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT'
+          ? 5.5
+          : 3.2);
+    }
+
+    const logReturn =
+      (state.velocity + gaussian * state.volatility + meanReversion + shock) *
+      dt;
+
+    const previousPrice = state.price;
+    state.price = Math.max(
+      asset.basePrice * 0.05,
+      state.price * Math.exp(logReturn),
+    );
+
+    const absoluteReturn = Math.abs(
+      Math.log(state.price / Math.max(previousPrice, 1e-9)),
+    );
+    state.recentAbsoluteReturn =
+      state.recentAbsoluteReturn * 0.9 + absoluteReturn * 0.1;
+
+    state.meanPrice =
+      state.meanPrice * 0.9995 + state.price * 0.0005;
+
+    const spreadMultiplier =
+      1 +
+      this.clamp(
+        state.volatility / Math.max(baselineVolatility, 1e-12) - 1,
+        0,
+        3,
+      ) *
+        0.22 +
+      (state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT'
+        ? 0.18
+        : 0);
+
+    const targetSpread = this.baseSpread(asset) * spreadMultiplier;
+    state.spread = state.spread * 0.9 + targetSpread * 0.1;
+
+    const tickSize = 10 ** -asset.precision;
+    const roundedMid = this.roundToTick(state.price, tickSize);
+    const roundedBid = this.roundToTick(
+      roundedMid - state.spread / 2,
+      tickSize,
+    );
+    const roundedAsk = this.roundToTick(
+      roundedMid + state.spread / 2,
+      tickSize,
+    );
+
+    state.sequence += 1;
+    state.ticksInRegime += 1;
+    state.lastTimestamp = now;
+
+    return {
+      symbol: asset.symbol,
+      bid: roundedBid,
+      ask: Math.max(roundedAsk, roundedBid + tickSize),
+      mid: roundedMid,
+      timestamp: now,
+      sequence: state.sequence,
+      source: 'neurooption-otc-simulator-v2',
+      marketType: 'OTC',
+    };
+  }
+
+  getLatestTick(symbol: string, now = Date.now()) {
+    const asset = this.findAsset(symbol);
+    const state = this.states.get(asset.symbol);
+
+    if (!state || now - state.lastTimestamp >= 80) {
+      return this.nextTick(asset.symbol, now);
+    }
+
+    const tickSize = 10 ** -asset.precision;
+    const mid = this.roundToTick(state.price, tickSize);
+    const bid = this.roundToTick(mid - state.spread / 2, tickSize);
+    const ask = this.roundToTick(mid + state.spread / 2, tickSize);
+
+    return {
+      symbol: asset.symbol,
+      bid,
+      ask: Math.max(ask, bid + tickSize),
+      mid,
+      timestamp: state.lastTimestamp,
+      sequence: state.sequence,
+      source: 'neurooption-otc-simulator-v2',
+      marketType: 'OTC' as const,
+    };
+  }
+
+  private getState(asset: MarketAsset, now: number): OtcState {
+    const existing = this.states.get(asset.symbol);
+    if (existing) return existing;
+
+    const seed = this.hashString(
+      `${asset.symbol}:${Math.floor(now / 60_000)}`,
+    );
+    const state: OtcState = {
+      price: asset.basePrice,
+      velocity: 0,
+      volatility: this.baseTickVolatility(asset),
+      trend: 0,
+      meanPrice: asset.basePrice,
+      regime: 'RANGE',
+      spread: this.baseSpread(asset),
+      ticksInRegime: 0,
+      regimeLength: 450,
+      seed,
+      sequence: 0,
+      lastTimestamp: now - 100,
+      recentAbsoluteReturn: 0,
+    };
+
+    this.states.set(asset.symbol, state);
+    this.transitionRegime(state);
+    return state;
+  }
+
+  private transitionRegime(state: OtcState) {
+    const previous = state.regime;
+    const roll = this.nextRandom(state);
+
+    const candidates: OtcRegime[] =
+      previous === 'HIGH_VOLATILITY'
+        ? ['RANGE', 'TREND_UP', 'TREND_DOWN', 'MEAN_REVERSION', 'LOW_VOLATILITY']
+        : previous === 'BREAKOUT'
+          ? ['TREND_UP', 'TREND_DOWN', 'HIGH_VOLATILITY', 'MEAN_REVERSION']
+          : ['TREND_UP', 'TREND_DOWN', 'RANGE', 'HIGH_VOLATILITY', 'LOW_VOLATILITY', 'BREAKOUT', 'MEAN_REVERSION'];
+
+    const index = Math.min(
+      candidates.length - 1,
+      Math.floor(roll * candidates.length),
+    );
+
+    state.regime = candidates[index];
+    state.ticksInRegime = 0;
+    state.regimeLength = Math.floor(180 + this.nextRandom(state) * 900);
+    state.trend =
+      state.regime === 'TREND_UP'
+        ? 1
+        : state.regime === 'TREND_DOWN'
+          ? -1
+          : state.regime === 'BREAKOUT'
+            ? this.nextRandom(state) >= 0.5
+              ? 1
+              : -1
+            : 0;
+
+    if (state.regime === 'MEAN_REVERSION') {
+      state.meanPrice = state.price;
+    }
+  }
+
+  private regimeDrift(regime: OtcRegime, volatility: number) {
+    if (regime === 'TREND_UP') return volatility * 0.055;
+    if (regime === 'TREND_DOWN') return -volatility * 0.055;
+    if (regime === 'BREAKOUT') return volatility * 0.12;
+    return 0;
+  }
+
+  private regimePersistence(regime: OtcRegime) {
+    if (regime === 'TREND_UP' || regime === 'TREND_DOWN') return 0.94;
+    if (regime === 'BREAKOUT') return 0.9;
+    if (regime === 'HIGH_VOLATILITY') return 0.78;
+    if (regime === 'LOW_VOLATILITY') return 0.88;
+    return 0.84;
+  }
+
+  private regimeVolatilityMultiplier(regime: OtcRegime) {
+    if (regime === 'HIGH_VOLATILITY') return 2.25;
+    if (regime === 'LOW_VOLATILITY') return 0.52;
+    if (regime === 'BREAKOUT') return 1.8;
+    if (regime === 'TREND_UP' || regime === 'TREND_DOWN') return 1.15;
+    if (regime === 'MEAN_REVERSION') return 0.82;
+    return 0.72;
+  }
+
+  private baseTickVolatility(asset: MarketAsset) {
+    const categoryMultiplier =
+      asset.category === 'Cryptocurrencies'
+        ? 1.8
+        : asset.category === 'Commodities'
+          ? 1.3
+          : asset.category === 'Indices'
+            ? 1.15
+            : asset.category === 'Stocks'
+              ? 1.2
+              : 1;
+
+    return Math.max(asset.volatility * categoryMultiplier * 0.018, 1e-8);
+  }
+
+  private baseSpread(asset: MarketAsset) {
+    const tickSize = 10 ** -asset.precision;
+    const ticks =
+      asset.category === 'Currencies'
+        ? asset.symbol.includes('JPY')
+          ? 1.4
+          : 1.8
+        : asset.category === 'Cryptocurrencies'
+          ? 5
+          : 3;
+
+    return tickSize * ticks;
+  }
+
+  private findAsset(symbol: string) {
+    const normalized = symbol.trim().toLowerCase();
+    const asset = MARKET_ASSETS.find(
+      (item) =>
+        item.isActive && item.symbol.toLowerCase() === normalized,
+    );
+
+    if (!asset) {
+      throw new Error(`Unsupported or inactive OTC asset: ${symbol}`);
+    }
+
+    return asset;
+  }
+
+  private hashString(value: string) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  private nextRandom(state: OtcState) {
+    let x = state.seed || 0x9e3779b9;
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    state.seed = x >>> 0;
+    return state.seed / 0xffffffff;
+  }
+
+  private randomNormal(state: OtcState) {
+    const u1 = Math.max(this.nextRandom(state), 1e-9);
+    const u2 = Math.max(this.nextRandom(state), 1e-9);
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+
+  private roundToTick(value: number, tickSize: number) {
+    return Number((Math.round(value / tickSize) * tickSize).toFixed(10));
+  }
+
+  private clamp(value: number, min: number, max: number) {
+    return Math.min(Math.max(value, min), max);
+  }
+}
