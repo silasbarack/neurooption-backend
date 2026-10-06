@@ -6,5 +6,6 @@ import { MarketTickerService } from './market-ticker.service';
 @Module({
   imports: [MarketDataModule],
   providers: [MarketGateway, MarketTickerService],
+  exports: [MarketGateway],
 })
 export class WebsocketsModule {}
