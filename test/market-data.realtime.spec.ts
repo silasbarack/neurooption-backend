@@ -109,6 +109,31 @@ describe('real-time market data', () => {
     ).toBe(1.25);
   });
 
+  it('lets delayed in-tolerance ticks affect range without replacing the newer close', () => {
+    const aggregator = new CandleAggregatorService();
+    const base = timeframeBucketStart(Date.now(), 'M1');
+    const makeTick = (mid: number, timestamp: number, sequence: number) => ({
+      symbol: 'EUR/USD OTC',
+      bid: mid - 0.00001,
+      ask: mid + 0.00001,
+      mid,
+      timestamp,
+      sequence,
+      source: 'test',
+      marketType: 'OTC' as const,
+      serverReceiveTimestamp: Math.max(timestamp, base + 3_000),
+    });
+
+    aggregator.applyTick(makeTick(1.1, base + 3_000, 1));
+    aggregator.applyTick(makeTick(1.099, base + 2_500, 2));
+
+    expect(aggregator.getCurrentCandle('EUR/USD OTC', 'M1')).toMatchObject({
+      low: 1.099,
+      close: 1.1,
+      lastSequence: 2,
+    });
+  });
+
   it('reports sequence gaps', () => {
     const aggregator = new CandleAggregatorService();
     const base = timeframeBucketStart(Date.now(), 'S5');
