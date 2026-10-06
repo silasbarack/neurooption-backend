@@ -269,27 +269,16 @@ export class MarketDataService {
 
     samples.push(open, close);
 
-    const bodyHigh = Math.max(...samples);
-    const bodyLow = Math.min(...samples);
-
-    const wick = this.buildWick(
-      asset,
-      timeframe,
-      candleStart,
-      bodyHigh,
-      bodyLow,
-      open,
-      close,
-      effectiveEnd >= candleEnd,
-    );
+    const high = Math.max(...samples);
+    const low = Math.min(...samples);
 
     return {
       time: candleStart,
       openTime: new Date(candleStart).toISOString(),
       closeTime: new Date(candleEnd).toISOString(),
       open: this.roundPrice(open, asset.precision),
-      high: this.roundPrice(Math.max(bodyHigh, wick.high), asset.precision),
-      low: this.roundPrice(Math.min(bodyLow, wick.low), asset.precision),
+      high: this.roundPrice(high, asset.precision),
+      low: this.roundPrice(low, asset.precision),
       close: this.roundPrice(close, asset.precision),
       volume: this.buildTickVolume(asset, timeframe, candleStart),
     };
