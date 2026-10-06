@@ -2,7 +2,12 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
-import { EMAIL_LOGO_CID, EMAIL_LOGO_PNG_BASE64 } from './email-logo';
+import {
+  EMAIL_LOGO_BASE64,
+  EMAIL_LOGO_CID,
+  EMAIL_LOGO_FILENAME,
+  EMAIL_LOGO_MIME,
+} from './email-logo';
 
 type MoneyEmailData = {
   amount: number;
@@ -158,7 +163,7 @@ export class EmailsService implements OnModuleInit {
   private getHostedLogoUrl(): string {
     return (
       this.env('EMAIL_LOGO_URL') ||
-      `${this.getFrontendUrl()}/neurooption-logo.png`
+      `${this.getFrontendUrl()}/neurooption-logo.jpg`
     );
   }
 
@@ -192,8 +197,8 @@ export class EmailsService implements OnModuleInit {
             <tr><td align="center">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;">
                 <tr>
-                  <td align="center" bgcolor="#ffffff" style="padding:26px 28px 22px;border-bottom:3px solid #13b9b2;background:#ffffff;">
-                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="260" height="50" border="0" style="display:block;width:260px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
+                  <td align="center" bgcolor="#05070b" style="padding:22px 28px 18px;border-bottom:3px solid #c9a227;background:#05070b;">
+                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="200" height="173" border="0" style="display:block;width:200px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
                   </td>
                 </tr>
                 <tr><td style="padding:32px 28px;">${content}</td></tr>
@@ -258,9 +263,9 @@ export class EmailsService implements OnModuleInit {
         html: html.split(LOGO_SRC_PLACEHOLDER).join(`cid:${EMAIL_LOGO_CID}`),
         attachments: [
           {
-            filename: 'neurooption-logo.png',
-            content: Buffer.from(EMAIL_LOGO_PNG_BASE64, 'base64'),
-            contentType: 'image/png',
+            filename: EMAIL_LOGO_FILENAME,
+            content: Buffer.from(EMAIL_LOGO_BASE64, 'base64'),
+            contentType: EMAIL_LOGO_MIME,
             cid: EMAIL_LOGO_CID,
           },
         ],
