@@ -201,8 +201,10 @@ describe('real-time market data', () => {
       );
     });
 
-    expect(distinct.size).toBeGreaterThanOrEqual(25);
-    expect(adjacentChanges).toBeGreaterThanOrEqual(45);
+    // The quote retraces, so it revisits levels: fewer distinct prices than
+    // a random walk, but the price changes on most ticks.
+    expect(distinct.size).toBeGreaterThanOrEqual(12);
+    expect(adjacentChanges).toBeGreaterThanOrEqual(65);
     expect(maxRelativeMove).toBeLessThan(0.0002);
 
     const candle = aggregator.getCurrentCandle('EUR/USD OTC', 'M1');
@@ -215,6 +217,51 @@ describe('real-time market data', () => {
       Math.min(candle?.open ?? Infinity, candle?.close ?? Infinity),
     );
     expect((candle?.high ?? 0) - (candle?.low ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('quotes EUR/USD in mostly small tick steps that retrace instead of trending', () => {
+    const engine = new OtcStreamEngineService();
+    const start = Date.UTC(2026, 9, 6, 10, 0, 0);
+    const tickSize = 0.00001;
+    const counts = { still: 0, one: 0, two: 0, threeToFive: 0, larger: 0 };
+    const minuteRanges: number[] = [];
+    let minuteHigh = -Infinity;
+    let minuteLow = Infinity;
+    let previous = engine.nextTick('EUR/USD OTC', start).mid;
+    const total = 36_000; // one hour at 100 ms
+
+    for (let index = 1; index <= total; index += 1) {
+      const mid = engine.nextTick('EUR/USD OTC', start + index * 100).mid;
+      const step = Math.round(Math.abs(mid - previous) / tickSize);
+      if (step === 0) counts.still += 1;
+      else if (step === 1) counts.one += 1;
+      else if (step === 2) counts.two += 1;
+      else if (step <= 5) counts.threeToFive += 1;
+      else counts.larger += 1;
+      previous = mid;
+
+      minuteHigh = Math.max(minuteHigh, mid);
+      minuteLow = Math.min(minuteLow, mid);
+      if (index % 600 === 0) {
+        minuteRanges.push(Math.round((minuteHigh - minuteLow) / tickSize));
+        minuteHigh = -Infinity;
+        minuteLow = Infinity;
+      }
+    }
+
+    const share = (count: number) => count / total;
+    expect(share(counts.still)).toBeGreaterThan(0.05);
+    expect(share(counts.still)).toBeLessThan(0.3);
+    expect(share(counts.one)).toBeGreaterThan(0.4);
+    expect(share(counts.two)).toBeGreaterThan(0.12);
+    expect(share(counts.two)).toBeLessThan(0.35);
+    expect(share(counts.threeToFive)).toBeGreaterThan(0.02);
+    expect(share(counts.threeToFive)).toBeLessThan(0.15);
+    expect(share(counts.larger)).toBeLessThan(0.03);
+
+    // Extra short-horizon jitter must not turn into giant one-minute candles.
+    const sorted = [...minuteRanges].sort((a, b) => a - b);
+    expect(sorted[Math.floor(sorted.length / 2)]).toBeLessThan(120);
   });
 
   it('anchors generated history to the oldest live candle without a visible seam', async () => {
