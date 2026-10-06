@@ -174,6 +174,49 @@ describe('real-time market data', () => {
     expect(Math.abs(last - first) / first).toBeLessThan(0.03);
   });
 
+  it('produces frequent bounded visible EUR/USD micro-movements', () => {
+    const engine = new OtcStreamEngineService();
+    const aggregator = new CandleAggregatorService();
+    const start = timeframeBucketStart(Date.UTC(2026, 9, 6, 10, 0, 0), 'M1');
+    const ticks = Array.from({ length: 100 }, (_, index) =>
+      engine.nextTick('EUR/USD OTC', start + index * 100),
+    );
+
+    const distinct = new Set(ticks.map((tick) => tick.mid));
+    let adjacentChanges = 0;
+    let maxRelativeMove = 0;
+
+    ticks.forEach((tick, index) => {
+      aggregator.applyTick({
+        ...tick,
+        serverReceiveTimestamp: tick.timestamp,
+      });
+
+      if (index === 0) return;
+      if (tick.mid !== ticks[index - 1].mid) adjacentChanges += 1;
+      maxRelativeMove = Math.max(
+        maxRelativeMove,
+        Math.abs(tick.mid - ticks[index - 1].mid) /
+          Math.max(ticks[index - 1].mid, 1e-9),
+      );
+    });
+
+    expect(distinct.size).toBeGreaterThanOrEqual(25);
+    expect(adjacentChanges).toBeGreaterThanOrEqual(45);
+    expect(maxRelativeMove).toBeLessThan(0.0002);
+
+    const candle = aggregator.getCurrentCandle('EUR/USD OTC', 'M1');
+    expect(candle).toBeDefined();
+    expect(candle?.volume).toBe(100);
+    expect(candle?.high).toBeGreaterThanOrEqual(
+      Math.max(candle?.open ?? 0, candle?.close ?? 0),
+    );
+    expect(candle?.low).toBeLessThanOrEqual(
+      Math.min(candle?.open ?? Infinity, candle?.close ?? Infinity),
+    );
+    expect((candle?.high ?? 0) - (candle?.low ?? 0)).toBeGreaterThan(0);
+  });
+
   it('anchors generated history to the oldest live candle without a visible seam', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [MarketDataModule],
