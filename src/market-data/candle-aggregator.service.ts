@@ -71,6 +71,8 @@ export class CandleAggregatorService {
       previousSequence === undefined
         ? 0
         : Math.max(0, tick.sequence - previousSequence - 1);
+    const delayedWithinTolerance =
+      previousTimestamp !== undefined && tick.timestamp < previousTimestamp;
 
     this.lastSequence.set(tick.symbol, tick.sequence);
     this.lastTimestamp.set(
@@ -108,7 +110,9 @@ export class CandleAggregatorService {
 
       current.high = Math.max(current.high, tick.mid);
       current.low = Math.min(current.low, tick.mid);
-      current.close = tick.mid;
+      if (!delayedWithinTolerance) {
+        current.close = tick.mid;
+      }
       current.volume += 1;
       current.lastSequence = tick.sequence;
 
