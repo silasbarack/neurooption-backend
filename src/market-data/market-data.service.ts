@@ -6,6 +6,7 @@ import {
   TIMEFRAME_SECONDS,
 } from './market-data.constants';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
+import { MarketStreamService } from './market-stream.service';
 
 type OtcTick = {
   asset: string;
@@ -58,6 +59,7 @@ type AssetDna = {
 
 @Injectable()
 export class MarketDataService {
+  constructor(private readonly marketStreamService: MarketStreamService) {}
   getAssets() {
     return {
       serverTime: new Date().toISOString(),
@@ -86,7 +88,8 @@ export class MarketDataService {
     return {
       serverTime: new Date(now).toISOString(),
       quotes: MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => {
-        const price = this.roundPrice(this.priceAt(asset, now), asset.precision);
+        const liveTick = this.marketStreamService.getLatestTick(asset.symbol);
+        const price = this.roundPrice(liveTick.mid, asset.precision);
         const previous = this.priceAt(asset, dayAgo);
         const changePercent = previous ? ((price - previous) / previous) * 100 : 0;
 
@@ -107,16 +110,23 @@ export class MarketDataService {
     return Array.from(new Set(MARKET_ASSETS.map((asset) => asset.category)));
   }
 
-  getTick(assetSymbol: string): OtcTick {
+  getTick(assetSymbol: string): OtcTick & Record<string, unknown> {
     const asset = this.findAsset(assetSymbol);
-    const now = Date.now();
-    const price = this.roundPrice(this.priceAt(asset, now), asset.precision);
+    const tick = this.marketStreamService.getLatestTick(asset.symbol);
 
     return {
       asset: asset.symbol,
-      price,
-      time: now,
-      serverTime: new Date(now).toISOString(),
+      price: tick.mid,
+      time: tick.timestamp,
+      serverTime: new Date(tick.serverReceiveTimestamp).toISOString(),
+      bid: tick.bid,
+      ask: tick.ask,
+      mid: tick.mid,
+      timestamp: tick.timestamp,
+      sequence: tick.sequence,
+      source: tick.source,
+      marketType: tick.marketType,
+      serverReceiveTimestamp: tick.serverReceiveTimestamp,
     };
   }
 
@@ -136,6 +146,41 @@ export class MarketDataService {
     for (let index = 0; index < limit; index += 1) {
       const candleStart = firstStart + index * intervalMs;
       candles.push(this.buildCandle(asset, timeframe, candleStart, now));
+    }
+
+    const aggregator = this.marketStreamService.getCandleAggregator();
+    const active = aggregator.getCurrentCandle(asset.symbol, timeframe);
+    const previousIndex = Math.max(0, candles.length - (active ? 2 : 1));
+    const anchorTarget = active?.open ?? this.marketStreamService.getLatestTick(asset.symbol).mid;
+    const anchorSource = candles[previousIndex]?.close ?? anchorTarget;
+    const scale = anchorSource > 0 ? anchorTarget / anchorSource : 1;
+
+    for (let index = 0; index < candles.length; index += 1) {
+      const candle = candles[index];
+      candle.open = this.roundPrice(candle.open * scale, asset.precision);
+      candle.high = this.roundPrice(candle.high * scale, asset.precision);
+      candle.low = this.roundPrice(candle.low * scale, asset.precision);
+      candle.close = this.roundPrice(candle.close * scale, asset.precision);
+    }
+
+    if (active) {
+      const liveCandle: OtcCandle = {
+        time: active.time,
+        openTime: active.openTime,
+        closeTime: active.closeTime,
+        open: active.open,
+        high: active.high,
+        low: active.low,
+        close: active.close,
+        volume: active.volume,
+      };
+
+      const lastIndex = candles.length - 1;
+      if (lastIndex >= 0 && candles[lastIndex].time === active.time) {
+        candles[lastIndex] = liveCandle;
+      } else {
+        candles.push(liveCandle);
+      }
     }
 
     return {
@@ -158,11 +203,27 @@ export class MarketDataService {
   getLatestCandle(assetSymbol: string, timeframe: string): OtcCandle {
     const asset = this.findAsset(assetSymbol);
     const normalized = this.normalizeTimeframe(timeframe);
+    const active = this.marketStreamService
+      .getCandleAggregator()
+      .getCurrentCandle(asset.symbol, normalized);
+
+    if (active) {
+      return {
+        time: active.time,
+        openTime: active.openTime,
+        closeTime: active.closeTime,
+        open: active.open,
+        high: active.high,
+        low: active.low,
+        close: active.close,
+        volume: active.volume,
+      };
+    }
+
     const timeframeSeconds = TIMEFRAME_SECONDS[normalized];
     const intervalMs = timeframeSeconds * 1000;
     const now = Date.now();
     const candleStart = Math.floor(now / intervalMs) * intervalMs;
-
     return this.buildCandle(asset, normalized, candleStart, now);
   }
 
