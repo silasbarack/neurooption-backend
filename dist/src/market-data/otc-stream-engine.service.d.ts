@@ -5,7 +5,8 @@ export declare class OtcStreamEngineService {
     getLatestTick(symbol: string, now?: number): Omit<NormalizedMarketTick, "serverReceiveTimestamp">;
     private getState;
     private transitionRegime;
-    private microstructureReturn;
+    private nextQuotePrice;
+    private drawMicroStepSize;
     private transitionMicroRegime;
     private regimeDrift;
     private regimePersistence;
