@@ -1,3 +1,6 @@
+import { Test } from '@nestjs/testing';
+import { MarketDataModule } from '../src/market-data/market-data.module';
+import { MarketDataService } from '../src/market-data/market-data.service';
 import { CandleAggregatorService } from '../src/market-data/candle-aggregator.service';
 import {
   TIMEFRAME_MS,
@@ -6,6 +9,25 @@ import {
 import { OtcStreamEngineService } from '../src/market-data/otc-stream-engine.service';
 
 describe('real-time market data', () => {
+  it('boots the market-data Nest module and exposes the shared stream', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [MarketDataModule],
+    }).compile();
+
+    await moduleRef.init();
+    const marketData = moduleRef.get(MarketDataService);
+    const tick = marketData.getTick('EUR/USD OTC');
+
+    expect(tick).toMatchObject({
+      asset: 'EUR/USD OTC',
+      marketType: 'OTC',
+      source: 'neurooption-otc-simulator-v2',
+    });
+    expect(Number(tick.price)).toBeGreaterThan(0);
+
+    await moduleRef.close();
+  });
+
   it('uses canonical aligned timeframe buckets including D1', () => {
     const timestamp = Date.UTC(2026, 9, 6, 10, 15, 17, 987);
 
