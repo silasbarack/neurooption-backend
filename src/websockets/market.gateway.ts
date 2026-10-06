@@ -159,6 +159,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage(WebsocketEvents.RESYNC_REQUEST)
   resync(
+    @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
       symbol: string;
@@ -168,6 +169,13 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       lastSequence?: number;
     },
   ) {
+    if (!this.allowEvent(client, 'resync', 750)) {
+      return {
+        event: WebsocketEvents.ERROR,
+        message: 'Resync requests are rate limited.',
+      };
+    }
+
     const symbol = this.normalizeSymbol(data?.symbol);
     const timeframe = normalizeTimeframe(data?.timeframe);
     const result = this.marketDataService.getCandles({
@@ -193,9 +201,14 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage(WebsocketEvents.CLIENT_METRICS)
   clientMetrics(
+    @ConnectedSocket() client: Socket,
     @MessageBody()
     data: { tickAgeMs?: number; renderDelayMs?: number; reconnect?: boolean },
   ) {
+    if (!this.allowEvent(client, 'metrics', 1_000)) {
+      return { ok: false, rateLimited: true, serverTimestamp: Date.now() };
+    }
+
     const tickAgeMs = Number(data?.tickAgeMs);
     const renderDelayMs = Number(data?.renderDelayMs);
 
@@ -236,6 +249,19 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   roomSize(room: string) {
     return this.server.adapter.rooms.get(room)?.size ?? 0;
+  }
+
+  private allowEvent(client: Socket, key: string, minIntervalMs: number) {
+    const rateLimits =
+      (client.data.marketRateLimits as Record<string, number> | undefined) ?? {};
+    const now = Date.now();
+    const previous = rateLimits[key] ?? 0;
+
+    if (now - previous < minIntervalMs) return false;
+
+    rateLimits[key] = now;
+    client.data.marketRateLimits = rateLimits;
+    return true;
   }
 
   private normalizeSymbol(value?: string) {
