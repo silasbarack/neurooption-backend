@@ -234,9 +234,12 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   broadcastCandleUpdate(dto: MarketCandleUpdate) {
+    // Active-candle snapshots are state-bearing messages. Keep raw price ticks
+    // volatile for freshness/backpressure, but deliver the current candle
+    // reliably so mobile transports cannot remain visually frozen.
     this.server
       .to(this.chartRoom(dto.symbol, dto.timeframe))
-      .volatile.emit(WebsocketEvents.CANDLE_UPDATE, dto);
+      .emit(WebsocketEvents.CANDLE_UPDATE, dto);
   }
 
   symbolRoom(symbol: string) {
