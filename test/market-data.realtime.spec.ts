@@ -7,6 +7,8 @@ import {
   timeframeBucketStart,
 } from '../src/market-data/timeframe.config';
 import { OtcStreamEngineService } from '../src/market-data/otc-stream-engine.service';
+import { MarketStreamService } from '../src/market-data/market-stream.service';
+import { LatencyMetricsService } from '../src/monitoring/latency-metrics.service';
 
 describe('real-time market data', () => {
   it('boots the market-data Nest module and exposes the shared stream', async () => {
@@ -26,6 +28,22 @@ describe('real-time market data', () => {
     expect(Number(tick.price)).toBeGreaterThan(0);
 
     await moduleRef.close();
+  });
+
+  it('does not mint side-channel sequences for repeated market reads', () => {
+    const aggregator = new CandleAggregatorService();
+    const engine = new OtcStreamEngineService();
+    const metrics = new LatencyMetricsService();
+    const stream = new MarketStreamService(engine, aggregator, metrics);
+
+    const first = stream.getLatestTick('EUR/USD OTC');
+    const second = stream.getLatestTick('EUR/USD OTC');
+
+    expect(second.sequence).toBe(first.sequence);
+    expect(
+      aggregator.getLastSequence('EUR/USD OTC'),
+    ).toBe(first.sequence);
+    expect(metrics.snapshot().sequence_gaps ?? 0).toBe(0);
   });
 
   it('uses canonical aligned timeframe buckets including D1', () => {

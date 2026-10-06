@@ -51,12 +51,23 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
 
   getLatestTick(symbol: string): NormalizedMarketTick {
     const cached = this.latestTicks.get(symbol);
+    if (cached) return cached;
 
-    if (cached && Date.now() - cached.serverReceiveTimestamp <= 500) {
-      return cached;
+    // Bootstrap reads can occur during module start-up before the first
+    // interval pass. If that happens, route the bootstrap tick through the
+    // same aggregation path so its sequence is never skipped.
+    const tick = this.generateTick(symbol);
+    const aggregation = this.candleAggregator.applyTick(tick);
+
+    if (aggregation.sequenceGap > 0) {
+      this.metrics.increment('sequence_gaps', aggregation.sequenceGap);
     }
 
-    return this.generateTick(symbol);
+    if (aggregation.duplicate || aggregation.outOfOrder) {
+      this.metrics.increment('ticks_dropped');
+    }
+
+    return tick;
   }
 
   getCandleAggregator() {
