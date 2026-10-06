@@ -1,66 +1,80 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { MarketDataService } from '../market-data/market-data.service';
-import { MARKET_ASSETS, SUPPORTED_TIMEFRAMES } from '../market-data/market-data.constants';
+import { MarketStreamEvent, MarketStreamService } from '../market-data/market-stream.service';
+import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
 import { MarketGateway } from './market.gateway';
 
-const TICK_INTERVAL_MS = 250;
-
-// Drives the in-process OTC market feed at 4 updates/second. Broadcast work is
-// still room-aware, so idle symbols do not consume avoidable Socket.IO bandwidth.
 @Injectable()
 export class MarketTickerService implements OnModuleInit, OnModuleDestroy {
-  private intervalHandle: NodeJS.Timeout | null = null;
+  private unsubscribe: (() => void) | null = null;
 
   constructor(
-    private readonly marketDataService: MarketDataService,
+    private readonly marketStreamService: MarketStreamService,
     private readonly marketGateway: MarketGateway,
+    private readonly metrics: LatencyMetricsService,
   ) {}
 
   onModuleInit() {
-    this.intervalHandle = setInterval(() => this.tick(), TICK_INTERVAL_MS);
+    this.unsubscribe = this.marketStreamService.subscribe((event) =>
+      this.broadcast(event),
+    );
   }
 
   onModuleDestroy() {
-    if (this.intervalHandle) clearInterval(this.intervalHandle);
+    this.unsubscribe?.();
+    this.unsubscribe = null;
   }
 
-  private tick() {
-    for (const asset of MARKET_ASSETS) {
-      if (!asset.isActive) continue;
+  private broadcast(event: MarketStreamEvent) {
+    const { tick, candleUpdates } = event;
+    const symbolRoom = this.marketGateway.symbolRoom(tick.symbol);
 
-      const symbolRoom = this.marketGateway.symbolRoom(asset.symbol);
-
-      if (this.marketGateway.roomSize(symbolRoom) === 0) continue;
-
-      const priceTick = this.marketDataService.getTick(asset.symbol);
+    if (this.marketGateway.roomSize(symbolRoom) > 0) {
+      const serverBroadcastTimestamp = Date.now();
 
       this.marketGateway.broadcastPriceUpdate({
-        symbol: asset.symbol,
-        price: priceTick.price,
-        time: priceTick.time,
-        serverTime: priceTick.serverTime,
+        symbol: tick.symbol,
+        price: tick.mid,
+        bid: tick.bid,
+        ask: tick.ask,
+        time: tick.timestamp,
+        timestamp: tick.timestamp,
+        sequence: tick.sequence,
+        source: tick.source,
+        marketType: tick.marketType,
+        serverReceiveTimestamp: tick.serverReceiveTimestamp,
+        serverBroadcastTimestamp,
+        serverTime: new Date(serverBroadcastTimestamp).toISOString(),
       });
 
-      for (const timeframe of SUPPORTED_TIMEFRAMES) {
-        const chartRoom = this.marketGateway.chartRoom(asset.symbol, timeframe);
+      this.metrics.observe(
+        'websocket_broadcast_latency_ms',
+        Math.max(0, serverBroadcastTimestamp - tick.serverReceiveTimestamp),
+      );
+    }
 
-        if (this.marketGateway.roomSize(chartRoom) === 0) continue;
+    for (const update of candleUpdates) {
+      const chartRoom = this.marketGateway.chartRoom(
+        update.symbol,
+        update.timeframe,
+      );
 
-        const candle = this.marketDataService.getLatestCandle(asset.symbol, timeframe);
+      if (this.marketGateway.roomSize(chartRoom) === 0) continue;
 
-        this.marketGateway.broadcastCandleUpdate({
-          symbol: asset.symbol,
-          timeframe,
-          candle: {
-            time: candle.time,
-            open: candle.open,
-            high: candle.high,
-            low: candle.low,
-            close: candle.close,
-            volume: candle.volume,
-          },
-        });
-      }
+      this.marketGateway.broadcastCandleUpdate({
+        symbol: update.symbol,
+        timeframe: update.timeframe,
+        sequence: tick.sequence,
+        serverBroadcastTimestamp: Date.now(),
+        candle: {
+          time: update.candle.time,
+          open: update.candle.open,
+          high: update.candle.high,
+          low: update.candle.low,
+          close: update.candle.close,
+          volume: update.candle.volume,
+          closed: update.candle.closed,
+        },
+      });
     }
   }
 }
