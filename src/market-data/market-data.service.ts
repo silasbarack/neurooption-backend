@@ -59,6 +59,8 @@ type AssetDna = {
 
 @Injectable()
 export class MarketDataService {
+  private readonly historyScaleBySymbol = new Map<string, number>();
+
   constructor(private readonly marketStreamService: MarketStreamService) {}
   getAssets() {
     return {
@@ -149,11 +151,19 @@ export class MarketDataService {
     }
 
     const aggregator = this.marketStreamService.getCandleAggregator();
-    const active = aggregator.getCurrentCandle(asset.symbol, timeframe);
-    const previousIndex = Math.max(0, candles.length - (active ? 2 : 1));
-    const anchorTarget = active?.open ?? this.marketStreamService.getLatestTick(asset.symbol).mid;
-    const anchorSource = candles[previousIndex]?.close ?? anchorTarget;
-    const scale = anchorSource > 0 ? anchorTarget / anchorSource : 1;
+    const recentLive = aggregator.getRecentCandles(
+      asset.symbol,
+      timeframe,
+      limit,
+    );
+
+    let scale = this.historyScaleBySymbol.get(asset.symbol);
+    if (scale === undefined) {
+      const liveTick = this.marketStreamService.getLatestTick(asset.symbol);
+      const generatedNow = candles[candles.length - 1]?.close ?? asset.basePrice;
+      scale = generatedNow > 0 ? liveTick.mid / generatedNow : 1;
+      this.historyScaleBySymbol.set(asset.symbol, scale);
+    }
 
     for (let index = 0; index < candles.length; index += 1) {
       const candle = candles[index];
@@ -163,24 +173,29 @@ export class MarketDataService {
       candle.close = this.roundPrice(candle.close * scale, asset.precision);
     }
 
-    if (active) {
-      const liveCandle: OtcCandle = {
-        time: active.time,
-        openTime: active.openTime,
-        closeTime: active.closeTime,
-        open: active.open,
-        high: active.high,
-        low: active.low,
-        close: active.close,
-        volume: active.volume,
-      };
+    if (recentLive.length > 0) {
+      const byTime = new Map(candles.map((candle) => [candle.time, candle]));
 
-      const lastIndex = candles.length - 1;
-      if (lastIndex >= 0 && candles[lastIndex].time === active.time) {
-        candles[lastIndex] = liveCandle;
-      } else {
-        candles.push(liveCandle);
+      for (const live of recentLive) {
+        byTime.set(live.time, {
+          time: live.time,
+          openTime: live.openTime,
+          closeTime: live.closeTime,
+          open: live.open,
+          high: live.high,
+          low: live.low,
+          close: live.close,
+          volume: live.volume,
+        });
       }
+
+      candles.splice(
+        0,
+        candles.length,
+        ...Array.from(byTime.values())
+          .sort((left, right) => left.time - right.time)
+          .slice(-limit),
+      );
     }
 
     return {
