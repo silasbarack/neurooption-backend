@@ -1,22 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.M1_CANDLE_MS = exports.MARKET_ASSETS = exports.SUPPORTED_TIMEFRAMES = exports.TIMEFRAME_SECONDS = void 0;
-exports.TIMEFRAME_SECONDS = {
-    S5: 5,
-    S10: 10,
-    S15: 15,
-    S30: 30,
-    M1: 60,
-    M2: 120,
-    M3: 180,
-    M5: 300,
-    M10: 600,
-    M15: 900,
-    M30: 1800,
-    H1: 3600,
-    H4: 14400,
-};
-exports.SUPPORTED_TIMEFRAMES = Object.keys(exports.TIMEFRAME_SECONDS);
+exports.M1_CANDLE_MS = exports.MARKET_ASSETS = exports.TIMEFRAME_MS = exports.SUPPORTED_TIMEFRAMES = exports.TIMEFRAME_SECONDS = void 0;
+var timeframe_config_1 = require("./timeframe.config");
+Object.defineProperty(exports, "TIMEFRAME_SECONDS", { enumerable: true, get: function () { return timeframe_config_1.TIMEFRAME_SECONDS; } });
+Object.defineProperty(exports, "SUPPORTED_TIMEFRAMES", { enumerable: true, get: function () { return timeframe_config_1.SUPPORTED_TIMEFRAMES; } });
+Object.defineProperty(exports, "TIMEFRAME_MS", { enumerable: true, get: function () { return timeframe_config_1.TIMEFRAME_MS; } });
+const timeframe_config_2 = require("./timeframe.config");
 exports.MARKET_ASSETS = [
     {
         symbol: 'EUR/USD OTC',
@@ -689,5 +678,5 @@ exports.MARKET_ASSETS = [
         isActive: true,
     },
 ];
-exports.M1_CANDLE_MS = exports.TIMEFRAME_SECONDS.M1 * 1000;
+exports.M1_CANDLE_MS = timeframe_config_2.TIMEFRAME_SECONDS.M1 * 1000;
 //# sourceMappingURL=market-data.constants.js.map

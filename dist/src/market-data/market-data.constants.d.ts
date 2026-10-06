@@ -21,8 +21,7 @@ export type OtcCandle = {
     close: number;
     volume: number;
 };
-export declare const TIMEFRAME_SECONDS: Record<string, number>;
-export declare const SUPPORTED_TIMEFRAMES: string[];
+export { TIMEFRAME_SECONDS, SUPPORTED_TIMEFRAMES, TIMEFRAME_MS, } from './timeframe.config';
 export declare const MARKET_ASSETS: MarketAsset[];
 export declare const M1_CANDLE_MS: number;
 export type SeedAseet = MarketAsset;

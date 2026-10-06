@@ -1,5 +1,6 @@
 import { OtcCandle } from './market-data.constants';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
+import { MarketStreamService } from './market-stream.service';
 type OtcTick = {
     asset: string;
     price: number;
@@ -7,6 +8,8 @@ type OtcTick = {
     serverTime: string;
 };
 export declare class MarketDataService {
+    private readonly marketStreamService;
+    constructor(marketStreamService: MarketStreamService);
     getAssets(): {
         serverTime: string;
         categories: import("./market-data.constants").AssetCategory[];
@@ -18,10 +21,24 @@ export declare class MarketDataService {
             precision: number;
             payoutBoost: number;
             isActive: boolean;
+            marketType: "OTC";
+            source: string;
+        }[];
+    };
+    getQuotes(): {
+        serverTime: string;
+        quotes: {
+            symbol: string;
+            label: string;
+            category: import("./market-data.constants").AssetCategory;
+            precision: number;
+            price: number;
+            changePercent: number;
+            payout: number;
         }[];
     };
     getCategories(): import("./market-data.constants").AssetCategory[];
-    getTick(assetSymbol: string): OtcTick;
+    getTick(assetSymbol: string): OtcTick & Record<string, unknown>;
     getCandles(query: MarketCandlesQueryDto): {
         asset: {
             symbol: string;
@@ -34,6 +51,8 @@ export declare class MarketDataService {
         };
         timeframe: string;
         timeframeSeconds: number;
+        marketType: "OTC";
+        source: string;
         serverTime: string;
         candles: OtcCandle[];
     };

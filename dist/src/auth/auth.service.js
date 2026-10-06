@@ -29,10 +29,6 @@ let AuthService = AuthService_1 = class AuthService {
     normalizeEmail(email) {
         return email.trim().toLowerCase();
     }
-    getFrontendUrl() {
-        return (this.configService.get('FRONTEND_URL') ||
-            'http://localhost:5173').replace(/\/+$/, '');
-    }
     getUserModelFields() {
         const runtimeModel = this.prisma?._runtimeDataModel?.models?.User;
         if (!runtimeModel?.fields) {
@@ -112,7 +108,7 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.prisma.user.create({
             data: userData,
         });
-        await this.sendEmailSafely('sendAccountCreatedEmail', () => this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user)));
+        void this.sendEmailSafely('sendAccountCreatedEmail', () => this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user)));
         const token = this.signToken(user);
         return {
             success: true,
@@ -165,47 +161,48 @@ let AuthService = AuthService_1 = class AuthService {
                 message: 'If this email exists, a password reset message has been sent.',
             };
         }
-        const token = (0, crypto_1.randomBytes)(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+        const code = String((0, crypto_1.randomInt)(100000, 1000000));
+        const codeHash = (0, crypto_1.createHash)('sha256').update(code).digest('hex');
+        const expiresAt = new Date(Date.now() + 1000 * 60 * 10);
         await this.prisma.passwordResetToken.deleteMany({
-            where: {
-                userId: user.id,
-            },
+            where: { userId: user.id },
         });
         await this.prisma.passwordResetToken.create({
             data: {
                 userId: user.id,
-                token,
+                token: codeHash,
                 expiresAt,
             },
         });
-        const resetUrl = `${this.getFrontendUrl()}/reset-password?token=${token}`;
-        await this.sendEmailSafely('sendPasswordResetEmail', () => this.emailsService.sendPasswordResetEmail(user.email, resetUrl, this.getUserDisplayName(user)));
+        await this.sendEmailSafely('sendPasswordRecoveryCodeEmail', () => this.emailsService.sendPasswordRecoveryCodeEmail(user.email, code, this.getUserDisplayName(user)));
         return {
             success: true,
-            message: 'If this email exists, a password reset message has been sent.',
+            message: 'If this email exists, a six-digit verification code has been sent.',
         };
     }
     async resetPassword(payload) {
-        if (!payload.token || !payload.password) {
-            throw new common_1.BadRequestException('Token and new password are required.');
+        const email = this.normalizeEmail(payload.email || '');
+        const code = String(payload.code || '').trim();
+        if (!email || !/^\d{6}$/.test(code) || !payload.password) {
+            throw new common_1.BadRequestException('Email, six-digit verification code and new password are required.');
         }
         if (payload.password.length < 6) {
             throw new common_1.BadRequestException('Password must be at least 6 characters.');
         }
+        const codeHash = (0, crypto_1.createHash)('sha256').update(code).digest('hex');
         const resetRecord = await this.prisma.passwordResetToken.findFirst({
             where: {
-                token: payload.token,
-                expiresAt: {
-                    gt: new Date(),
-                },
+                token: codeHash,
+                used: false,
+                expiresAt: { gt: new Date() },
+                user: { email },
             },
             include: {
                 user: true,
             },
         });
         if (!resetRecord) {
-            throw new common_1.BadRequestException('Invalid or expired reset token.');
+            throw new common_1.BadRequestException('Invalid or expired verification code.');
         }
         const hashedPassword = await bcrypt.hash(payload.password, 12);
         const passwordField = this.getPasswordFieldName();
@@ -217,10 +214,12 @@ let AuthService = AuthService_1 = class AuthService {
                 [passwordField]: hashedPassword,
             },
         });
-        await this.prisma.passwordResetToken.delete({
-            where: {
-                id: resetRecord.id,
-            },
+        await this.prisma.passwordResetToken.update({
+            where: { id: resetRecord.id },
+            data: { used: true },
+        });
+        await this.prisma.passwordResetToken.deleteMany({
+            where: { userId: resetRecord.userId, id: { not: resetRecord.id } },
         });
         await this.sendEmailSafely('sendPasswordChangedEmail', () => this.emailsService.sendPasswordChangedEmail(resetRecord.user.email, this.getUserDisplayName(resetRecord.user)));
         return {

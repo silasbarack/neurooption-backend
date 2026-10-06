@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WithdrawalsController = void 0;
 const common_1 = require("@nestjs/common");
+const admin_guard_1 = require("../auth/admin.guard");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const create_withdrawal_dto_1 = require("./dto/create-withdrawal.dto");
 const update_withdrawal_status_dto_1 = require("./dto/update-withdrawal-status.dto");
 const withdrawals_service_1 = require("./withdrawals.service");
@@ -96,6 +98,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], WithdrawalsController.prototype, "reject", null);
 exports.WithdrawalsController = WithdrawalsController = __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, admin_guard_1.AdminGuard),
     (0, common_1.Controller)('withdrawals'),
     __metadata("design:paramtypes", [withdrawals_service_1.WithdrawalsService])
 ], WithdrawalsController);

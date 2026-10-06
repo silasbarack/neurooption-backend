@@ -1,3 +1,4 @@
+import { OnModuleInit } from '@nestjs/common';
 type MoneyEmailData = {
     amount: number;
     currency: string;
@@ -9,18 +10,29 @@ type EmailTemplate = {
     subject: string;
     body: string;
 };
-export declare class EmailsService {
+export declare class EmailsService implements OnModuleInit {
     private readonly logger;
+    private transporter;
+    onModuleInit(): void;
+    private env;
+    private errorMessage;
+    private getProvider;
     private getTransporterConfig;
-    private createTransporter;
-    private isConfigured;
+    private getTransporter;
     private getFromAddress;
+    private parseFromAddress;
+    private getFrontendUrl;
+    private getHostedLogoUrl;
+    private escapeHtml;
     private formatName;
+    private brandedHtml;
     private toHtml;
+    private postJson;
+    private deliver;
     private sendEmail;
     sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean>;
     sendAccountDeletedEmail(email: string, fullName: string): Promise<boolean>;
-    sendPasswordResetEmail(email: string, resetLink: string, fullName?: string): Promise<boolean>;
+    sendPasswordRecoveryCodeEmail(email: string, code: string, fullName?: string): Promise<boolean>;
     sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean>;
     depositSuccessful(data: MoneyEmailData): EmailTemplate;
     withdrawalRequested(data: MoneyEmailData): EmailTemplate;

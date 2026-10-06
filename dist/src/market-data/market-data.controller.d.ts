@@ -1,9 +1,11 @@
 import { MarketDataService } from './market-data.service';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
 import { MarketTickQueryDto } from './dto/market-tick-query.dto';
+import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
 export declare class MarketDataController {
     private readonly marketDataService;
-    constructor(marketDataService: MarketDataService);
+    private readonly latencyMetrics;
+    constructor(marketDataService: MarketDataService, latencyMetrics: LatencyMetricsService);
     getAssets(): {
         serverTime: string;
         categories: import("./market-data.constants").AssetCategory[];
@@ -15,6 +17,20 @@ export declare class MarketDataController {
             precision: number;
             payoutBoost: number;
             isActive: boolean;
+            marketType: "OTC";
+            source: string;
+        }[];
+    };
+    getQuotes(): {
+        serverTime: string;
+        quotes: {
+            symbol: string;
+            label: string;
+            category: import("./market-data.constants").AssetCategory;
+            precision: number;
+            price: number;
+            changePercent: number;
+            payout: number;
         }[];
     };
     getCandles(query: MarketCandlesQueryDto): {
@@ -29,6 +45,8 @@ export declare class MarketDataController {
         };
         timeframe: string;
         timeframeSeconds: number;
+        marketType: "OTC";
+        source: string;
         serverTime: string;
         candles: import("./market-data.constants").OtcCandle[];
     };
@@ -37,5 +55,18 @@ export declare class MarketDataController {
         price: number;
         time: number;
         serverTime: string;
+    } & Record<string, unknown>;
+    getMetrics(): {
+        histograms: {
+            [k: string]: {
+                count: number;
+                p50: number;
+                p95: number;
+                p99: number;
+                max: number;
+            };
+        };
+        timestamp: number;
+        ticks_per_second: number;
     };
 }

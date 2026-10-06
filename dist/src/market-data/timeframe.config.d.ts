@@ -1,0 +1,22 @@
+export declare const TIMEFRAME_MS: {
+    readonly S5: 5000;
+    readonly S10: 10000;
+    readonly S15: 15000;
+    readonly S30: 30000;
+    readonly M1: 60000;
+    readonly M2: 120000;
+    readonly M3: 180000;
+    readonly M5: 300000;
+    readonly M10: 600000;
+    readonly M15: 900000;
+    readonly M30: 1800000;
+    readonly H1: 3600000;
+    readonly H4: 14400000;
+    readonly D1: 86400000;
+};
+export type MarketTimeframe = keyof typeof TIMEFRAME_MS;
+export declare const TIMEFRAME_SECONDS: Record<string, number>;
+export declare const SUPPORTED_TIMEFRAMES: MarketTimeframe[];
+export declare function isSupportedTimeframe(value: string): value is MarketTimeframe;
+export declare function normalizeTimeframe(value?: string): MarketTimeframe;
+export declare function timeframeBucketStart(timestamp: number, timeframe: MarketTimeframe | string): number;

@@ -5,11 +5,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketDataService = void 0;
 const common_1 = require("@nestjs/common");
 const market_data_constants_1 = require("./market-data.constants");
+const market_stream_service_1 = require("./market-stream.service");
 let MarketDataService = class MarketDataService {
+    constructor(marketStreamService) {
+        this.marketStreamService = marketStreamService;
+    }
     getAssets() {
         return {
             serverTime: new Date().toISOString(),
@@ -22,7 +29,33 @@ let MarketDataService = class MarketDataService {
                 precision: asset.precision,
                 payoutBoost: asset.payoutBoost,
                 isActive: asset.isActive,
+                marketType: 'OTC',
+                source: 'neurooption-otc-simulator-v2',
             })),
+        };
+    }
+    getQuotes() {
+        const now = Date.now();
+        const dayAgo = now - 24 * 60 * 60 * 1000;
+        return {
+            serverTime: new Date(now).toISOString(),
+            quotes: market_data_constants_1.MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => {
+                const liveTick = this.marketStreamService.getLatestTick(asset.symbol);
+                const price = this.roundPrice(liveTick.mid, asset.precision);
+                const generatedNow = this.priceAt(asset, now);
+                const historyScale = generatedNow > 0 ? price / generatedNow : 1;
+                const previous = this.priceAt(asset, dayAgo) * historyScale;
+                const changePercent = previous ? ((price - previous) / previous) * 100 : 0;
+                return {
+                    symbol: asset.symbol,
+                    label: asset.label,
+                    category: asset.category,
+                    precision: asset.precision,
+                    price,
+                    changePercent: Number(changePercent.toFixed(2)),
+                    payout: Math.min(Math.max(Math.round(83 + asset.payoutBoost), 20), 92),
+                };
+            }),
         };
     }
     getCategories() {
@@ -30,13 +63,20 @@ let MarketDataService = class MarketDataService {
     }
     getTick(assetSymbol) {
         const asset = this.findAsset(assetSymbol);
-        const now = Date.now();
-        const price = this.roundPrice(this.priceAt(asset, now), asset.precision);
+        const tick = this.marketStreamService.getLatestTick(asset.symbol);
         return {
             asset: asset.symbol,
-            price,
-            time: now,
-            serverTime: new Date(now).toISOString(),
+            price: tick.mid,
+            time: tick.timestamp,
+            serverTime: new Date(tick.serverReceiveTimestamp).toISOString(),
+            bid: tick.bid,
+            ask: tick.ask,
+            mid: tick.mid,
+            timestamp: tick.timestamp,
+            sequence: tick.sequence,
+            source: tick.source,
+            marketType: tick.marketType,
+            serverReceiveTimestamp: tick.serverReceiveTimestamp,
         };
     }
     getCandles(query) {
@@ -53,6 +93,45 @@ let MarketDataService = class MarketDataService {
             const candleStart = firstStart + index * intervalMs;
             candles.push(this.buildCandle(asset, timeframe, candleStart, now));
         }
+        const aggregator = this.marketStreamService.getCandleAggregator();
+        const recentLive = aggregator.getRecentCandles(asset.symbol, timeframe, limit);
+        const firstLive = recentLive[0];
+        const generatedAnchor = firstLive
+            ? candles.find((candle) => candle.time === firstLive.time)
+            : undefined;
+        const liveTick = firstLive
+            ? undefined
+            : this.marketStreamService.getLatestTick(asset.symbol);
+        const generatedPrice = firstLive
+            ? (generatedAnchor?.open ?? generatedAnchor?.close ?? asset.basePrice)
+            : (candles[candles.length - 1]?.close ?? asset.basePrice);
+        const targetPrice = firstLive?.open ?? liveTick?.mid ?? asset.basePrice;
+        const scale = generatedPrice > 0 ? targetPrice / generatedPrice : 1;
+        for (let index = 0; index < candles.length; index += 1) {
+            const candle = candles[index];
+            candle.open = this.roundPrice(candle.open * scale, asset.precision);
+            candle.high = this.roundPrice(candle.high * scale, asset.precision);
+            candle.low = this.roundPrice(candle.low * scale, asset.precision);
+            candle.close = this.roundPrice(candle.close * scale, asset.precision);
+        }
+        if (recentLive.length > 0) {
+            const byTime = new Map(candles.map((candle) => [candle.time, candle]));
+            for (const live of recentLive) {
+                byTime.set(live.time, {
+                    time: live.time,
+                    openTime: live.openTime,
+                    closeTime: live.closeTime,
+                    open: live.open,
+                    high: live.high,
+                    low: live.low,
+                    close: live.close,
+                    volume: live.volume,
+                });
+            }
+            candles.splice(0, candles.length, ...Array.from(byTime.values())
+                .sort((left, right) => left.time - right.time)
+                .slice(-limit));
+        }
         return {
             asset: {
                 symbol: asset.symbol,
@@ -65,6 +144,8 @@ let MarketDataService = class MarketDataService {
             },
             timeframe,
             timeframeSeconds,
+            marketType: 'OTC',
+            source: 'neurooption-otc-simulator-v2',
             serverTime: new Date(now).toISOString(),
             candles,
         };
@@ -72,6 +153,21 @@ let MarketDataService = class MarketDataService {
     getLatestCandle(assetSymbol, timeframe) {
         const asset = this.findAsset(assetSymbol);
         const normalized = this.normalizeTimeframe(timeframe);
+        const active = this.marketStreamService
+            .getCandleAggregator()
+            .getCurrentCandle(asset.symbol, normalized);
+        if (active) {
+            return {
+                time: active.time,
+                openTime: active.openTime,
+                closeTime: active.closeTime,
+                open: active.open,
+                high: active.high,
+                low: active.low,
+                close: active.close,
+                volume: active.volume,
+            };
+        }
         const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[normalized];
         const intervalMs = timeframeSeconds * 1000;
         const now = Date.now();
@@ -91,16 +187,15 @@ let MarketDataService = class MarketDataService {
         const open = this.priceAt(asset, candleStart);
         const close = this.priceAt(asset, effectiveEnd);
         samples.push(open, close);
-        const bodyHigh = Math.max(...samples);
-        const bodyLow = Math.min(...samples);
-        const wick = this.buildWick(asset, timeframe, candleStart, bodyHigh, bodyLow, open, close, effectiveEnd >= candleEnd);
+        const high = Math.max(...samples);
+        const low = Math.min(...samples);
         return {
             time: candleStart,
             openTime: new Date(candleStart).toISOString(),
             closeTime: new Date(candleEnd).toISOString(),
             open: this.roundPrice(open, asset.precision),
-            high: this.roundPrice(Math.max(bodyHigh, wick.high), asset.precision),
-            low: this.roundPrice(Math.min(bodyLow, wick.low), asset.precision),
+            high: this.roundPrice(high, asset.precision),
+            low: this.roundPrice(low, asset.precision),
             close: this.roundPrice(close, asset.precision),
             volume: this.buildTickVolume(asset, timeframe, candleStart),
         };
@@ -644,6 +739,7 @@ let MarketDataService = class MarketDataService {
 };
 exports.MarketDataService = MarketDataService;
 exports.MarketDataService = MarketDataService = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [market_stream_service_1.MarketStreamService])
 ], MarketDataService);
 //# sourceMappingURL=market-data.service.js.map

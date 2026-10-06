@@ -1,0 +1,27 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PaymentsModule = void 0;
+const common_1 = require("@nestjs/common");
+const deposits_module_1 = require("../deposits/deposits.module");
+const withdrawals_module_1 = require("../withdrawals/withdrawals.module");
+const finance_controller_1 = require("./finance.controller");
+const finance_service_1 = require("./finance.service");
+const mpesa_controller_1 = require("./mpesa.controller");
+const mpesa_service_1 = require("./mpesa.service");
+let PaymentsModule = class PaymentsModule {
+};
+exports.PaymentsModule = PaymentsModule;
+exports.PaymentsModule = PaymentsModule = __decorate([
+    (0, common_1.Module)({
+        imports: [deposits_module_1.DepositsModule, withdrawals_module_1.WithdrawalsModule],
+        controllers: [mpesa_controller_1.MpesaController, finance_controller_1.FinanceController],
+        providers: [mpesa_service_1.MpesaService, finance_service_1.FinanceService],
+    })
+], PaymentsModule);
+//# sourceMappingURL=payments.module.js.map

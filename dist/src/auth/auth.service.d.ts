@@ -16,7 +16,8 @@ type ForgotPasswordPayload = {
     email: string;
 };
 type ResetPasswordPayload = {
-    token: string;
+    email: string;
+    code: string;
     password: string;
 };
 export declare class AuthService {
@@ -27,7 +28,6 @@ export declare class AuthService {
     private readonly logger;
     constructor(prisma: PrismaService, jwtService: JwtService, emailsService: EmailsService, configService: ConfigService);
     private normalizeEmail;
-    private getFrontendUrl;
     private getUserModelFields;
     private getPasswordFieldName;
     private getNameFieldName;

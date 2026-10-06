@@ -17,18 +17,26 @@ const common_1 = require("@nestjs/common");
 const market_data_service_1 = require("./market-data.service");
 const market_candles_query_dto_1 = require("./dto/market-candles-query.dto");
 const market_tick_query_dto_1 = require("./dto/market-tick-query.dto");
+const latency_metrics_service_1 = require("../monitoring/latency-metrics.service");
 let MarketDataController = class MarketDataController {
-    constructor(marketDataService) {
+    constructor(marketDataService, latencyMetrics) {
         this.marketDataService = marketDataService;
+        this.latencyMetrics = latencyMetrics;
     }
     getAssets() {
         return this.marketDataService.getAssets();
+    }
+    getQuotes() {
+        return this.marketDataService.getQuotes();
     }
     getCandles(query) {
         return this.marketDataService.getCandles(query);
     }
     getTick(query) {
         return this.marketDataService.getTick(query.asset);
+    }
+    getMetrics() {
+        return this.latencyMetrics.snapshot();
     }
 };
 exports.MarketDataController = MarketDataController;
@@ -38,6 +46,12 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], MarketDataController.prototype, "getAssets", null);
+__decorate([
+    (0, common_1.Get)('quotes'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], MarketDataController.prototype, "getQuotes", null);
 __decorate([
     (0, common_1.Get)('candles'),
     __param(0, (0, common_1.Query)()),
@@ -52,8 +66,15 @@ __decorate([
     __metadata("design:paramtypes", [market_tick_query_dto_1.MarketTickQueryDto]),
     __metadata("design:returntype", void 0)
 ], MarketDataController.prototype, "getTick", null);
+__decorate([
+    (0, common_1.Get)('metrics'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], MarketDataController.prototype, "getMetrics", null);
 exports.MarketDataController = MarketDataController = __decorate([
     (0, common_1.Controller)('market-data'),
-    __metadata("design:paramtypes", [market_data_service_1.MarketDataService])
+    __metadata("design:paramtypes", [market_data_service_1.MarketDataService,
+        latency_metrics_service_1.LatencyMetricsService])
 ], MarketDataController);
 //# sourceMappingURL=market-data.controller.js.map

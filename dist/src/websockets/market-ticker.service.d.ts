@@ -1,12 +1,14 @@
 import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { MarketDataService } from '../market-data/market-data.service';
+import { MarketStreamService } from '../market-data/market-stream.service';
+import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
 import { MarketGateway } from './market.gateway';
 export declare class MarketTickerService implements OnModuleInit, OnModuleDestroy {
-    private readonly marketDataService;
+    private readonly marketStreamService;
     private readonly marketGateway;
-    private intervalHandle;
-    constructor(marketDataService: MarketDataService, marketGateway: MarketGateway);
+    private readonly metrics;
+    private unsubscribe;
+    constructor(marketStreamService: MarketStreamService, marketGateway: MarketGateway, metrics: LatencyMetricsService);
     onModuleInit(): void;
     onModuleDestroy(): void;
-    private tick;
+    private broadcast;
 }

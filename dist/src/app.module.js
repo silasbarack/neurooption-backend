@@ -10,7 +10,6 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const assets_module_1 = require("./assets/assets.module");
 const auth_module_1 = require("./auth/auth.module");
-const prisma_service_1 = require("./common/prisma.service");
 const health_controller_1 = require("./health/health.controller");
 const admin_module_1 = require("./admin/admin.module");
 const profile_module_1 = require("./profile/profile.module");
@@ -27,6 +26,8 @@ const config_module_1 = require("./config/config.module");
 const demo_accounts_module_1 = require("./demo-accounts/demo-accounts.module");
 const real_accounts_module_1 = require("./real-accounts/real-accounts.module");
 const withdrawals_module_1 = require("./withdrawals/withdrawals.module");
+const payments_module_1 = require("./payments/payments.module");
+const account_module_1 = require("./account/account.module");
 const payouts_module_1 = require("./payouts/payouts.module");
 const otc_markets_module_1 = require("./otc-markets/otc-markets.module");
 const real_markets_module_1 = require("./real-markets/real-markets.module");
@@ -75,6 +76,8 @@ exports.AppModule = AppModule = __decorate([
             payment_gateways_module_1.PaymentGatewaysModule,
             deposits_module_1.DepositsModule,
             withdrawals_module_1.WithdrawalsModule,
+            payments_module_1.PaymentsModule,
+            account_module_1.AccountModule,
             payouts_module_1.PayoutsModule,
             social_trading_module_1.SocialTradingModule,
             audit_logs_module_1.AuditLogsModule,
@@ -86,7 +89,7 @@ exports.AppModule = AppModule = __decorate([
             ledger_module_1.LedgerModule,
         ],
         controllers: [health_controller_1.HealthController],
-        providers: [prisma_service_1.PrismaService],
+        providers: [],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

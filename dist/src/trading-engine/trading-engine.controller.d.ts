@@ -1,10 +1,17 @@
+import type { Request } from 'express';
 import { TradingEngineService } from './trading-engine.service';
 import { PlaceTradeDto } from './dto/place-trade.dto';
 import { AccountCurrency, AccountType } from './trading-engine.types';
+export declare const GUEST_USER_ID = "demo-user";
+type MaybeAuthenticatedRequest = Request & {
+    user?: {
+        id: string;
+    };
+};
 export declare class TradingEngineController {
     private readonly tradingEngineService;
     constructor(tradingEngineService: TradingEngineService);
-    placeTrade(dto: PlaceTradeDto): Promise<{
+    placeTrade(req: MaybeAuthenticatedRequest, dto: PlaceTradeDto): Promise<{
         trade: import("./trading-engine.types").PlacedTrade;
         wallet: {
             id: any;
@@ -19,7 +26,7 @@ export declare class TradingEngineController {
             updatedAt: any;
         };
     }>;
-    settleTrade(tradeId: string): Promise<{
+    settleTrade(req: MaybeAuthenticatedRequest, tradeId: string): Promise<{
         trade: import("./trading-engine.types").PlacedTrade;
         wallet: {
             id: any;
@@ -34,10 +41,10 @@ export declare class TradingEngineController {
             updatedAt: any;
         };
     }>;
-    getOpenTrades(userId?: string): Promise<import("./trading-engine.types").PlacedTrade[]>;
-    getTradeHistory(userId?: string): Promise<import("./trading-engine.types").PlacedTrade[]>;
-    getAllTrades(userId?: string): Promise<import("./trading-engine.types").PlacedTrade[]>;
-    getWallet(userId?: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
+    getOpenTrades(req: MaybeAuthenticatedRequest): Promise<import("./trading-engine.types").PlacedTrade[]>;
+    getTradeHistory(req: MaybeAuthenticatedRequest): Promise<import("./trading-engine.types").PlacedTrade[]>;
+    getAllTrades(req: MaybeAuthenticatedRequest): Promise<import("./trading-engine.types").PlacedTrade[]>;
+    getWallet(req: MaybeAuthenticatedRequest, accountType?: AccountType, currency?: AccountCurrency): Promise<{
         id: any;
         userId: any;
         accountType: any;
@@ -49,7 +56,7 @@ export declare class TradingEngineController {
         createdAt: any;
         updatedAt: any;
     }>;
-    getTransactions(userId?: string): Promise<{
+    getTransactions(req: MaybeAuthenticatedRequest): Promise<{
         id: any;
         userId: any;
         walletId: any;
@@ -70,3 +77,4 @@ export declare class TradingEngineController {
         updatedAt: any;
     }[]>;
 }
+export {};

@@ -10,10 +10,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }>;
     login(dto: AdminLoginDto): Promise<{
@@ -26,10 +26,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }[]>;
     findOne(id: string): Promise<{
@@ -37,10 +37,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }>;
     update(id: string, dto: UpdateAdminDto): Promise<{
@@ -48,10 +48,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }>;
     disable(id: string): Promise<{
@@ -59,10 +59,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }>;
     enable(id: string): Promise<{
@@ -70,10 +70,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }>;
     delete(id: string): Promise<{
@@ -81,10 +81,10 @@ export declare class AdminController {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        passwordHash: string;
-        fullName: string;
         email: string;
         phone: string | null;
+        fullName: string;
+        passwordHash: string;
         role: import(".prisma/client").$Enums.AdminRole;
     }>;
 }

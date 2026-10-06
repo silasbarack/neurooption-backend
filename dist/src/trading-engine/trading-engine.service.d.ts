@@ -29,6 +29,21 @@ export declare class TradingEngineService {
             updatedAt: any;
         };
     }>;
+    settleTradeForUser(tradeId: string, userId: string): Promise<{
+        trade: PlacedTrade;
+        wallet: {
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
+            balance: number;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
+        };
+    }>;
     settleTrade(tradeId: string): Promise<{
         trade: PlacedTrade;
         wallet: {

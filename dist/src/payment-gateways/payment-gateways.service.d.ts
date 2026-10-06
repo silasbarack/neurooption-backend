@@ -11,8 +11,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -29,8 +29,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -47,8 +47,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -65,8 +65,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -83,8 +83,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -101,8 +101,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -119,8 +119,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -137,8 +137,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -155,8 +155,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -173,8 +173,8 @@ export declare class PaymentGatewaysService {
         isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        direction: import(".prisma/client").$Enums.PaymentDirection;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;

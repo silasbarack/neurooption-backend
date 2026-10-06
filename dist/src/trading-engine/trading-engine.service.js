@@ -136,6 +136,19 @@ let TradingEngineService = class TradingEngineService {
             wallet: await this.walletsService.getBalance(userId, accountType, currency),
         };
     }
+    async settleTradeForUser(tradeId, userId) {
+        const trade = await this.tradesService.findById(tradeId);
+        if (!trade || trade.userId !== userId) {
+            throw new common_1.NotFoundException('Trade not found.');
+        }
+        if (trade.status === 'PENDING' && trade.expiryTime > Date.now()) {
+            return {
+                trade,
+                wallet: await this.walletsService.getBalance(trade.userId, trade.accountType, trade.currency),
+            };
+        }
+        return this.settleTrade(tradeId);
+    }
     async settleTrade(tradeId) {
         const trade = await this.tradesService.findById(tradeId);
         if (!trade) {

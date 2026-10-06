@@ -10,10 +10,10 @@ export declare class WalletsService {
         updatedAt: Date;
         userId: string;
         currency: string;
-        balance: Prisma.Decimal;
-        locked: Prisma.Decimal;
         accountType: string;
+        balance: Prisma.Decimal;
         balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
         lockedUsd: Prisma.Decimal;
     }[]>;
     getUserWallets(userIdOrQuery?: any): Promise<{
@@ -22,10 +22,10 @@ export declare class WalletsService {
         updatedAt: Date;
         userId: string;
         currency: string;
-        balance: Prisma.Decimal;
-        locked: Prisma.Decimal;
         accountType: string;
+        balance: Prisma.Decimal;
         balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
         lockedUsd: Prisma.Decimal;
     }[]>;
     getBalance(userId: string, accountType?: AccountType, currency?: AccountCurrency): Promise<{
@@ -46,10 +46,10 @@ export declare class WalletsService {
         updatedAt: Date;
         userId: string;
         currency: string;
-        balance: Prisma.Decimal;
-        locked: Prisma.Decimal;
         accountType: string;
+        balance: Prisma.Decimal;
         balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
         lockedUsd: Prisma.Decimal;
     }>;
     credit(userId: string, accountType: AccountType, amountUsd: number): Promise<{
@@ -58,10 +58,10 @@ export declare class WalletsService {
         updatedAt: Date;
         userId: string;
         currency: string;
-        balance: Prisma.Decimal;
-        locked: Prisma.Decimal;
         accountType: string;
+        balance: Prisma.Decimal;
         balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
         lockedUsd: Prisma.Decimal;
     }>;
     deposit(dto: any): Promise<{
@@ -113,10 +113,10 @@ export declare class WalletsService {
         updatedAt: Date;
         userId: string;
         currency: string;
-        balance: Prisma.Decimal;
-        locked: Prisma.Decimal;
         accountType: string;
+        balance: Prisma.Decimal;
         balanceUsd: Prisma.Decimal;
+        locked: Prisma.Decimal;
         lockedUsd: Prisma.Decimal;
     }>;
     private formatWallet;

@@ -18,6 +18,7 @@ exports.WebsocketsModule = WebsocketsModule = __decorate([
     (0, common_1.Module)({
         imports: [market_data_module_1.MarketDataModule],
         providers: [market_gateway_1.MarketGateway, market_ticker_service_1.MarketTickerService],
+        exports: [market_gateway_1.MarketGateway],
     })
 ], WebsocketsModule);
 //# sourceMappingURL=websockets.module.js.map

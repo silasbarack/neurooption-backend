@@ -11,62 +11,71 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketTickerService = void 0;
 const common_1 = require("@nestjs/common");
-const market_data_service_1 = require("../market-data/market-data.service");
-const market_data_constants_1 = require("../market-data/market-data.constants");
+const market_stream_service_1 = require("../market-data/market-stream.service");
+const latency_metrics_service_1 = require("../monitoring/latency-metrics.service");
 const market_gateway_1 = require("./market.gateway");
-const TICK_INTERVAL_MS = 400;
 let MarketTickerService = class MarketTickerService {
-    constructor(marketDataService, marketGateway) {
-        this.marketDataService = marketDataService;
+    constructor(marketStreamService, marketGateway, metrics) {
+        this.marketStreamService = marketStreamService;
         this.marketGateway = marketGateway;
-        this.intervalHandle = null;
+        this.metrics = metrics;
+        this.unsubscribe = null;
     }
     onModuleInit() {
-        this.intervalHandle = setInterval(() => this.tick(), TICK_INTERVAL_MS);
+        this.unsubscribe = this.marketStreamService.subscribe((event) => this.broadcast(event));
     }
     onModuleDestroy() {
-        if (this.intervalHandle)
-            clearInterval(this.intervalHandle);
+        this.unsubscribe?.();
+        this.unsubscribe = null;
     }
-    tick() {
-        for (const asset of market_data_constants_1.MARKET_ASSETS) {
-            if (!asset.isActive)
-                continue;
-            const symbolRoom = this.marketGateway.symbolRoom(asset.symbol);
-            if (this.marketGateway.roomSize(symbolRoom) === 0)
-                continue;
-            const priceTick = this.marketDataService.getTick(asset.symbol);
+    broadcast(event) {
+        const { tick, candleUpdates } = event;
+        const symbolRoom = this.marketGateway.symbolRoom(tick.symbol);
+        if (this.marketGateway.roomSize(symbolRoom) > 0) {
+            const serverBroadcastTimestamp = Date.now();
             this.marketGateway.broadcastPriceUpdate({
-                symbol: asset.symbol,
-                price: priceTick.price,
-                time: priceTick.time,
-                serverTime: priceTick.serverTime,
+                symbol: tick.symbol,
+                price: tick.mid,
+                bid: tick.bid,
+                ask: tick.ask,
+                time: tick.timestamp,
+                timestamp: tick.timestamp,
+                sequence: tick.sequence,
+                source: tick.source,
+                marketType: tick.marketType,
+                serverReceiveTimestamp: tick.serverReceiveTimestamp,
+                serverBroadcastTimestamp,
+                serverTime: new Date(serverBroadcastTimestamp).toISOString(),
             });
-            for (const timeframe of market_data_constants_1.SUPPORTED_TIMEFRAMES) {
-                const chartRoom = this.marketGateway.chartRoom(asset.symbol, timeframe);
-                if (this.marketGateway.roomSize(chartRoom) === 0)
-                    continue;
-                const candle = this.marketDataService.getLatestCandle(asset.symbol, timeframe);
-                this.marketGateway.broadcastCandleUpdate({
-                    symbol: asset.symbol,
-                    timeframe,
-                    candle: {
-                        time: candle.time,
-                        open: candle.open,
-                        high: candle.high,
-                        low: candle.low,
-                        close: candle.close,
-                        volume: candle.volume,
-                    },
-                });
-            }
+            this.metrics.observe('websocket_broadcast_latency_ms', Math.max(0, serverBroadcastTimestamp - tick.serverReceiveTimestamp));
+        }
+        for (const update of candleUpdates) {
+            const chartRoom = this.marketGateway.chartRoom(update.symbol, update.timeframe);
+            if (this.marketGateway.roomSize(chartRoom) === 0)
+                continue;
+            this.marketGateway.broadcastCandleUpdate({
+                symbol: update.symbol,
+                timeframe: update.timeframe,
+                sequence: tick.sequence,
+                serverBroadcastTimestamp: Date.now(),
+                candle: {
+                    time: update.candle.time,
+                    open: update.candle.open,
+                    high: update.candle.high,
+                    low: update.candle.low,
+                    close: update.candle.close,
+                    volume: update.candle.volume,
+                    closed: update.candle.closed,
+                },
+            });
         }
     }
 };
 exports.MarketTickerService = MarketTickerService;
 exports.MarketTickerService = MarketTickerService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [market_data_service_1.MarketDataService,
-        market_gateway_1.MarketGateway])
+    __metadata("design:paramtypes", [market_stream_service_1.MarketStreamService,
+        market_gateway_1.MarketGateway,
+        latency_metrics_service_1.LatencyMetricsService])
 ], MarketTickerService);
 //# sourceMappingURL=market-ticker.service.js.map

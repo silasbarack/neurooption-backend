@@ -10,13 +10,13 @@ export declare class SupportService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            passwordHash: string;
-            fullName: string;
+            status: import(".prisma/client").$Enums.AccountStatus;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
+            passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
-            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
         };
@@ -33,21 +33,21 @@ export declare class SupportService {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     }>;
     getTickets(): Promise<({
         user: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            passwordHash: string;
-            fullName: string;
+            status: import(".prisma/client").$Enums.AccountStatus;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
+            passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
-            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
         };
@@ -64,8 +64,8 @@ export declare class SupportService {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     })[]>;
     getUserTickets(userId: string): Promise<({
         messages: {
@@ -81,21 +81,21 @@ export declare class SupportService {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     })[]>;
     getTicket(id: string): Promise<{
         user: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            passwordHash: string;
-            fullName: string;
+            status: import(".prisma/client").$Enums.AccountStatus;
             email: string;
             phone: string | null;
             referralCode: string | null;
+            fullName: string;
+            passwordHash: string;
             role: import(".prisma/client").$Enums.UserRole;
-            status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referredById: string | null;
         };
@@ -112,8 +112,8 @@ export declare class SupportService {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     }>;
     sendMessage(dto: CreateSupportMessageDto): Promise<{
         id: string;
@@ -128,23 +128,23 @@ export declare class SupportService {
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     }>;
     resolveTicket(id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     }>;
     closeTicket(id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         status: import(".prisma/client").$Enums.SupportTicketStatus;
-        userId: string;
         subject: string;
+        userId: string;
     }>;
 }

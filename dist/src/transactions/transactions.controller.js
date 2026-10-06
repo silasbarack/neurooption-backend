@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionsController = void 0;
 const common_1 = require("@nestjs/common");
+const admin_guard_1 = require("../auth/admin.guard");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const transactions_service_1 = require("./transactions.service");
 const create_transaction_dto_1 = require("./dto/create-transaction.dto");
 const update_transaction_status_dto_1 = require("./dto/update-transaction-status.dto");
@@ -129,6 +131,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TransactionsController.prototype, "markCancelled", null);
 exports.TransactionsController = TransactionsController = __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, admin_guard_1.AdminGuard),
     (0, common_1.Controller)('transactions'),
     __metadata("design:paramtypes", [transactions_service_1.TransactionsService])
 ], TransactionsController);

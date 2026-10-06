@@ -5,6 +5,10 @@ export declare const WebsocketEvents: {
     PRICE_UPDATE: string;
     CANDLE_UPDATE: string;
     CHART_UPDATE: string;
+    SERVER_TIME: string;
+    RESYNC_REQUEST: string;
+    RESYNC_RESPONSE: string;
+    CLIENT_METRICS: string;
     TRADE_OPENED: string;
     TRADE_SETTLED: string;
     TRADE_CANCELLED: string;

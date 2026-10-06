@@ -10,76 +10,223 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailsService = void 0;
 const common_1 = require("@nestjs/common");
 const nodemailer = require("nodemailer");
+const email_logo_1 = require("./email-logo");
+const LOGO_SRC_PLACEHOLDER = '__NEUROOPTION_LOGO_SRC__';
+const DEFAULT_FRONTEND_URL = 'https://neurooption-frontend.onrender.com';
+const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
+const SMTP_SOCKET_TIMEOUT_MS = 20_000;
+const HTTP_API_TIMEOUT_MS = 15_000;
 let EmailsService = EmailsService_1 = class EmailsService {
     constructor() {
         this.logger = new common_1.Logger(EmailsService_1.name);
+        this.transporter = null;
+    }
+    onModuleInit() {
+        const provider = this.getProvider();
+        if (provider === 'none') {
+            this.logger.warn('Email is not configured. Set BREVO_API_KEY or RESEND_API_KEY (recommended on Render free plan), or SMTP_HOST/SMTP_SERVICE + SMTP_USER + SMTP_PASS.');
+            return;
+        }
+        this.logger.log(`Email provider: ${provider} (from ${this.getFromAddress()})`);
+        if (provider === 'smtp') {
+            this.getTransporter()
+                .verify()
+                .then(() => this.logger.log('SMTP connection verified.'))
+                .catch((error) => this.logger.error(`SMTP connection check failed: ${this.errorMessage(error)}. ` +
+                'If this runs on a Render free instance, SMTP ports are blocked; use BREVO_API_KEY or RESEND_API_KEY, or SMTP_PORT=2525 with a provider that supports it.'));
+        }
+    }
+    env(name) {
+        return (process.env[name] || '').trim();
+    }
+    errorMessage(error) {
+        return error instanceof Error ? error.message : String(error);
+    }
+    getProvider() {
+        if (this.env('BREVO_API_KEY'))
+            return 'brevo';
+        if (this.env('RESEND_API_KEY'))
+            return 'resend';
+        const hasCredentials = !!this.env('SMTP_USER') && !!this.env('SMTP_PASS');
+        const hasServer = !!this.env('SMTP_SERVICE') || !!this.env('SMTP_HOST');
+        return hasCredentials && hasServer ? 'smtp' : 'none';
     }
     getTransporterConfig() {
+        const service = this.env('SMTP_SERVICE');
+        const host = this.env('SMTP_HOST');
+        const isGmail = /gmail/i.test(service || host);
         const config = {
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
+                user: this.env('SMTP_USER'),
+                pass: isGmail
+                    ? this.env('SMTP_PASS').replace(/\s+/g, '')
+                    : this.env('SMTP_PASS'),
             },
+            connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+            greetingTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+            socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
             tls: {
-                rejectUnauthorized: String(process.env.SMTP_REJECT_UNAUTHORIZED || 'true').toLowerCase() ===
+                rejectUnauthorized: (this.env('SMTP_REJECT_UNAUTHORIZED') || 'true').toLowerCase() ===
                     'true',
             },
         };
-        if (process.env.SMTP_SERVICE) {
-            config.service = process.env.SMTP_SERVICE;
+        if (service) {
+            config.service = service;
         }
         else {
-            config.host = process.env.SMTP_HOST || 'smtp.gmail.com';
-            config.port = Number(process.env.SMTP_PORT || 587);
-            config.secure =
-                String(process.env.SMTP_SECURE || 'false').toLowerCase() === 'true';
+            const port = Number(this.env('SMTP_PORT') || 587);
+            const secureSetting = this.env('SMTP_SECURE').toLowerCase();
+            config.host = host || 'smtp.gmail.com';
+            config.port = port;
+            config.secure = secureSetting ? secureSetting === 'true' : port === 465;
         }
         return config;
     }
-    createTransporter() {
-        return nodemailer.createTransport(this.getTransporterConfig());
-    }
-    isConfigured() {
-        const hasCredentials = !!process.env.SMTP_USER && !!process.env.SMTP_PASS;
-        const hasServer = !!process.env.SMTP_SERVICE || !!process.env.SMTP_HOST;
-        return hasCredentials && hasServer;
+    getTransporter() {
+        if (!this.transporter) {
+            this.transporter = nodemailer.createTransport(this.getTransporterConfig());
+        }
+        return this.transporter;
     }
     getFromAddress() {
-        return (process.env.SMTP_FROM ||
-            `"NeuroOption" <${process.env.SMTP_USER || 'no-reply@neurooption.com'}>`);
+        return (this.env('EMAIL_FROM') ||
+            this.env('SMTP_FROM') ||
+            `"NeuroOption" <${this.env('SMTP_USER') || 'no-reply@neurooption.com'}>`);
+    }
+    parseFromAddress() {
+        const from = this.getFromAddress();
+        const match = from.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+        if (match) {
+            return { name: match[1].trim() || 'NeuroOption', email: match[2].trim() };
+        }
+        return { name: 'NeuroOption', email: from.trim() };
+    }
+    getFrontendUrl() {
+        return (this.env('FRONTEND_URL') || DEFAULT_FRONTEND_URL).replace(/\/+$/, '');
+    }
+    getHostedLogoUrl() {
+        return (this.env('EMAIL_LOGO_URL') ||
+            `${this.getFrontendUrl()}/neurooption-logo.jpg`);
+    }
+    escapeHtml(value) {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
     formatName(fullName) {
         const cleaned = fullName?.trim();
         return cleaned && cleaned.length > 0 ? cleaned : 'User';
     }
-    toHtml(body) {
+    brandedHtml(content, preheader = '') {
         return `
-      <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6; font-size: 15px;">
-        ${body
-            .split('\n')
-            .map((line) => `<p style="margin: 0 0 10px;">${line}</p>`)
-            .join('')}
-      </div>
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+        </head>
+        <body style="margin:0;padding:0;background:#f3f7fa;font-family:Arial,Helvetica,sans-serif;color:#183149;">
+          <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${this.escapeHtml(preheader)}</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f7fa;padding:28px 12px;">
+            <tr><td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;">
+                <tr>
+                  <td align="center" bgcolor="#05070b" style="padding:22px 28px 18px;border-bottom:3px solid #c9a227;background:#05070b;">
+                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="200" height="173" border="0" style="display:block;width:200px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
+                  </td>
+                </tr>
+                <tr><td style="padding:32px 28px;">${content}</td></tr>
+                <tr>
+                  <td style="padding:18px 28px;background:#f8fbfd;border-top:1px solid #e8eff4;color:#8293a5;font-size:12px;line-height:1.6;">
+                    &copy; NeuroOption. All rights reserved.<br>
+                    Secure account communications &bull; Never share verification codes or passwords with anyone.
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+      </html>
     `;
     }
-    async sendEmail(to, subject, body) {
-        try {
-            if (!this.isConfigured()) {
-                this.logger.warn('SMTP is not configured. Email not sent.');
-                return false;
-            }
-            await this.createTransporter().sendMail({
+    toHtml(body) {
+        const paragraphs = body
+            .split('\n')
+            .filter((line) => line.trim().length > 0)
+            .map((line) => `<p style="margin:0 0 12px;line-height:1.7;">${this.escapeHtml(line)}</p>`)
+            .join('');
+        return this.brandedHtml(paragraphs);
+    }
+    async postJson(url, headers, payload) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(HTTP_API_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            throw new Error(`HTTP ${response.status} ${detail}`.trim());
+        }
+    }
+    async deliver(provider, to, subject, text, html) {
+        if (provider === 'smtp') {
+            await this.getTransporter().sendMail({
                 from: this.getFromAddress(),
                 to,
                 subject,
-                text: body,
-                html: this.toHtml(body),
+                text,
+                html: html.split(LOGO_SRC_PLACEHOLDER).join(`cid:${email_logo_1.EMAIL_LOGO_CID}`),
+                attachments: [
+                    {
+                        filename: email_logo_1.EMAIL_LOGO_FILENAME,
+                        content: Buffer.from(email_logo_1.EMAIL_LOGO_BASE64, 'base64'),
+                        contentType: email_logo_1.EMAIL_LOGO_MIME,
+                        cid: email_logo_1.EMAIL_LOGO_CID,
+                    },
+                ],
             });
+            return;
+        }
+        const hostedHtml = html
+            .split(LOGO_SRC_PLACEHOLDER)
+            .join(this.getHostedLogoUrl());
+        if (provider === 'brevo') {
+            await this.postJson('https://api.brevo.com/v3/smtp/email', { 'api-key': this.env('BREVO_API_KEY'), accept: 'application/json' }, {
+                sender: this.parseFromAddress(),
+                to: [{ email: to }],
+                subject,
+                htmlContent: hostedHtml,
+                textContent: text,
+            });
+            return;
+        }
+        await this.postJson('https://api.resend.com/emails', { Authorization: `Bearer ${this.env('RESEND_API_KEY')}` }, {
+            from: this.getFromAddress(),
+            to: [to],
+            subject,
+            html: hostedHtml,
+            text,
+        });
+    }
+    async sendEmail(to, subject, body, html) {
+        const provider = this.getProvider();
+        if (provider === 'none') {
+            this.logger.warn(`Email is not configured. "${subject}" not sent to ${to}.`);
+            return false;
+        }
+        try {
+            await this.deliver(provider, to, subject, body, html || this.toHtml(body));
+            this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
             return true;
         }
         catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to send email to ${to}: ${message}`);
+            this.logger.error(`Failed to send "${subject}" to ${to} via ${provider}: ${this.errorMessage(error)}`);
             if (error instanceof Error && error.stack) {
                 this.logger.error(error.stack);
             }
@@ -88,13 +235,58 @@ let EmailsService = EmailsService_1 = class EmailsService {
     }
     async sendAccountCreatedEmail(email, fullName) {
         const name = this.formatName(fullName);
-        return this.sendEmail(email, 'Welcome to NeuroOption', `
+        const safeName = this.escapeHtml(name);
+        const safeEmail = this.escapeHtml(email);
+        const loginUrl = `${this.getFrontendUrl()}/login`;
+        const body = `
 Dear ${name},
 
-Welcome to NeuroOption. Your account has been created successfully.
-You can now sign in and start using your trading dashboard.
+Welcome to NeuroOption! Your account has been created successfully and is ready to use.
+Account email: ${email}
+
+Here is how to get started:
+1. Sign in and practise risk-free on your demo account to get familiar with the platform.
+2. Fund your real account from the Finance section whenever you are ready to trade.
+3. Complete identity verification (KYC) in your profile so withdrawals are processed without delays.
+
+For your security, never share your password or verification codes with anyone. NeuroOption staff will never ask for them.
+If you did not create this account, please contact Support Service immediately.
+
+Sign in: ${loginUrl}
+
 Thank you for choosing NeuroOption.
-      `.trim());
+The NeuroOption Team
+    `.trim();
+        const step = (num, title, text) => `
+      <tr>
+        <td width="34" valign="top" style="padding:0 0 14px;">
+          <div style="width:26px;height:26px;line-height:26px;border-radius:13px;background:#0b8ec2;color:#ffffff;font-size:13px;font-weight:700;text-align:center;">${num}</div>
+        </td>
+        <td valign="top" style="padding:2px 0 14px;color:#536a80;font-size:14px;line-height:1.6;">
+          <strong style="color:#10203a;">${title}</strong><br>${text}
+        </td>
+      </tr>`;
+        const html = this.brandedHtml(`
+      <h1 style="margin:0 0 10px;font-size:28px;color:#10203a;">Welcome to NeuroOption, ${safeName}!</h1>
+      <p style="margin:0 0 18px;color:#66788e;line-height:1.7;">Your account has been created successfully and is ready to use. We're glad to have you on board.</p>
+      <div style="padding:16px 18px;border-radius:14px;background:#edf9fc;border:1px solid #d5eef5;margin:0 0 24px;">
+        <span style="display:block;font-size:11px;font-weight:700;letter-spacing:.14em;color:#6f8194;margin-bottom:4px;">ACCOUNT EMAIL</span>
+        <strong style="color:#0b8ec2;font-size:16px;">${safeEmail}</strong>
+      </div>
+      <h2 style="margin:0 0 14px;font-size:17px;color:#10203a;">How to get started</h2>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
+        ${step(1, 'Practise on your demo account', 'Sign in and explore OTC markets, charts and trade controls risk-free.')}
+        ${step(2, 'Fund your real account', 'Make a deposit from the Finance section whenever you are ready to trade.')}
+        ${step(3, 'Verify your identity', 'Complete KYC in your profile so withdrawals are processed without delays.')}
+      </table>
+      <a href="${loginUrl}" style="display:inline-block;padding:13px 24px;border-radius:10px;background:#0b8ec2;color:#ffffff;text-decoration:none;font-weight:700;">Sign in to NeuroOption</a>
+      <p style="margin:26px 0 0;padding-top:18px;border-top:1px solid #e8eff4;color:#8293a5;font-size:13px;line-height:1.6;">
+        For your security, never share your password or verification codes with anyone &mdash; NeuroOption staff will never ask for them.
+        If you did not create this account, please contact Support Service immediately.
+      </p>
+      <p style="margin:16px 0 0;color:#536a80;line-height:1.6;">Thank you for choosing NeuroOption.<br><strong style="color:#10203a;">The NeuroOption Team</strong></p>
+    `, 'Your NeuroOption account is ready. Here is how to get started.');
+        return this.sendEmail(email, 'Welcome to NeuroOption - your account is ready', body, html);
     }
     async sendAccountDeletedEmail(email, fullName) {
         const name = this.formatName(fullName);
@@ -106,15 +298,26 @@ If you did not request this action, please contact Support Service immediately.
 Thank you for using NeuroOption.
       `.trim());
     }
-    async sendPasswordResetEmail(email, resetLink, fullName = 'User') {
+    async sendPasswordRecoveryCodeEmail(email, code, fullName = 'User') {
         const name = this.formatName(fullName);
-        return this.sendEmail(email, 'Reset your NeuroOption password', `
+        const safeName = this.escapeHtml(name);
+        const body = `
 Dear ${name},
 
-We received a request to reset your NeuroOption password.
-Open this secure link to create a new password: ${resetLink}
-This link expires shortly. If you did not request this, please ignore this email.
-      `.trim());
+Your NeuroOption password recovery verification code is: ${code}
+This code expires in 10 minutes.
+If you did not request a password reset, you can ignore this email.
+    `.trim();
+        const html = this.brandedHtml(`
+      <h1 style="margin:0 0 10px;font-size:26px;color:#10203a;">Password recovery</h1>
+      <p style="margin:0 0 18px;color:#66788e;line-height:1.7;">Hi ${safeName}, use the verification code below to reset your NeuroOption password.</p>
+      <div style="margin:18px 0 22px;padding:20px;text-align:center;border-radius:14px;background:#f0f9fc;border:1px solid #d8eef5;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;color:#6f8194;margin-bottom:8px;">VERIFICATION CODE</div>
+        <div style="font-size:36px;font-weight:800;letter-spacing:.22em;color:#0b8ec2;">${code}</div>
+      </div>
+      <p style="margin:0;color:#66788e;line-height:1.7;">This code expires in <strong>10 minutes</strong>. Never share it with anyone.</p>
+    `, `Your NeuroOption verification code is ${code}`);
+        return this.sendEmail(email, 'Your NeuroOption verification code', body, html);
     }
     async sendPasswordChangedEmail(email, fullName) {
         const name = this.formatName(fullName);
