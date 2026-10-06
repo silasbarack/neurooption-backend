@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { MARKET_ASSETS, MarketAsset } from './market-data.constants';
 import { NormalizedMarketTick } from './market-tick.types';
 
+type MicroRegime = 'UP' | 'DOWN' | 'RANGE' | 'RETRACE' | 'BURST';
+
 type OtcRegime =
   | 'TREND_UP'
   | 'TREND_DOWN'
@@ -25,6 +27,11 @@ type OtcState = {
   sequence: number;
   lastTimestamp: number;
   recentAbsoluteReturn: number;
+  microRegime: MicroRegime;
+  microDirection: -1 | 0 | 1;
+  microTicksRemaining: number;
+  microImpulseTicks: number;
+  microAnchorPrice: number;
 };
 
 @Injectable()
@@ -40,6 +47,7 @@ export class OtcStreamEngineService {
     const elapsedMs = Math.min(Math.max(now - state.lastTimestamp, 20), 1_000);
     const dtSeconds = elapsedMs / 1_000;
     const sqrtDt = Math.sqrt(dtSeconds);
+    const tickSize = 10 ** -asset.precision;
 
     if (state.ticksInRegime >= state.regimeLength) {
       this.transitionRegime(state);
@@ -122,10 +130,17 @@ export class OtcStreamEngineService {
       shock = shockDirection * state.volatility * shockMultiplier;
     }
 
+    const microReturn = this.microstructureReturn(
+      state,
+      asset,
+      tickSize,
+    );
+
     const rawLogReturn =
       state.velocity * dtSeconds +
       gaussian * state.volatility * sqrtDt +
       (meanReversion + anchorReversion) * dtSeconds +
+      microReturn +
       shock;
 
     const maxTickReturn = this.maxTickLogReturn(asset);
@@ -165,7 +180,6 @@ export class OtcStreamEngineService {
     const targetSpread = this.baseSpread(asset) * spreadMultiplier;
     state.spread = state.spread * 0.9 + targetSpread * 0.1;
 
-    const tickSize = 10 ** -asset.precision;
     const roundedMid = this.roundToTick(state.price, tickSize);
     const roundedBid = this.roundToTick(
       roundedMid - state.spread / 2,
@@ -238,6 +252,11 @@ export class OtcStreamEngineService {
       sequence: 0,
       lastTimestamp: now - 100,
       recentAbsoluteReturn: 0,
+      microRegime: 'RANGE',
+      microDirection: 0,
+      microTicksRemaining: 0,
+      microImpulseTicks: 0,
+      microAnchorPrice: asset.basePrice,
     };
 
     this.states.set(asset.symbol, state);
@@ -278,6 +297,101 @@ export class OtcStreamEngineService {
     if (state.regime === 'MEAN_REVERSION') {
       state.meanPrice = state.price;
     }
+  }
+
+  private microstructureReturn(
+    state: OtcState,
+    asset: MarketAsset,
+    tickSize: number,
+  ) {
+    if (state.microTicksRemaining <= 0) {
+      this.transitionMicroRegime(state);
+    }
+
+    state.microTicksRemaining -= 1;
+
+    const price = Math.max(state.price, tickSize);
+    const oneTickReturn = tickSize / price;
+    const gaussian = this.randomNormal(state);
+    const anchorDistanceTicks =
+      (state.microAnchorPrice - state.price) / tickSize;
+
+    let impulseTicks = 0;
+    switch (state.microRegime) {
+      case 'UP':
+      case 'DOWN':
+        impulseTicks =
+          state.microDirection *
+          (0.28 + Math.abs(gaussian) * 0.34);
+        break;
+      case 'RETRACE':
+        impulseTicks =
+          state.microDirection *
+          (0.34 + Math.abs(gaussian) * 0.42);
+        break;
+      case 'BURST':
+        impulseTicks =
+          state.microDirection *
+          (0.75 + Math.abs(gaussian) * 0.8);
+        break;
+      case 'RANGE':
+      default:
+        impulseTicks =
+          gaussian * 0.32 +
+          this.clamp(anchorDistanceTicks * 0.055, -0.38, 0.38);
+        break;
+    }
+
+    // Small, rapidly mean-reverting order-flow memory creates frequent
+    // one/two-tick changes without increasing long-horizon FX volatility.
+    state.microImpulseTicks =
+      state.microImpulseTicks * 0.42 + impulseTicks;
+
+    const maxMicroTicks =
+      asset.category === 'Currencies' ? 2.8 : 4.5;
+    const boundedTicks = this.clamp(
+      state.microImpulseTicks,
+      -maxMicroTicks,
+      maxMicroTicks,
+    );
+
+    return boundedTicks * oneTickReturn;
+  }
+
+  private transitionMicroRegime(state: OtcState) {
+    const roll = this.nextRandom(state);
+    const previousDirection = state.microDirection;
+
+    if (roll < 0.26) {
+      state.microRegime = 'RANGE';
+      state.microDirection = 0;
+      state.microTicksRemaining = 3 + Math.floor(this.nextRandom(state) * 7);
+    } else if (roll < 0.47) {
+      state.microRegime = 'UP';
+      state.microDirection = 1;
+      state.microTicksRemaining = 3 + Math.floor(this.nextRandom(state) * 10);
+    } else if (roll < 0.68) {
+      state.microRegime = 'DOWN';
+      state.microDirection = -1;
+      state.microTicksRemaining = 3 + Math.floor(this.nextRandom(state) * 10);
+    } else if (roll < 0.9) {
+      state.microRegime = 'RETRACE';
+      state.microDirection =
+        previousDirection === 0
+          ? this.nextRandom(state) >= 0.5
+            ? -1
+            : 1
+          : previousDirection === 1
+            ? -1
+            : 1;
+      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 6);
+    } else {
+      state.microRegime = 'BURST';
+      state.microDirection = this.nextRandom(state) >= 0.5 ? 1 : -1;
+      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 4);
+    }
+
+    state.microAnchorPrice = state.price;
   }
 
   private regimeDrift(
