@@ -17,10 +17,9 @@ export const TIMEFRAME_MS = {
 
 export type MarketTimeframe = keyof typeof TIMEFRAME_MS;
 
-export const TIMEFRAME_SECONDS: Record<MarketTimeframe, number> =
-  Object.fromEntries(
-    Object.entries(TIMEFRAME_MS).map(([key, value]) => [key, value / 1000]),
-  ) as Record<MarketTimeframe, number>;
+export const TIMEFRAME_SECONDS: Record<string, number> = Object.fromEntries(
+  Object.entries(TIMEFRAME_MS).map(([key, value]) => [key, value / 1000]),
+);
 
 export const SUPPORTED_TIMEFRAMES = Object.keys(
   TIMEFRAME_MS,
