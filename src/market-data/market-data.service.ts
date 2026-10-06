@@ -59,8 +59,6 @@ type AssetDna = {
 
 @Injectable()
 export class MarketDataService {
-  private readonly historyScaleBySymbol = new Map<string, number>();
-
   constructor(private readonly marketStreamService: MarketStreamService) {}
   getAssets() {
     return {
@@ -94,7 +92,9 @@ export class MarketDataService {
       quotes: MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => {
         const liveTick = this.marketStreamService.getLatestTick(asset.symbol);
         const price = this.roundPrice(liveTick.mid, asset.precision);
-        const previous = this.priceAt(asset, dayAgo);
+        const generatedNow = this.priceAt(asset, now);
+        const historyScale = generatedNow > 0 ? price / generatedNow : 1;
+        const previous = this.priceAt(asset, dayAgo) * historyScale;
         const changePercent = previous ? ((price - previous) / previous) * 100 : 0;
 
         return {
@@ -159,13 +159,18 @@ export class MarketDataService {
       limit,
     );
 
-    let scale = this.historyScaleBySymbol.get(asset.symbol);
-    if (scale === undefined) {
-      const liveTick = this.marketStreamService.getLatestTick(asset.symbol);
-      const generatedNow = candles[candles.length - 1]?.close ?? asset.basePrice;
-      scale = generatedNow > 0 ? liveTick.mid / generatedNow : 1;
-      this.historyScaleBySymbol.set(asset.symbol, scale);
-    }
+    const firstLive = recentLive[0];
+    const generatedAnchor = firstLive
+      ? candles.find((candle) => candle.time === firstLive.time)
+      : undefined;
+    const liveTick = firstLive
+      ? undefined
+      : this.marketStreamService.getLatestTick(asset.symbol);
+    const generatedPrice = firstLive
+      ? (generatedAnchor?.open ?? generatedAnchor?.close ?? asset.basePrice)
+      : (candles[candles.length - 1]?.close ?? asset.basePrice);
+    const targetPrice = firstLive?.open ?? liveTick?.mid ?? asset.basePrice;
+    const scale = generatedPrice > 0 ? targetPrice / generatedPrice : 1;
 
     for (let index = 0; index < candles.length; index += 1) {
       const candle = candles[index];

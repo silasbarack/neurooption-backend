@@ -153,6 +153,60 @@ describe('real-time market data', () => {
     expect(aggregator.applyTick(makeTick(4)).sequenceGap).toBe(2);
   });
 
+  it('keeps sustained EUR/USD OTC movement bounded and free of giant single-tick jumps', () => {
+    const engine = new OtcStreamEngineService();
+    const start = Date.UTC(2026, 9, 6, 10, 0, 0);
+    const prices: number[] = [];
+    let previous = engine.nextTick('EUR/USD OTC', start).mid;
+    prices.push(previous);
+
+    for (let index = 1; index <= 18_000; index += 1) {
+      const tick = engine.nextTick('EUR/USD OTC', start + index * 100);
+      const relativeMove = Math.abs(tick.mid - previous) / previous;
+
+      expect(relativeMove).toBeLessThan(0.0002);
+      prices.push(tick.mid);
+      previous = tick.mid;
+    }
+
+    const first = prices[0];
+    const last = prices[prices.length - 1];
+    expect(Math.abs(last - first) / first).toBeLessThan(0.03);
+  });
+
+  it('anchors generated history to the oldest live candle without a visible seam', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [MarketDataModule],
+    }).compile();
+
+    await moduleRef.init();
+
+    const marketData = moduleRef.get(MarketDataService);
+    const aggregator = moduleRef.get(CandleAggregatorService);
+    const live = aggregator.getRecentCandles('EUR/USD OTC', 'M2', 10);
+    const result = marketData.getCandles({
+      asset: 'EUR/USD OTC',
+      timeframe: 'M2',
+      limit: 180,
+    });
+    const firstLive = live[0];
+
+    expect(firstLive).toBeDefined();
+
+    const liveIndex = result.candles.findIndex(
+      (candle) => candle.time === firstLive.time,
+    );
+
+    expect(liveIndex).toBeGreaterThan(0);
+
+    const previous = result.candles[liveIndex - 1];
+    const gap = Math.abs(firstLive.open - previous.close) / firstLive.open;
+
+    expect(gap).toBeLessThan(0.001);
+
+    await moduleRef.close();
+  });
+
   it('generates stateful OTC bid/ask ticks with valid precision and sequence', () => {
     const engine = new OtcStreamEngineService();
     const start = Date.now();

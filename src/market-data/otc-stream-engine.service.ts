@@ -38,15 +38,17 @@ export class OtcStreamEngineService {
     const asset = this.findAsset(symbol);
     const state = this.getState(asset, now);
     const elapsedMs = Math.min(Math.max(now - state.lastTimestamp, 20), 1_000);
-    const dt = elapsedMs / 100;
+    const dtSeconds = elapsedMs / 1_000;
+    const sqrtDt = Math.sqrt(dtSeconds);
 
     if (state.ticksInRegime >= state.regimeLength) {
       this.transitionRegime(state);
     }
 
     const baselineVolatility = this.baseTickVolatility(asset);
-    const volatilityPersistence = 0.965;
-    const volatilityResponse = 0.22;
+    const volatilityPersistence = 0.97;
+    const volatilityResponse =
+      asset.category === 'Currencies' ? 0.018 : 0.03;
     const targetVolatility =
       baselineVolatility *
       this.regimeVolatilityMultiplier(state.regime);
@@ -58,8 +60,9 @@ export class OtcStreamEngineService {
 
     state.volatility = this.clamp(
       state.volatility,
-      baselineVolatility * 0.3,
-      baselineVolatility * 5.5,
+      baselineVolatility * 0.35,
+      baselineVolatility *
+        (asset.category === 'Currencies' ? 2.8 : 4.2),
     );
 
     const regimeDrift = this.regimeDrift(
@@ -68,40 +71,69 @@ export class OtcStreamEngineService {
       state.trend,
     );
     const gaussian = this.randomNormal(state);
-    const momentumNoise = gaussian * state.volatility * 0.18;
+    const momentumNoise =
+      gaussian * state.volatility * 0.045 * sqrtDt;
 
     state.velocity =
       state.velocity * this.regimePersistence(state.regime) +
       regimeDrift +
       momentumNoise;
 
+    const maxVelocity =
+      state.volatility *
+      (asset.category === 'Currencies' ? 0.45 : 0.9);
+    state.velocity = this.clamp(
+      state.velocity,
+      -maxVelocity,
+      maxVelocity,
+    );
+
     const meanReversionStrength =
       state.regime === 'MEAN_REVERSION'
-        ? 0.0032
+        ? 0.006
         : state.regime === 'RANGE'
-          ? 0.0018
-          : 0.00035;
+          ? 0.003
+          : 0.0007;
 
     const meanReversion =
       ((state.meanPrice - state.price) / Math.max(state.price, 1e-9)) *
       meanReversionStrength;
 
+    const anchorReversion =
+      ((asset.basePrice - state.price) / Math.max(state.price, 1e-9)) *
+      (asset.category === 'Currencies' ? 0.00012 : 0.00004);
+
     let shock = 0;
     const shockRoll = this.nextRandom(state);
+    const shockThreshold =
+      asset.category === 'Currencies' ? 0.9999 : 0.9997;
 
-    if (shockRoll > 0.9985) {
+    if (shockRoll > shockThreshold) {
       const shockDirection = this.nextRandom(state) >= 0.5 ? 1 : -1;
-      shock =
-        shockDirection *
-        state.volatility *
-        (state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT'
-          ? 5.5
-          : 3.2);
+      const shockMultiplier =
+        state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT'
+          ? asset.category === 'Currencies'
+            ? 2.5
+            : 4
+          : asset.category === 'Currencies'
+            ? 1.4
+            : 2.2;
+
+      shock = shockDirection * state.volatility * shockMultiplier;
     }
 
-    const logReturn =
-      (state.velocity + gaussian * state.volatility + meanReversion + shock) *
-      dt;
+    const rawLogReturn =
+      state.velocity * dtSeconds +
+      gaussian * state.volatility * sqrtDt +
+      (meanReversion + anchorReversion) * dtSeconds +
+      shock;
+
+    const maxTickReturn = this.maxTickLogReturn(asset);
+    const logReturn = this.clamp(
+      rawLogReturn,
+      -maxTickReturn,
+      maxTickReturn,
+    );
 
     const previousPrice = state.price;
     state.price = Math.max(
@@ -253,10 +285,10 @@ export class OtcStreamEngineService {
     volatility: number,
     trend: number,
   ) {
-    if (regime === 'TREND_UP') return volatility * 0.055;
-    if (regime === 'TREND_DOWN') return -volatility * 0.055;
+    if (regime === 'TREND_UP') return volatility * 0.012;
+    if (regime === 'TREND_DOWN') return -volatility * 0.012;
     if (regime === 'BREAKOUT') {
-      return volatility * 0.12 * (trend === 0 ? 1 : trend);
+      return volatility * 0.028 * (trend === 0 ? 1 : trend);
     }
     return 0;
   }
@@ -290,7 +322,13 @@ export class OtcStreamEngineService {
               ? 1.2
               : 1;
 
-    return Math.max(asset.volatility * categoryMultiplier * 0.018, 1e-8);
+    return Math.max(asset.volatility * categoryMultiplier * 0.03, 1e-8);
+  }
+
+  private maxTickLogReturn(asset: MarketAsset) {
+    if (asset.category === 'Currencies') return 0.00012;
+    if (asset.category === 'Cryptocurrencies') return 0.0015;
+    return 0.0008;
   }
 
   private baseSpread(asset: MarketAsset) {
