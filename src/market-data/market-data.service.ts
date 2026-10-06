@@ -74,6 +74,8 @@ export class MarketDataService {
         precision: asset.precision,
         payoutBoost: asset.payoutBoost,
         isActive: asset.isActive,
+        marketType: 'OTC' as const,
+        source: 'neurooption-otc-simulator-v2',
       })),
     };
   }
@@ -210,6 +212,8 @@ export class MarketDataService {
       },
       timeframe,
       timeframeSeconds,
+      marketType: 'OTC' as const,
+      source: 'neurooption-otc-simulator-v2',
       serverTime: new Date(now).toISOString(),
       candles,
     };
