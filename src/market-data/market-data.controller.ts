@@ -2,10 +2,14 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { MarketDataService } from './market-data.service';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
 import { MarketTickQueryDto } from './dto/market-tick-query.dto';
+import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
 
 @Controller('market-data')
 export class MarketDataController {
-  constructor(private readonly marketDataService: MarketDataService) {}
+  constructor(
+    private readonly marketDataService: MarketDataService,
+    private readonly latencyMetrics: LatencyMetricsService,
+  ) {}
 
   @Get('assets')
   getAssets() {
@@ -25,5 +29,10 @@ export class MarketDataController {
   @Get('tick')
   getTick(@Query() query: MarketTickQueryDto) {
     return this.marketDataService.getTick(query.asset);
+  }
+
+  @Get('metrics')
+  getMetrics() {
+    return this.latencyMetrics.snapshot();
   }
 }

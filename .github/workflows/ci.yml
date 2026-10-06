@@ -20,4 +20,8 @@ jobs:
       - name: Typecheck & Lint
         run: npm run ci
       - name: Run tests
+        if: always()
         run: npm test
+      - name: Build production bundle
+        if: always()
+        run: npm run build

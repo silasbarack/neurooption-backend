@@ -7,6 +7,10 @@ export const WebsocketEvents = {
   PRICE_UPDATE: 'price_update',
   CANDLE_UPDATE: 'candle_update',
   CHART_UPDATE: 'chart_update',
+  SERVER_TIME: 'server_time',
+  RESYNC_REQUEST: 'resync_request',
+  RESYNC_RESPONSE: 'resync_response',
+  CLIENT_METRICS: 'client_metrics',
 
   TRADE_OPENED: 'trade_opened',
   TRADE_SETTLED: 'trade_settled',
