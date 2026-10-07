@@ -298,6 +298,9 @@ describe('real-time market data', () => {
   it.each([
     ['EUR/USD OTC', 0.3],
     ['GBP/JPY OTC', 0.45],
+    ['US 500 OTC', 0.35],
+    ['Apple OTC', 0.6],
+    ['Tesla OTC', 1.1],
   ])(
     'keeps %s hourly ranges near real-market levels',
     (symbol, maxMedianHourPercent) => {
