@@ -367,7 +367,7 @@ export class OtcStreamEngineService {
       0.95,
     );
 
-    let size = this.drawMicroStepSize(state, volatilityRatio);
+    let size = this.drawMicroStepSize(state, volatilityRatio, typicalMoveTicks);
     let direction = this.nextRandom(state) < upProbability ? 1 : -1;
 
     // Fair value has run away (breakout, shock): close part of the gap in
@@ -387,7 +387,11 @@ export class OtcStreamEngineService {
     );
   }
 
-  private drawMicroStepSize(state: OtcState, volatilityRatio: number) {
+  private drawMicroStepSize(
+    state: OtcState,
+    volatilityRatio: number,
+    typicalMoveTicks: number,
+  ) {
     const roll = this.nextRandom(state);
     // Cumulative odds of a 0, 1, 2 unit step; the remainder is 3-5 units.
     const [still, one, two] =
@@ -400,12 +404,25 @@ export class OtcStreamEngineService {
     // Quiet regimes pause more; volatile ones pause less and step further.
     const quiet = this.clamp(1 - volatilityRatio, 0, 0.5);
     const busy = this.clamp(volatilityRatio - 1, 0, 1.2);
-    const stillOdds = this.clamp(still + quiet * 0.3 - busy * 0.05, 0.02, 0.4);
+    // Where one tick is already more than a typical 100 ms move (a $30 stock
+    // quoted in cents), stepping on most ticks would inflate the candle, so
+    // the quote pauses more often, but never so often that it looks frozen.
+    const activity = this.clamp(Math.sqrt(typicalMoveTicks / 0.9), 0.5, 1);
+    const stillOdds = this.clamp(
+      1 - (1 - (still + quiet * 0.3 - busy * 0.05)) * activity,
+      0.02,
+      0.88,
+    );
 
+    if (roll < stillOdds) return 0;
+
+    // Size of a move, from the same table with the pause removed.
+    const sizeRoll = this.nextRandom(state);
+    const oneOdds = (one - still) / (1 - still);
+    const twoOdds = (two - still) / (1 - still);
     let size: number;
-    if (roll < stillOdds) size = 0;
-    else if (roll < one) size = 1;
-    else if (roll < two) size = 2;
+    if (sizeRoll < oneOdds) size = 1;
+    else if (sizeRoll < twoOdds) size = 2;
     else
       size =
         3 +
@@ -414,10 +431,7 @@ export class OtcStreamEngineService {
             (state.microRegime === 'BURST' ? 5 : 3),
         );
 
-    if (
-      size > 0 &&
-      this.nextRandom(state) < busy * 0.12 + state.microImpulse * 0.25
-    ) {
+    if (this.nextRandom(state) < busy * 0.12 + state.microImpulse * 0.25) {
       size += 1;
     }
 
@@ -499,15 +513,18 @@ export class OtcStreamEngineService {
   }
 
   private baseTickVolatility(asset: MarketAsset) {
+    // Relative to currencies, roughly in line with each class's real
+    // short-horizon volatility: a one-minute BTC candle is about three times
+    // a EUR/USD one, an index candle about one and a half times.
     const categoryMultiplier =
       asset.category === 'Cryptocurrencies'
-        ? 1.8
+        ? 0.62
         : asset.category === 'Commodities'
-          ? 1.3
+          ? 0.72
           : asset.category === 'Indices'
-            ? 1.15
+            ? 0.9
             : asset.category === 'Stocks'
-              ? 1.2
+              ? 0.68
               : 1;
 
     return Math.max(asset.volatility * categoryMultiplier * 0.03, 1e-8);

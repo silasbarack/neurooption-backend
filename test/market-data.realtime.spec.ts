@@ -264,6 +264,46 @@ describe('real-time market data', () => {
     expect(sorted[Math.floor(sorted.length / 2)]).toBeLessThan(120);
   });
 
+  it.each([
+    ['BTC/USD OTC', 0.4],
+    ['Apple OTC', 0.25],
+    ['Intel OTC', 0.3],
+    ['US 500 OTC', 0.2],
+    ['Gold OTC', 0.2],
+    ['Natural Gas OTC', 0.4],
+  ])(
+    'keeps %s moving often in proportionate one-minute candles',
+    (symbol, maxMedianRangePercent) => {
+      const engine = new OtcStreamEngineService();
+      const start = Date.UTC(2026, 9, 6, 10, 0, 0);
+      const minuteRanges: number[] = [];
+      let changes = 0;
+      let high = -Infinity;
+      let low = Infinity;
+      let previous = engine.nextTick(symbol, start).mid;
+      const total = 12_000; // 20 minutes at 100 ms
+
+      for (let index = 1; index <= total; index += 1) {
+        const mid = engine.nextTick(symbol, start + index * 100).mid;
+        if (mid !== previous) changes += 1;
+        previous = mid;
+        high = Math.max(high, mid);
+        low = Math.min(low, mid);
+        if (index % 600 === 0) {
+          minuteRanges.push(((high - low) / low) * 100);
+          high = -Infinity;
+          low = Infinity;
+        }
+      }
+
+      const sorted = [...minuteRanges].sort((a, b) => a - b);
+      expect(changes / total).toBeGreaterThan(0.55);
+      expect(sorted[Math.floor(sorted.length / 2)]).toBeLessThan(
+        maxMedianRangePercent,
+      );
+    },
+  );
+
   it('anchors generated history to the oldest live candle without a visible seam', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [MarketDataModule],
