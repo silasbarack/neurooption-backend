@@ -16,7 +16,10 @@ export type MarketStreamEvent = {
 
 type Listener = (event: MarketStreamEvent) => void;
 
-const STREAM_INTERVAL_MS = 100;
+// Polled at roughly one display frame. Each asset makes a move decision every
+// 100 ms and delivers bigger moves as sub-ticks on the polls in between; an
+// asset with nothing due is skipped, so idle polls cost almost nothing.
+const STREAM_INTERVAL_MS = 33;
 
 @Injectable()
 export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
@@ -66,8 +69,11 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
   private tickAll() {
     const loopStart = performance.now();
 
+    const now = Date.now();
+
     for (const asset of MARKET_ASSETS) {
       if (!asset.isActive) continue;
+      if (!this.otcEngine.isDue(asset.symbol, now)) continue;
 
       const tick = this.generateTick(asset.symbol);
       const aggregationStart = performance.now();

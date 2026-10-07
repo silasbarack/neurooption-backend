@@ -8,6 +8,20 @@ import {
 } from '../src/market-data/timeframe.config';
 import { OtcStreamEngineService } from '../src/market-data/otc-stream-engine.service';
 
+/** Drives the engine the way MarketStreamService does: a poll every 33 ms. */
+function streamTicks(
+  engine: OtcStreamEngineService,
+  symbol: string,
+  start: number,
+  durationMs: number,
+) {
+  const ticks: ReturnType<OtcStreamEngineService['nextTick']>[] = [];
+  for (let time = start; time < start + durationMs; time += 33) {
+    if (engine.isDue(symbol, time)) ticks.push(engine.nextTick(symbol, time));
+  }
+  return ticks;
+}
+
 describe('real-time market data', () => {
   it('boots the market-data Nest module and exposes the shared stream', async () => {
     const moduleRef = await Test.createTestingModule({
@@ -178,9 +192,7 @@ describe('real-time market data', () => {
     const engine = new OtcStreamEngineService();
     const aggregator = new CandleAggregatorService();
     const start = timeframeBucketStart(Date.UTC(2026, 9, 6, 10, 0, 0), 'M1');
-    const ticks = Array.from({ length: 100 }, (_, index) =>
-      engine.nextTick('EUR/USD OTC', start + index * 100),
-    );
+    const ticks = streamTicks(engine, 'EUR/USD OTC', start, 10_000);
 
     const distinct = new Set(ticks.map((tick) => tick.mid));
     let adjacentChanges = 0;
@@ -201,15 +213,13 @@ describe('real-time market data', () => {
       );
     });
 
-    // The quote retraces, so it revisits levels: fewer distinct prices than
-    // a random walk, but the price changes on most ticks.
     expect(distinct.size).toBeGreaterThanOrEqual(12);
-    expect(adjacentChanges).toBeGreaterThanOrEqual(65);
+    expect(adjacentChanges).toBeGreaterThanOrEqual(60);
     expect(maxRelativeMove).toBeLessThan(0.0002);
 
     const candle = aggregator.getCurrentCandle('EUR/USD OTC', 'M1');
     expect(candle).toBeDefined();
-    expect(candle?.volume).toBe(100);
+    expect(candle?.volume).toBe(ticks.length);
     expect(candle?.high).toBeGreaterThanOrEqual(
       Math.max(candle?.open ?? 0, candle?.close ?? 0),
     );
@@ -219,53 +229,86 @@ describe('real-time market data', () => {
     expect((candle?.high ?? 0) - (candle?.low ?? 0)).toBeGreaterThan(0);
   });
 
-  it('quotes EUR/USD in mostly small tick steps that retrace instead of trending', () => {
+  it('streams EUR/USD in quick one-tick sweeps that keep their direction', () => {
     const engine = new OtcStreamEngineService();
     const start = Date.UTC(2026, 9, 6, 10, 0, 0);
     const tickSize = 0.00001;
-    const counts = { still: 0, one: 0, two: 0, threeToFive: 0, larger: 0 };
-    const minuteRanges: number[] = [];
-    let minuteHigh = -Infinity;
-    let minuteLow = Infinity;
-    let previous = engine.nextTick('EUR/USD OTC', start).mid;
-    const total = 36_000; // one hour at 100 ms
+    const durationMs = 30 * 60_000;
+    const ticks = streamTicks(engine, 'EUR/USD OTC', start, durationMs);
 
-    for (let index = 1; index <= total; index += 1) {
-      const mid = engine.nextTick('EUR/USD OTC', start + index * 100).mid;
-      const step = Math.round(Math.abs(mid - previous) / tickSize);
-      if (step === 0) counts.still += 1;
-      else if (step === 1) counts.one += 1;
-      else if (step === 2) counts.two += 1;
-      else if (step <= 5) counts.threeToFive += 1;
-      else counts.larger += 1;
-      previous = mid;
+    const changes: Array<{ time: number; ticks: number }> = [];
+    const minuteRanges = new Map<number, { high: number; low: number }>();
+    ticks.forEach((tick, index) => {
+      expect(tick.sequence).toBe(ticks[0].sequence + index);
+      const minute = Math.floor(tick.timestamp / 60_000);
+      const range = minuteRanges.get(minute);
+      if (!range) minuteRanges.set(minute, { high: tick.mid, low: tick.mid });
+      else {
+        range.high = Math.max(range.high, tick.mid);
+        range.low = Math.min(range.low, tick.mid);
+      }
+      if (index === 0 || tick.mid === ticks[index - 1].mid) return;
+      changes.push({
+        time: tick.timestamp,
+        ticks: Math.round((tick.mid - ticks[index - 1].mid) / tickSize),
+      });
+    });
 
-      minuteHigh = Math.max(minuteHigh, mid);
-      minuteLow = Math.min(minuteLow, mid);
-      if (index % 600 === 0) {
-        minuteRanges.push(Math.round((minuteHigh - minuteLow) / tickSize));
-        minuteHigh = -Infinity;
-        minuteLow = Infinity;
+    const perSecond = changes.length / (durationMs / 1000);
+    expect(perSecond).toBeGreaterThan(6);
+    expect(perSecond).toBeLessThan(15);
+
+    // Visible changes are mostly a single tick; big jumps are rare.
+    const sizes = changes.map((change) => Math.abs(change.ticks));
+    const share = (test: (size: number) => boolean) =>
+      sizes.filter(test).length / sizes.length;
+    expect(share((size) => size === 1)).toBeGreaterThan(0.55);
+    expect(share((size) => size >= 6)).toBeLessThan(0.03);
+
+    // Changes on consecutive sub-ticks form a sweep that never reverses
+    // part-way, and the next sweep usually continues the same direction.
+    const sweeps: number[] = [];
+    let net = changes[0].ticks;
+    for (let index = 1; index < changes.length; index += 1) {
+      const change = changes[index];
+      if (change.time - changes[index - 1].time <= 45) {
+        expect(Math.sign(change.ticks)).toBe(Math.sign(net));
+        net += change.ticks;
+      } else {
+        sweeps.push(net);
+        net = change.ticks;
       }
     }
+    sweeps.push(net);
+    let sameDirection = 0;
+    for (let index = 1; index < sweeps.length; index += 1) {
+      if (Math.sign(sweeps[index]) === Math.sign(sweeps[index - 1])) {
+        sameDirection += 1;
+      }
+    }
+    expect(sameDirection / (sweeps.length - 1)).toBeGreaterThan(0.6);
 
-    const share = (count: number) => count / total;
-    expect(share(counts.still)).toBeGreaterThan(0.05);
-    expect(share(counts.still)).toBeLessThan(0.3);
-    expect(share(counts.one)).toBeGreaterThan(0.4);
-    expect(share(counts.two)).toBeGreaterThan(0.12);
-    expect(share(counts.two)).toBeLessThan(0.35);
-    expect(share(counts.threeToFive)).toBeGreaterThan(0.02);
-    expect(share(counts.threeToFive)).toBeLessThan(0.15);
-    expect(share(counts.larger)).toBeLessThan(0.03);
+    // Persistence must not turn into giant one-minute candles.
+    const ranges = [...minuteRanges.values()]
+      .map((range) => Math.round((range.high - range.low) / tickSize))
+      .sort((a, b) => a - b);
+    expect(ranges[Math.floor(ranges.length / 2)]).toBeLessThan(130);
+  });
 
-    // Extra short-horizon jitter must not turn into giant one-minute candles.
-    const sorted = [...minuteRanges].sort((a, b) => a - b);
-    expect(sorted[Math.floor(sorted.length / 2)]).toBeLessThan(120);
+  it('delivers a whole move to callers slower than the sub-tick cadence', () => {
+    const engine = new OtcStreamEngineService();
+    const start = Date.UTC(2026, 9, 6, 10, 0, 0);
+    let previous = engine.nextTick('EUR/USD OTC', start).mid;
+
+    for (let index = 1; index <= 3_000; index += 1) {
+      const mid = engine.nextTick('EUR/USD OTC', start + index * 100).mid;
+      expect(Math.abs(mid - previous) / previous).toBeLessThan(0.0002);
+      previous = mid;
+    }
   });
 
   it.each([
-    ['BTC/USD OTC', 0.4],
+    ['BTC/USD OTC', 0.35],
     ['Apple OTC', 0.25],
     ['Intel OTC', 0.3],
     ['US 500 OTC', 0.2],
@@ -276,29 +319,27 @@ describe('real-time market data', () => {
     (symbol, maxMedianRangePercent) => {
       const engine = new OtcStreamEngineService();
       const start = Date.UTC(2026, 9, 6, 10, 0, 0);
-      const minuteRanges: number[] = [];
+      const durationMs = 20 * 60_000;
+      const ticks = streamTicks(engine, symbol, start, durationMs);
+      const minuteRanges = new Map<number, { high: number; low: number }>();
       let changes = 0;
-      let high = -Infinity;
-      let low = Infinity;
-      let previous = engine.nextTick(symbol, start).mid;
-      const total = 12_000; // 20 minutes at 100 ms
 
-      for (let index = 1; index <= total; index += 1) {
-        const mid = engine.nextTick(symbol, start + index * 100).mid;
-        if (mid !== previous) changes += 1;
-        previous = mid;
-        high = Math.max(high, mid);
-        low = Math.min(low, mid);
-        if (index % 600 === 0) {
-          minuteRanges.push(((high - low) / low) * 100);
-          high = -Infinity;
-          low = Infinity;
+      ticks.forEach((tick, index) => {
+        if (index > 0 && tick.mid !== ticks[index - 1].mid) changes += 1;
+        const minute = Math.floor(tick.timestamp / 60_000);
+        const range = minuteRanges.get(minute);
+        if (!range) minuteRanges.set(minute, { high: tick.mid, low: tick.mid });
+        else {
+          range.high = Math.max(range.high, tick.mid);
+          range.low = Math.min(range.low, tick.mid);
         }
-      }
+      });
 
-      const sorted = [...minuteRanges].sort((a, b) => a - b);
-      expect(changes / total).toBeGreaterThan(0.55);
-      expect(sorted[Math.floor(sorted.length / 2)]).toBeLessThan(
+      const ranges = [...minuteRanges.values()]
+        .map((range) => ((range.high - range.low) / range.low) * 100)
+        .sort((a, b) => a - b);
+      expect(changes / (durationMs / 1000)).toBeGreaterThan(6);
+      expect(ranges[Math.floor(ranges.length / 2)]).toBeLessThan(
         maxMedianRangePercent,
       );
     },

@@ -6,7 +6,19 @@ import { NormalizedMarketTick } from './market-tick.types';
 // restores roughly the one-minute candle size the stream had before.
 const FAIR_VALUE_DIFFUSION = 1.3;
 
-type MicroRegime = 'UP' | 'DOWN' | 'RANGE' | 'RETRACE' | 'BURST';
+type MicroRegime = 'RANGE' | 'DRIFT' | 'BURST';
+
+// The quote moves on a 100 ms decision grid. A move of several ticks is
+// delivered as up to four consecutive sub-ticks about 33 ms apart (one tick
+// each, more only for large moves), so the live candle edge sweeps through
+// each price instead of jumping over it. The next decision waits for the
+// sweep to finish. Every sub-tick is a real tick with its own sequence and
+// timestamp.
+const DECISION_INTERVAL_MS = 100;
+const DECISION_TOLERANCE_MS = 8;
+const MAX_SUBTICKS_PER_MOVE = 4;
+// A caller this far behind the sub-tick cadence gets the whole move at once.
+const SUBTICK_STALE_MS = 60;
 
 type OtcRegime =
   | 'TREND_UP'
@@ -32,16 +44,24 @@ type OtcState = {
   regimeLength: number;
   seed: number;
   sequence: number;
+  /** Time of the last emitted tick. */
   lastTimestamp: number;
+  /** Time of the last 100 ms decision; the macro process steps from it. */
+  lastDecisionAt: number;
+  nextDecisionAt: number;
+  /** Sub-tick price increments still to deliver for the current move. */
+  pendingSteps: number[];
+  /** Direction of the last move actually made. */
+  lastMoveDirection: -1 | 0 | 1;
   recentAbsoluteReturn: number;
   microRegime: MicroRegime;
   microDirection: -1 | 0 | 1;
-  /** Short-lived order-flow bias added to the up/down probability. */
+  /** Order-flow persistence: odds the next move keeps the same direction. */
   microVelocity: number;
   microTicksRemaining: number;
-  /** Local price the RANGE/RETRACE micro regimes oscillate around. */
+  /** Local price the RANGE micro regime oscillates around. */
   microMean: number;
-  /** Decaying burst energy; raises the odds of 3-5 tick steps. */
+  /** Decaying burst energy; raises move odds and move size. */
   microImpulse: number;
 };
 
@@ -49,13 +69,76 @@ type OtcState = {
 export class OtcStreamEngineService {
   private readonly states = new Map<string, OtcState>();
 
+  /**
+   * True when the symbol has a tick to emit now: a sub-tick of a move in
+   * flight, or the next 100 ms decision. The stream polls this every ~33 ms.
+   */
+  isDue(symbol: string, now = Date.now()) {
+    const state = this.states.get(this.findAsset(symbol).symbol);
+    return (
+      !state ||
+      state.pendingSteps.length > 0 ||
+      now >= state.nextDecisionAt - DECISION_TOLERANCE_MS
+    );
+  }
+
+  private decisionDue(state: OtcState, now: number) {
+    if (now - state.lastTimestamp > SUBTICK_STALE_MS) return true;
+    return (
+      state.pendingSteps.length === 0 &&
+      now >= state.nextDecisionAt - DECISION_TOLERANCE_MS
+    );
+  }
+
   nextTick(symbol: string, now = Date.now()): Omit<
     NormalizedMarketTick,
     'serverReceiveTimestamp'
   > {
     const asset = this.findAsset(symbol);
     const state = this.getState(asset, now);
-    const elapsedMs = Math.min(Math.max(now - state.lastTimestamp, 20), 1_000);
+    const tickSize = 10 ** -asset.precision;
+
+    if (this.decisionDue(state, now)) {
+      // A caller slower than the sub-tick cadence still gets the whole move.
+      for (const step of state.pendingSteps) state.quotePrice += step;
+      state.pendingSteps = [];
+      this.decide(asset, state, now);
+    }
+
+    const step = state.pendingSteps.shift() ?? 0;
+    state.quotePrice = this.roundToTick(state.quotePrice + step, tickSize);
+
+    const roundedMid = this.roundToTick(state.quotePrice, tickSize);
+    const roundedBid = this.roundToTick(
+      roundedMid - state.spread / 2,
+      tickSize,
+    );
+    const roundedAsk = this.roundToTick(
+      roundedMid + state.spread / 2,
+      tickSize,
+    );
+
+    state.sequence += 1;
+    state.lastTimestamp = now;
+
+    return {
+      symbol: asset.symbol,
+      bid: roundedBid,
+      ask: Math.max(roundedAsk, roundedBid + tickSize),
+      mid: roundedMid,
+      timestamp: now,
+      sequence: state.sequence,
+      source: 'neurooption-otc-simulator-v2',
+      marketType: 'OTC',
+    };
+  }
+
+  /** One 100 ms step of the macro process plus the next quote move. */
+  private decide(asset: MarketAsset, state: OtcState, now: number) {
+    const elapsedMs = Math.min(
+      Math.max(now - state.lastDecisionAt, 20),
+      1_000,
+    );
     const dtSeconds = elapsedMs / 1_000;
     const sqrtDt = Math.sqrt(dtSeconds);
     const tickSize = 10 ** -asset.precision;
@@ -184,37 +267,16 @@ export class OtcStreamEngineService {
     const targetSpread = this.baseSpread(asset) * spreadMultiplier;
     state.spread = state.spread * 0.9 + targetSpread * 0.1;
 
-    state.quotePrice = this.nextQuotePrice(
+    state.pendingSteps = this.planQuoteMove(
       state,
       asset,
       tickSize,
       baselineVolatility,
     );
 
-    const roundedMid = this.roundToTick(state.quotePrice, tickSize);
-    const roundedBid = this.roundToTick(
-      roundedMid - state.spread / 2,
-      tickSize,
-    );
-    const roundedAsk = this.roundToTick(
-      roundedMid + state.spread / 2,
-      tickSize,
-    );
-
-    state.sequence += 1;
     state.ticksInRegime += 1;
-    state.lastTimestamp = now;
-
-    return {
-      symbol: asset.symbol,
-      bid: roundedBid,
-      ask: Math.max(roundedAsk, roundedBid + tickSize),
-      mid: roundedMid,
-      timestamp: now,
-      sequence: state.sequence,
-      source: 'neurooption-otc-simulator-v2',
-      marketType: 'OTC',
-    };
+    state.lastDecisionAt = now;
+    state.nextDecisionAt = now + DECISION_INTERVAL_MS;
   }
 
   getLatestTick(symbol: string, now = Date.now()) {
@@ -263,10 +325,14 @@ export class OtcStreamEngineService {
       seed,
       sequence: 0,
       lastTimestamp: now - 100,
+      lastDecisionAt: now - DECISION_INTERVAL_MS,
+      nextDecisionAt: now,
+      pendingSteps: [],
+      lastMoveDirection: 0,
       recentAbsoluteReturn: 0,
       microRegime: 'RANGE',
       microDirection: 0,
-      microVelocity: 0,
+      microVelocity: 0.6,
       microTicksRemaining: 0,
       microMean: asset.basePrice,
       microImpulse: 0,
@@ -315,170 +381,180 @@ export class OtcStreamEngineService {
   /**
    * Short-horizon microstructure. The macro process above moves a continuous
    * fair value; the quote is a separate walk on the tick grid that follows it.
-   * Each tick draws a step size from a small discrete distribution (mostly
-   * 0-2 units) and a direction from the micro regime's order-flow bias plus a
-   * pull back toward fair value. Because the quote is tied to fair value, the
-   * extra jitter retraces rather than accumulating, so candles get natural
-   * wicks and frequent one-tick changes without growing their overall range.
+   *
+   * Every 100 ms the quote either holds or makes one move. Order flow has
+   * memory: a move usually keeps the previous move's direction, so the live
+   * candle builds in runs, with pauses between them, and turns when the run
+   * fades or the quote has drifted too far from fair value. Three regimes set
+   * the tempo: RANGE (quiet, small moves around a local mean), DRIFT (steady
+   * runs that follow fair value) and BURST (short fast runs).
+   *
+   * Returns the move as sub-tick increments, delivered ~33 ms apart.
    */
-  private nextQuotePrice(
+  private planQuoteMove(
     state: OtcState,
     asset: MarketAsset,
     tickSize: number,
     baselineVolatility: number,
-  ) {
+  ): number[] {
     if (state.microTicksRemaining <= 0) {
-      this.transitionMicroRegime(state);
+      this.transitionMicroRegime(state, asset, tickSize);
     }
     state.microTicksRemaining -= 1;
+    state.microImpulse *= 0.85;
 
     // One step unit is roughly the fair value's typical 100 ms move, so
-    // assets quoted to cents with large prices still step in sensible sizes.
+    // assets with large prices quoted to cents still step in sensible sizes.
     const typicalMoveTicks =
       (state.price * baselineVolatility * Math.sqrt(0.1)) / tickSize;
     const unit = tickSize * Math.max(1, Math.round(typicalMoveTicks * 0.8));
+    // Where one tick is already more than a typical move, move less often so
+    // the tick grid does not inflate the candles.
+    const activity = this.clamp(Math.sqrt(typicalMoveTicks / 0.9), 0.5, 1);
 
     const gapUnits = (state.price - state.quotePrice) / unit;
-    const meanGapUnits = (state.microMean - state.quotePrice) / unit;
     const volatilityRatio =
       state.volatility / Math.max(baselineVolatility, 1e-12);
 
-    const regimeBias =
-      state.microRegime === 'UP' || state.microRegime === 'DOWN'
-        ? 0.26
-        : state.microRegime === 'RETRACE'
-          ? 0.26
-          : state.microRegime === 'BURST'
-            ? 0.34
-            : 0;
-    state.microVelocity =
-      state.microVelocity * 0.7 +
-      state.microDirection * regimeBias * 0.3;
-    state.microImpulse *= 0.82;
-
-    const pull =
-      this.clamp(gapUnits * 0.085, -0.4, 0.4) +
-      (state.microRegime === 'RANGE' || state.microRegime === 'RETRACE'
-        ? this.clamp(meanGapUnits * 0.05, -0.16, 0.16)
-        : 0);
-    const upProbability = this.clamp(
-      0.5 + state.microVelocity + pull,
-      0.05,
+    const baseMoveOdds =
+      state.microRegime === 'BURST'
+        ? 0.7
+        : state.microRegime === 'DRIFT'
+          ? 0.31
+          : 0.2;
+    const moveOdds = this.clamp(
+      baseMoveOdds * activity * (0.75 + 0.25 * Math.min(volatilityRatio, 2)) +
+        Math.abs(gapUnits) * 0.025 +
+        state.microImpulse * 0.2,
+      0.08,
       0.95,
     );
+    if (this.nextRandom(state) >= moveOdds) return [];
 
-    let size = this.drawMicroStepSize(state, volatilityRatio, typicalMoveTicks);
-    let direction = this.nextRandom(state) < upProbability ? 1 : -1;
+    let direction: 1 | -1 =
+      state.microDirection === 0
+        ? gapUnits >= 0
+          ? 1
+          : -1
+        : state.microDirection;
+    if (this.nextRandom(state) > state.microVelocity) {
+      direction = direction === 1 ? -1 : 1;
+    }
+
+    // Pull back toward fair value, and in a range toward the local mean.
+    const awayFromFair = Math.sign(gapUnits) !== direction ? Math.abs(gapUnits) : 0;
+    if (
+      awayFromFair > 4 &&
+      this.nextRandom(state) < Math.min(0.85, (awayFromFair - 4) * 0.1)
+    ) {
+      direction = direction === 1 ? -1 : 1;
+    }
+    if (state.microRegime === 'RANGE') {
+      const meanGapUnits = (state.microMean - state.quotePrice) / unit;
+      if (
+        Math.sign(meanGapUnits) !== direction &&
+        Math.abs(meanGapUnits) > 5 &&
+        this.nextRandom(state) < 0.3
+      ) {
+        direction = direction === 1 ? -1 : 1;
+      }
+    }
+    state.microDirection = direction;
+
+    let size = this.drawMoveSize(state, volatilityRatio);
 
     // Fair value has run away (breakout, shock): close part of the gap in
-    // one move instead of crawling after it, which reads as a burst.
-    const absGap = Math.abs(gapUnits);
-    if (absGap > 4 && this.nextRandom(state) < 0.75) {
-      direction = gapUnits > 0 ? 1 : -1;
-      size = Math.max(size, Math.round(absGap * 0.35));
+    // one move instead of crawling after it.
+    if (Math.abs(gapUnits) > 6 && Math.sign(gapUnits) === direction) {
+      size = Math.max(size, Math.round(Math.abs(gapUnits) * 0.3));
     }
+    size = Math.min(size, asset.category === 'Currencies' ? 12 : 14);
 
-    size = Math.min(size, asset.category === 'Currencies' ? 8 : 10);
-    if (size === 0) return state.quotePrice;
-
-    return this.roundToTick(
-      Math.max(unit, state.quotePrice + direction * size * unit),
-      tickSize,
+    // Small moves step one tick per sub-tick; a large move takes bigger
+    // sub-ticks, larger first, so the sweep eases into its new level.
+    const parts =
+      size <= MAX_SUBTICKS_PER_MOVE
+        ? size
+        : this.clamp(
+            Math.ceil(size / (1.6 + this.nextRandom(state) * 1.4)),
+            2,
+            MAX_SUBTICKS_PER_MOVE,
+          );
+    const base = Math.floor(size / parts);
+    const extra = size % parts;
+    const steps = Array.from(
+      { length: parts },
+      (_, index) => direction * (base + (index < extra ? 1 : 0)) * unit,
     );
+    // Turning around: hold for one sub-tick first, so a sweep never
+    // reverses mid-flight.
+    if (state.lastMoveDirection !== 0 && state.lastMoveDirection !== direction) {
+      steps.unshift(0);
+    }
+    state.lastMoveDirection = direction;
+    return steps;
   }
 
-  private drawMicroStepSize(
-    state: OtcState,
-    volatilityRatio: number,
-    typicalMoveTicks: number,
-  ) {
+  private drawMoveSize(state: OtcState, volatilityRatio: number) {
     const roll = this.nextRandom(state);
-    // Cumulative odds of a 0, 1, 2 unit step; the remainder is 3-5 units.
-    const [still, one, two] =
-      state.microRegime === 'RANGE'
-        ? [0.22, 0.83, 0.96]
-        : state.microRegime === 'BURST'
-          ? [0.04, 0.34, 0.66]
-          : [0.12, 0.76, 0.95];
-
-    // Quiet regimes pause more; volatile ones pause less and step further.
-    const quiet = this.clamp(1 - volatilityRatio, 0, 0.5);
-    const busy = this.clamp(volatilityRatio - 1, 0, 1.2);
-    // Where one tick is already more than a typical 100 ms move (a $30 stock
-    // quoted in cents), stepping on most ticks would inflate the candle, so
-    // the quote pauses more often, but never so often that it looks frozen.
-    const activity = this.clamp(Math.sqrt(typicalMoveTicks / 0.9), 0.5, 1);
-    const stillOdds = this.clamp(
-      1 - (1 - (still + quiet * 0.3 - busy * 0.05)) * activity,
-      0.02,
-      0.88,
-    );
-
-    if (roll < stillOdds) return 0;
-
-    // Size of a move, from the same table with the pause removed.
-    const sizeRoll = this.nextRandom(state);
-    const oneOdds = (one - still) / (1 - still);
-    const twoOdds = (two - still) / (1 - still);
+    const spread = this.nextRandom(state);
     let size: number;
-    if (sizeRoll < oneOdds) size = 1;
-    else if (sizeRoll < twoOdds) size = 2;
-    else
-      size =
-        3 +
-        Math.floor(
-          this.nextRandom(state) *
-            (state.microRegime === 'BURST' ? 5 : 3),
-        );
 
-    if (this.nextRandom(state) < busy * 0.12 + state.microImpulse * 0.25) {
-      size += 1;
+    if (state.microRegime === 'BURST') {
+      if (roll < 0.35) size = 2 + Math.floor(spread * 3);
+      else if (roll < 0.88) size = 5 + Math.floor(spread * 5);
+      else size = 10 + Math.floor(spread * 4);
+    } else if (state.microRegime === 'DRIFT') {
+      if (roll < 0.5) size = 1;
+      else if (roll < 0.6) size = 2;
+      else if (roll < 0.85) size = 3 + Math.floor(spread * 3);
+      else size = 6 + Math.floor(spread * 5);
+    } else {
+      if (roll < 0.74) size = 1;
+      else if (roll < 0.94) size = 2;
+      else size = 3;
     }
 
+    const busy = this.clamp(volatilityRatio - 1, 0, 1.2);
+    if (this.nextRandom(state) < busy * 0.15 + state.microImpulse * 0.3) {
+      size += 1;
+    }
     return size;
   }
 
-  private transitionMicroRegime(state: OtcState) {
+  private transitionMicroRegime(
+    state: OtcState,
+    asset: MarketAsset,
+    tickSize: number,
+  ) {
     const roll = this.nextRandom(state);
-    const previousDirection = state.microDirection;
+    const towardFair: 1 | -1 = state.price >= state.quotePrice ? 1 : -1;
+    const randomDirection: 1 | -1 = this.nextRandom(state) >= 0.5 ? 1 : -1;
 
-    if (roll < 0.3) {
+    if (roll < 0.36) {
       state.microRegime = 'RANGE';
-      state.microDirection = 0;
-      state.microTicksRemaining = 3 + Math.floor(this.nextRandom(state) * 8);
+      state.microVelocity = 0.88 + this.nextRandom(state) * 0.07;
+      state.microTicksRemaining = 6 + Math.floor(this.nextRandom(state) * 20);
       state.microMean = state.quotePrice;
-    } else if (roll < 0.5) {
-      state.microRegime = 'UP';
-      state.microDirection = 1;
-      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 6);
-    } else if (roll < 0.7) {
-      state.microRegime = 'DOWN';
-      state.microDirection = -1;
-      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 6);
-    } else if (roll < 0.95) {
-      // Give back part of the last push: oscillate back toward where the
-      // previous leg started.
-      state.microRegime = 'RETRACE';
+    } else if (roll < 0.86) {
+      state.microRegime = 'DRIFT';
+      state.microVelocity = 0.96 + this.nextRandom(state) * 0.03;
+      state.microTicksRemaining = 5 + Math.floor(this.nextRandom(state) * 26);
       state.microDirection =
-        previousDirection === 0
-          ? this.nextRandom(state) >= 0.5
-            ? -1
-            : 1
-          : previousDirection === 1
-            ? -1
-            : 1;
-      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 4);
-      state.microMean =
-        state.quotePrice * 0.5 + state.microMean * 0.5;
+        this.nextRandom(state) < 0.65 ? towardFair : randomDirection;
     } else {
       state.microRegime = 'BURST';
-      state.microDirection = this.nextRandom(state) >= 0.5 ? 1 : -1;
-      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 3);
+      state.microVelocity = 0.9 + this.nextRandom(state) * 0.06;
+      state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 5);
+      state.microDirection =
+        this.nextRandom(state) < 0.6 ? towardFair : randomDirection;
       state.microImpulse = 1;
     }
 
-    if (state.microRegime === 'UP' || state.microRegime === 'DOWN') {
-      state.microMean = state.quotePrice;
+    // Keep the quote within reach of fair value whatever the regime.
+    const maxGap = 40 * tickSize * (asset.category === 'Currencies' ? 1 : 2);
+    if (Math.abs(state.price - state.quotePrice) > maxGap) {
+      state.microDirection = towardFair;
     }
   }
 
