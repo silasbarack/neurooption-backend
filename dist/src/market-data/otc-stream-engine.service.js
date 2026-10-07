@@ -19,6 +19,8 @@ const FAIR_VALUE_PROFILES = {
     Currencies: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.08 },
     Indices: { diffusion: 0.6, anchorReversionPerSecond: 1 / 450, maxVelocity: 0.08 },
     Stocks: { diffusion: 0.85, anchorReversionPerSecond: 1 / 900, maxVelocity: 0.15 },
+    Cryptocurrencies: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.12 },
+    Commodities: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.1 },
 };
 const ANCHOR_FOLLOW_SECONDS = 7_200;
 const DECISION_INTERVAL_MS = 100;
