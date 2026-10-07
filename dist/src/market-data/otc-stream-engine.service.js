@@ -10,10 +10,17 @@ exports.OtcStreamEngineService = void 0;
 const common_1 = require("@nestjs/common");
 const market_data_constants_1 = require("./market-data.constants");
 const FAIR_VALUE_DIFFUSION = 1.3;
-const FX_DIFFUSION = 0.7;
-const FX_ANCHOR_REVERSION_PER_SECOND = 1 / 600;
-const FX_ANCHOR_FOLLOW_SECONDS = 7_200;
-const FX_MAX_VELOCITY = 0.08;
+const DEFAULT_FAIR_VALUE_PROFILE = {
+    diffusion: FAIR_VALUE_DIFFUSION,
+    anchorReversionPerSecond: 0,
+    maxVelocity: 0.9,
+};
+const FAIR_VALUE_PROFILES = {
+    Currencies: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.08 },
+    Indices: { diffusion: 0.6, anchorReversionPerSecond: 1 / 450, maxVelocity: 0.08 },
+    Stocks: { diffusion: 0.85, anchorReversionPerSecond: 1 / 900, maxVelocity: 0.15 },
+};
+const ANCHOR_FOLLOW_SECONDS = 7_200;
 const DECISION_INTERVAL_MS = 100;
 const DECISION_TOLERANCE_MS = 8;
 const MAX_SUBTICKS_PER_MOVE = 4;
@@ -24,15 +31,12 @@ let OtcStreamEngineService = class OtcStreamEngineService {
     }
     isDue(symbol, now = Date.now()) {
         const state = this.states.get(this.findAsset(symbol).symbol);
-        return (!state ||
-            state.pendingSteps.length > 0 ||
-            now >= state.nextDecisionAt - DECISION_TOLERANCE_MS);
+        return (!state || state.pendingSteps.length > 0 || now >= state.nextDecisionAt - DECISION_TOLERANCE_MS);
     }
     decisionDue(state, now) {
         if (now - state.lastTimestamp > SUBTICK_STALE_MS)
             return true;
-        return (state.pendingSteps.length === 0 &&
-            now >= state.nextDecisionAt - DECISION_TOLERANCE_MS);
+        return state.pendingSteps.length === 0 && now >= state.nextDecisionAt - DECISION_TOLERANCE_MS;
     }
     nextTick(symbol, now = Date.now()) {
         const asset = this.findAsset(symbol);
@@ -73,37 +77,27 @@ let OtcStreamEngineService = class OtcStreamEngineService {
         const baselineVolatility = this.baseTickVolatility(asset);
         const volatilityPersistence = 0.97;
         const volatilityResponse = asset.category === 'Currencies' ? 0.018 : 0.03;
-        const targetVolatility = baselineVolatility *
-            this.regimeVolatilityMultiplier(state.regime);
+        const targetVolatility = baselineVolatility * this.regimeVolatilityMultiplier(state.regime);
         state.volatility =
             volatilityPersistence * state.volatility +
                 (1 - volatilityPersistence) * targetVolatility +
                 volatilityResponse * state.recentAbsoluteReturn;
-        state.volatility = this.clamp(state.volatility, baselineVolatility * 0.35, baselineVolatility *
-            (asset.category === 'Currencies' ? 2.8 : 4.2));
+        state.volatility = this.clamp(state.volatility, baselineVolatility * 0.35, baselineVolatility * (asset.category === 'Currencies' ? 2.8 : 4.2));
         const regimeDrift = this.regimeDrift(state.regime, state.volatility, state.trend);
         const gaussian = this.randomNormal(state);
         const momentumNoise = gaussian * state.volatility * 0.045 * sqrtDt;
         state.velocity =
-            state.velocity * this.regimePersistence(state.regime) +
-                regimeDrift +
-                momentumNoise;
+            state.velocity * this.regimePersistence(state.regime) + regimeDrift + momentumNoise;
         const isCurrency = asset.category === 'Currencies';
-        const maxVelocity = state.volatility * (isCurrency ? FX_MAX_VELOCITY : 0.9);
+        const profile = FAIR_VALUE_PROFILES[asset.category] ?? DEFAULT_FAIR_VALUE_PROFILE;
+        const maxVelocity = state.volatility * profile.maxVelocity;
         state.velocity = this.clamp(state.velocity, -maxVelocity, maxVelocity);
-        const meanReversionStrength = state.regime === 'MEAN_REVERSION'
-            ? 0.006
-            : state.regime === 'RANGE'
-                ? 0.003
-                : 0.0007;
-        const meanReversion = ((state.meanPrice - state.price) / Math.max(state.price, 1e-9)) *
-            meanReversionStrength;
+        const meanReversionStrength = state.regime === 'MEAN_REVERSION' ? 0.006 : state.regime === 'RANGE' ? 0.003 : 0.0007;
+        const meanReversion = ((state.meanPrice - state.price) / Math.max(state.price, 1e-9)) * meanReversionStrength;
         const anchorReversion = ((asset.basePrice - state.price) / Math.max(state.price, 1e-9)) *
             (isCurrency ? 0.00012 : 0.00004);
-        const intradayReversion = isCurrency
-            ? ((state.anchorPrice - state.price) / Math.max(state.price, 1e-9)) *
-                FX_ANCHOR_REVERSION_PER_SECOND
-            : 0;
+        const intradayReversion = ((state.anchorPrice - state.price) / Math.max(state.price, 1e-9)) *
+            profile.anchorReversionPerSecond;
         let shock = 0;
         const shockRoll = this.nextRandom(state);
         const shockThreshold = asset.category === 'Currencies' ? 0.9999 : 0.9997;
@@ -119,10 +113,7 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             shock = shockDirection * state.volatility * shockMultiplier;
         }
         const rawLogReturn = state.velocity * dtSeconds +
-            gaussian *
-                state.volatility *
-                sqrtDt *
-                (isCurrency ? FX_DIFFUSION : FAIR_VALUE_DIFFUSION) +
+            gaussian * state.volatility * sqrtDt * profile.diffusion +
             (meanReversion + anchorReversion + intradayReversion) * dtSeconds +
             shock;
         const maxTickReturn = this.maxTickLogReturn(asset);
@@ -130,19 +121,13 @@ let OtcStreamEngineService = class OtcStreamEngineService {
         const previousPrice = state.price;
         state.price = Math.max(asset.basePrice * 0.05, state.price * Math.exp(logReturn));
         const absoluteReturn = Math.abs(Math.log(state.price / Math.max(previousPrice, 1e-9)));
-        state.recentAbsoluteReturn =
-            state.recentAbsoluteReturn * 0.9 + absoluteReturn * 0.1;
-        state.meanPrice =
-            state.meanPrice * 0.9995 + state.price * 0.0005;
-        const anchorFollow = dtSeconds / FX_ANCHOR_FOLLOW_SECONDS;
-        state.anchorPrice =
-            state.anchorPrice * (1 - anchorFollow) + state.price * anchorFollow;
+        state.recentAbsoluteReturn = state.recentAbsoluteReturn * 0.9 + absoluteReturn * 0.1;
+        state.meanPrice = state.meanPrice * 0.9995 + state.price * 0.0005;
+        const anchorFollow = dtSeconds / ANCHOR_FOLLOW_SECONDS;
+        state.anchorPrice = state.anchorPrice * (1 - anchorFollow) + state.price * anchorFollow;
         const spreadMultiplier = 1 +
-            this.clamp(state.volatility / Math.max(baselineVolatility, 1e-12) - 1, 0, 3) *
-                0.22 +
-            (state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT'
-                ? 0.18
-                : 0);
+            this.clamp(state.volatility / Math.max(baselineVolatility, 1e-12) - 1, 0, 3) * 0.22 +
+            (state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT' ? 0.18 : 0);
         const targetSpread = this.baseSpread(asset) * spreadMultiplier;
         state.spread = state.spread * 0.9 + targetSpread * 0.1;
         state.pendingSteps = this.planQuoteMove(state, asset, tickSize, baselineVolatility);
@@ -214,7 +199,15 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             ? ['RANGE', 'TREND_UP', 'TREND_DOWN', 'MEAN_REVERSION', 'LOW_VOLATILITY']
             : previous === 'BREAKOUT'
                 ? ['TREND_UP', 'TREND_DOWN', 'HIGH_VOLATILITY', 'MEAN_REVERSION']
-                : ['TREND_UP', 'TREND_DOWN', 'RANGE', 'HIGH_VOLATILITY', 'LOW_VOLATILITY', 'BREAKOUT', 'MEAN_REVERSION'];
+                : [
+                    'TREND_UP',
+                    'TREND_DOWN',
+                    'RANGE',
+                    'HIGH_VOLATILITY',
+                    'LOW_VOLATILITY',
+                    'BREAKOUT',
+                    'MEAN_REVERSION',
+                ];
         const index = Math.min(candidates.length - 1, Math.floor(roll * candidates.length));
         state.regime = candidates[index];
         state.ticksInRegime = 0;
@@ -244,27 +237,18 @@ let OtcStreamEngineService = class OtcStreamEngineService {
         const activity = this.clamp(Math.sqrt(typicalMoveTicks / 0.9), 0.5, 1);
         const gapUnits = (state.price - state.quotePrice) / unit;
         const volatilityRatio = state.volatility / Math.max(baselineVolatility, 1e-12);
-        const baseMoveOdds = state.microRegime === 'BURST'
-            ? 0.7
-            : state.microRegime === 'DRIFT'
-                ? 0.31
-                : 0.2;
+        const baseMoveOdds = state.microRegime === 'BURST' ? 0.7 : state.microRegime === 'DRIFT' ? 0.31 : 0.2;
         const moveOdds = this.clamp(baseMoveOdds * activity * (0.75 + 0.25 * Math.min(volatilityRatio, 2)) +
             Math.abs(gapUnits) * 0.025 +
             state.microImpulse * 0.2, 0.08, 0.95);
         if (this.nextRandom(state) >= moveOdds)
             return [];
-        let direction = state.microDirection === 0
-            ? gapUnits >= 0
-                ? 1
-                : -1
-            : state.microDirection;
+        let direction = state.microDirection === 0 ? (gapUnits >= 0 ? 1 : -1) : state.microDirection;
         if (this.nextRandom(state) > state.microVelocity) {
             direction = direction === 1 ? -1 : 1;
         }
         const awayFromFair = Math.sign(gapUnits) !== direction ? Math.abs(gapUnits) : 0;
-        if (awayFromFair > 4 &&
-            this.nextRandom(state) < Math.min(0.85, (awayFromFair - 4) * 0.1)) {
+        if (awayFromFair > 4 && this.nextRandom(state) < Math.min(0.85, (awayFromFair - 4) * 0.1)) {
             direction = direction === 1 ? -1 : 1;
         }
         if (state.microRegime === 'RANGE') {
@@ -343,15 +327,13 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             state.microRegime = 'DRIFT';
             state.microVelocity = 0.96 + this.nextRandom(state) * 0.03;
             state.microTicksRemaining = 5 + Math.floor(this.nextRandom(state) * 26);
-            state.microDirection =
-                this.nextRandom(state) < 0.65 ? towardFair : randomDirection;
+            state.microDirection = this.nextRandom(state) < 0.65 ? towardFair : randomDirection;
         }
         else {
             state.microRegime = 'BURST';
             state.microVelocity = 0.9 + this.nextRandom(state) * 0.06;
             state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 5);
-            state.microDirection =
-                this.nextRandom(state) < 0.6 ? towardFair : randomDirection;
+            state.microDirection = this.nextRandom(state) < 0.6 ? towardFair : randomDirection;
             state.microImpulse = 1;
         }
         const maxGap = 40 * tickSize * (asset.category === 'Currencies' ? 1 : 2);
