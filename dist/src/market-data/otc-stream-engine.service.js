@@ -211,7 +211,7 @@ let OtcStreamEngineService = class OtcStreamEngineService {
                 ? this.clamp(meanGapUnits * 0.05, -0.16, 0.16)
                 : 0);
         const upProbability = this.clamp(0.5 + state.microVelocity + pull, 0.05, 0.95);
-        let size = this.drawMicroStepSize(state, volatilityRatio);
+        let size = this.drawMicroStepSize(state, volatilityRatio, typicalMoveTicks);
         let direction = this.nextRandom(state) < upProbability ? 1 : -1;
         const absGap = Math.abs(gapUnits);
         if (absGap > 4 && this.nextRandom(state) < 0.75) {
@@ -223,7 +223,7 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             return state.quotePrice;
         return this.roundToTick(Math.max(unit, state.quotePrice + direction * size * unit), tickSize);
     }
-    drawMicroStepSize(state, volatilityRatio) {
+    drawMicroStepSize(state, volatilityRatio, typicalMoveTicks) {
         const roll = this.nextRandom(state);
         const [still, one, two] = state.microRegime === 'RANGE'
             ? [0.22, 0.83, 0.96]
@@ -232,21 +232,24 @@ let OtcStreamEngineService = class OtcStreamEngineService {
                 : [0.12, 0.76, 0.95];
         const quiet = this.clamp(1 - volatilityRatio, 0, 0.5);
         const busy = this.clamp(volatilityRatio - 1, 0, 1.2);
-        const stillOdds = this.clamp(still + quiet * 0.3 - busy * 0.05, 0.02, 0.4);
-        let size;
+        const activity = this.clamp(Math.sqrt(typicalMoveTicks / 0.9), 0.5, 1);
+        const stillOdds = this.clamp(1 - (1 - (still + quiet * 0.3 - busy * 0.05)) * activity, 0.02, 0.88);
         if (roll < stillOdds)
-            size = 0;
-        else if (roll < one)
+            return 0;
+        const sizeRoll = this.nextRandom(state);
+        const oneOdds = (one - still) / (1 - still);
+        const twoOdds = (two - still) / (1 - still);
+        let size;
+        if (sizeRoll < oneOdds)
             size = 1;
-        else if (roll < two)
+        else if (sizeRoll < twoOdds)
             size = 2;
         else
             size =
                 3 +
                     Math.floor(this.nextRandom(state) *
                         (state.microRegime === 'BURST' ? 5 : 3));
-        if (size > 0 &&
-            this.nextRandom(state) < busy * 0.12 + state.microImpulse * 0.25) {
+        if (this.nextRandom(state) < busy * 0.12 + state.microImpulse * 0.25) {
             size += 1;
         }
         return size;
@@ -330,13 +333,13 @@ let OtcStreamEngineService = class OtcStreamEngineService {
     }
     baseTickVolatility(asset) {
         const categoryMultiplier = asset.category === 'Cryptocurrencies'
-            ? 1.8
+            ? 0.62
             : asset.category === 'Commodities'
-                ? 1.3
+                ? 0.72
                 : asset.category === 'Indices'
-                    ? 1.15
+                    ? 0.9
                     : asset.category === 'Stocks'
-                        ? 1.2
+                        ? 0.68
                         : 1;
         return Math.max(asset.volatility * categoryMultiplier * 0.03, 1e-8);
     }
