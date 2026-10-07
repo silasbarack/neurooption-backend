@@ -301,6 +301,8 @@ describe('real-time market data', () => {
     ['US 500 OTC', 0.35],
     ['Apple OTC', 0.6],
     ['Tesla OTC', 1.1],
+    ['BTC/USD OTC', 1.1],
+    ['Gold OTC', 0.45],
   ])(
     'keeps %s hourly ranges near real-market levels',
     (symbol, maxMedianHourPercent) => {

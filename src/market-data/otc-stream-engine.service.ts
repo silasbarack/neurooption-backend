@@ -6,10 +6,11 @@ import { NormalizedMarketTick } from './market-tick.types';
 // restores roughly the one-minute candle size the stream had before.
 const FAIR_VALUE_DIFFUSION = 1.3;
 
-// Fair value can be pulled toward an intraday anchor that itself follows
-// price over a couple of hours. Minutes stay a near random walk; hours do not
-// run away, so hourly ranges sit near real-market levels (EUR/USD about
-// 15-20 pips, US 500 about 0.2%, a large-cap stock about 0.4%).
+// Fair value is pulled toward an intraday anchor that itself follows price
+// over a couple of hours. Minutes stay a near random walk; hours do not run
+// away, so hourly ranges sit near real-market levels (EUR/USD about 15-20
+// pips, US 500 about 0.2%, a large-cap stock about 0.4%, BTC under 1%, gold
+// about 0.25%).
 type FairValueProfile = {
   /** Scales fair-value diffusion. */
   diffusion: number;
@@ -29,6 +30,8 @@ const FAIR_VALUE_PROFILES: Partial<Record<AssetCategory, FairValueProfile>> = {
   Currencies: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.08 },
   Indices: { diffusion: 0.6, anchorReversionPerSecond: 1 / 450, maxVelocity: 0.08 },
   Stocks: { diffusion: 0.85, anchorReversionPerSecond: 1 / 900, maxVelocity: 0.15 },
+  Cryptocurrencies: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.12 },
+  Commodities: { diffusion: 0.7, anchorReversionPerSecond: 1 / 600, maxVelocity: 0.1 },
 };
 
 const ANCHOR_FOLLOW_SECONDS = 7_200;
