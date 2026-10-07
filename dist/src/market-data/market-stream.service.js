@@ -15,7 +15,7 @@ const market_data_constants_1 = require("./market-data.constants");
 const candle_aggregator_service_1 = require("./candle-aggregator.service");
 const otc_stream_engine_service_1 = require("./otc-stream-engine.service");
 const latency_metrics_service_1 = require("../monitoring/latency-metrics.service");
-const STREAM_INTERVAL_MS = 100;
+const STREAM_INTERVAL_MS = 33;
 let MarketStreamService = class MarketStreamService {
     constructor(otcEngine, candleAggregator, metrics) {
         this.otcEngine = otcEngine;
@@ -53,8 +53,11 @@ let MarketStreamService = class MarketStreamService {
     }
     tickAll() {
         const loopStart = performance.now();
+        const now = Date.now();
         for (const asset of market_data_constants_1.MARKET_ASSETS) {
             if (!asset.isActive)
+                continue;
+            if (!this.otcEngine.isDue(asset.symbol, now))
                 continue;
             const tick = this.generateTick(asset.symbol);
             const aggregationStart = performance.now();

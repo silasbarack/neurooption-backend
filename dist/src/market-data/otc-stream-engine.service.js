@@ -10,14 +10,56 @@ exports.OtcStreamEngineService = void 0;
 const common_1 = require("@nestjs/common");
 const market_data_constants_1 = require("./market-data.constants");
 const FAIR_VALUE_DIFFUSION = 1.3;
+const DECISION_INTERVAL_MS = 100;
+const DECISION_TOLERANCE_MS = 8;
+const MAX_SUBTICKS_PER_MOVE = 4;
+const SUBTICK_STALE_MS = 60;
 let OtcStreamEngineService = class OtcStreamEngineService {
     constructor() {
         this.states = new Map();
     }
+    isDue(symbol, now = Date.now()) {
+        const state = this.states.get(this.findAsset(symbol).symbol);
+        return (!state ||
+            state.pendingSteps.length > 0 ||
+            now >= state.nextDecisionAt - DECISION_TOLERANCE_MS);
+    }
+    decisionDue(state, now) {
+        if (now - state.lastTimestamp > SUBTICK_STALE_MS)
+            return true;
+        return (state.pendingSteps.length === 0 &&
+            now >= state.nextDecisionAt - DECISION_TOLERANCE_MS);
+    }
     nextTick(symbol, now = Date.now()) {
         const asset = this.findAsset(symbol);
         const state = this.getState(asset, now);
-        const elapsedMs = Math.min(Math.max(now - state.lastTimestamp, 20), 1_000);
+        const tickSize = 10 ** -asset.precision;
+        if (this.decisionDue(state, now)) {
+            for (const step of state.pendingSteps)
+                state.quotePrice += step;
+            state.pendingSteps = [];
+            this.decide(asset, state, now);
+        }
+        const step = state.pendingSteps.shift() ?? 0;
+        state.quotePrice = this.roundToTick(state.quotePrice + step, tickSize);
+        const roundedMid = this.roundToTick(state.quotePrice, tickSize);
+        const roundedBid = this.roundToTick(roundedMid - state.spread / 2, tickSize);
+        const roundedAsk = this.roundToTick(roundedMid + state.spread / 2, tickSize);
+        state.sequence += 1;
+        state.lastTimestamp = now;
+        return {
+            symbol: asset.symbol,
+            bid: roundedBid,
+            ask: Math.max(roundedAsk, roundedBid + tickSize),
+            mid: roundedMid,
+            timestamp: now,
+            sequence: state.sequence,
+            source: 'neurooption-otc-simulator-v2',
+            marketType: 'OTC',
+        };
+    }
+    decide(asset, state, now) {
+        const elapsedMs = Math.min(Math.max(now - state.lastDecisionAt, 20), 1_000);
         const dtSeconds = elapsedMs / 1_000;
         const sqrtDt = Math.sqrt(dtSeconds);
         const tickSize = 10 ** -asset.precision;
@@ -89,23 +131,10 @@ let OtcStreamEngineService = class OtcStreamEngineService {
                 : 0);
         const targetSpread = this.baseSpread(asset) * spreadMultiplier;
         state.spread = state.spread * 0.9 + targetSpread * 0.1;
-        state.quotePrice = this.nextQuotePrice(state, asset, tickSize, baselineVolatility);
-        const roundedMid = this.roundToTick(state.quotePrice, tickSize);
-        const roundedBid = this.roundToTick(roundedMid - state.spread / 2, tickSize);
-        const roundedAsk = this.roundToTick(roundedMid + state.spread / 2, tickSize);
-        state.sequence += 1;
+        state.pendingSteps = this.planQuoteMove(state, asset, tickSize, baselineVolatility);
         state.ticksInRegime += 1;
-        state.lastTimestamp = now;
-        return {
-            symbol: asset.symbol,
-            bid: roundedBid,
-            ask: Math.max(roundedAsk, roundedBid + tickSize),
-            mid: roundedMid,
-            timestamp: now,
-            sequence: state.sequence,
-            source: 'neurooption-otc-simulator-v2',
-            marketType: 'OTC',
-        };
+        state.lastDecisionAt = now;
+        state.nextDecisionAt = now + DECISION_INTERVAL_MS;
     }
     getLatestTick(symbol, now = Date.now()) {
         const asset = this.findAsset(symbol);
@@ -147,10 +176,14 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             seed,
             sequence: 0,
             lastTimestamp: now - 100,
+            lastDecisionAt: now - DECISION_INTERVAL_MS,
+            nextDecisionAt: now,
+            pendingSteps: [],
+            lastMoveDirection: 0,
             recentAbsoluteReturn: 0,
             microRegime: 'RANGE',
             microDirection: 0,
-            microVelocity: 0,
+            microVelocity: 0.6,
             microTicksRemaining: 0,
             microMean: asset.basePrice,
             microImpulse: 0,
@@ -185,116 +218,130 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             state.meanPrice = state.price;
         }
     }
-    nextQuotePrice(state, asset, tickSize, baselineVolatility) {
+    planQuoteMove(state, asset, tickSize, baselineVolatility) {
         if (state.microTicksRemaining <= 0) {
-            this.transitionMicroRegime(state);
+            this.transitionMicroRegime(state, asset, tickSize);
         }
         state.microTicksRemaining -= 1;
+        state.microImpulse *= 0.85;
         const typicalMoveTicks = (state.price * baselineVolatility * Math.sqrt(0.1)) / tickSize;
         const unit = tickSize * Math.max(1, Math.round(typicalMoveTicks * 0.8));
-        const gapUnits = (state.price - state.quotePrice) / unit;
-        const meanGapUnits = (state.microMean - state.quotePrice) / unit;
-        const volatilityRatio = state.volatility / Math.max(baselineVolatility, 1e-12);
-        const regimeBias = state.microRegime === 'UP' || state.microRegime === 'DOWN'
-            ? 0.26
-            : state.microRegime === 'RETRACE'
-                ? 0.26
-                : state.microRegime === 'BURST'
-                    ? 0.34
-                    : 0;
-        state.microVelocity =
-            state.microVelocity * 0.7 +
-                state.microDirection * regimeBias * 0.3;
-        state.microImpulse *= 0.82;
-        const pull = this.clamp(gapUnits * 0.085, -0.4, 0.4) +
-            (state.microRegime === 'RANGE' || state.microRegime === 'RETRACE'
-                ? this.clamp(meanGapUnits * 0.05, -0.16, 0.16)
-                : 0);
-        const upProbability = this.clamp(0.5 + state.microVelocity + pull, 0.05, 0.95);
-        let size = this.drawMicroStepSize(state, volatilityRatio, typicalMoveTicks);
-        let direction = this.nextRandom(state) < upProbability ? 1 : -1;
-        const absGap = Math.abs(gapUnits);
-        if (absGap > 4 && this.nextRandom(state) < 0.75) {
-            direction = gapUnits > 0 ? 1 : -1;
-            size = Math.max(size, Math.round(absGap * 0.35));
-        }
-        size = Math.min(size, asset.category === 'Currencies' ? 8 : 10);
-        if (size === 0)
-            return state.quotePrice;
-        return this.roundToTick(Math.max(unit, state.quotePrice + direction * size * unit), tickSize);
-    }
-    drawMicroStepSize(state, volatilityRatio, typicalMoveTicks) {
-        const roll = this.nextRandom(state);
-        const [still, one, two] = state.microRegime === 'RANGE'
-            ? [0.22, 0.83, 0.96]
-            : state.microRegime === 'BURST'
-                ? [0.04, 0.34, 0.66]
-                : [0.12, 0.76, 0.95];
-        const quiet = this.clamp(1 - volatilityRatio, 0, 0.5);
-        const busy = this.clamp(volatilityRatio - 1, 0, 1.2);
         const activity = this.clamp(Math.sqrt(typicalMoveTicks / 0.9), 0.5, 1);
-        const stillOdds = this.clamp(1 - (1 - (still + quiet * 0.3 - busy * 0.05)) * activity, 0.02, 0.88);
-        if (roll < stillOdds)
-            return 0;
-        const sizeRoll = this.nextRandom(state);
-        const oneOdds = (one - still) / (1 - still);
-        const twoOdds = (two - still) / (1 - still);
+        const gapUnits = (state.price - state.quotePrice) / unit;
+        const volatilityRatio = state.volatility / Math.max(baselineVolatility, 1e-12);
+        const baseMoveOdds = state.microRegime === 'BURST'
+            ? 0.7
+            : state.microRegime === 'DRIFT'
+                ? 0.31
+                : 0.2;
+        const moveOdds = this.clamp(baseMoveOdds * activity * (0.75 + 0.25 * Math.min(volatilityRatio, 2)) +
+            Math.abs(gapUnits) * 0.025 +
+            state.microImpulse * 0.2, 0.08, 0.95);
+        if (this.nextRandom(state) >= moveOdds)
+            return [];
+        let direction = state.microDirection === 0
+            ? gapUnits >= 0
+                ? 1
+                : -1
+            : state.microDirection;
+        if (this.nextRandom(state) > state.microVelocity) {
+            direction = direction === 1 ? -1 : 1;
+        }
+        const awayFromFair = Math.sign(gapUnits) !== direction ? Math.abs(gapUnits) : 0;
+        if (awayFromFair > 4 &&
+            this.nextRandom(state) < Math.min(0.85, (awayFromFair - 4) * 0.1)) {
+            direction = direction === 1 ? -1 : 1;
+        }
+        if (state.microRegime === 'RANGE') {
+            const meanGapUnits = (state.microMean - state.quotePrice) / unit;
+            if (Math.sign(meanGapUnits) !== direction &&
+                Math.abs(meanGapUnits) > 5 &&
+                this.nextRandom(state) < 0.3) {
+                direction = direction === 1 ? -1 : 1;
+            }
+        }
+        state.microDirection = direction;
+        let size = this.drawMoveSize(state, volatilityRatio);
+        if (Math.abs(gapUnits) > 6 && Math.sign(gapUnits) === direction) {
+            size = Math.max(size, Math.round(Math.abs(gapUnits) * 0.3));
+        }
+        size = Math.min(size, asset.category === 'Currencies' ? 12 : 14);
+        const parts = size <= MAX_SUBTICKS_PER_MOVE
+            ? size
+            : this.clamp(Math.ceil(size / (1.6 + this.nextRandom(state) * 1.4)), 2, MAX_SUBTICKS_PER_MOVE);
+        const base = Math.floor(size / parts);
+        const extra = size % parts;
+        const steps = Array.from({ length: parts }, (_, index) => direction * (base + (index < extra ? 1 : 0)) * unit);
+        if (state.lastMoveDirection !== 0 && state.lastMoveDirection !== direction) {
+            steps.unshift(0);
+        }
+        state.lastMoveDirection = direction;
+        return steps;
+    }
+    drawMoveSize(state, volatilityRatio) {
+        const roll = this.nextRandom(state);
+        const spread = this.nextRandom(state);
         let size;
-        if (sizeRoll < oneOdds)
-            size = 1;
-        else if (sizeRoll < twoOdds)
-            size = 2;
-        else
-            size =
-                3 +
-                    Math.floor(this.nextRandom(state) *
-                        (state.microRegime === 'BURST' ? 5 : 3));
-        if (this.nextRandom(state) < busy * 0.12 + state.microImpulse * 0.25) {
+        if (state.microRegime === 'BURST') {
+            if (roll < 0.35)
+                size = 2 + Math.floor(spread * 3);
+            else if (roll < 0.88)
+                size = 5 + Math.floor(spread * 5);
+            else
+                size = 10 + Math.floor(spread * 4);
+        }
+        else if (state.microRegime === 'DRIFT') {
+            if (roll < 0.5)
+                size = 1;
+            else if (roll < 0.6)
+                size = 2;
+            else if (roll < 0.85)
+                size = 3 + Math.floor(spread * 3);
+            else
+                size = 6 + Math.floor(spread * 5);
+        }
+        else {
+            if (roll < 0.74)
+                size = 1;
+            else if (roll < 0.94)
+                size = 2;
+            else
+                size = 3;
+        }
+        const busy = this.clamp(volatilityRatio - 1, 0, 1.2);
+        if (this.nextRandom(state) < busy * 0.15 + state.microImpulse * 0.3) {
             size += 1;
         }
         return size;
     }
-    transitionMicroRegime(state) {
+    transitionMicroRegime(state, asset, tickSize) {
         const roll = this.nextRandom(state);
-        const previousDirection = state.microDirection;
-        if (roll < 0.3) {
+        const towardFair = state.price >= state.quotePrice ? 1 : -1;
+        const randomDirection = this.nextRandom(state) >= 0.5 ? 1 : -1;
+        if (roll < 0.36) {
             state.microRegime = 'RANGE';
-            state.microDirection = 0;
-            state.microTicksRemaining = 3 + Math.floor(this.nextRandom(state) * 8);
+            state.microVelocity = 0.88 + this.nextRandom(state) * 0.07;
+            state.microTicksRemaining = 6 + Math.floor(this.nextRandom(state) * 20);
             state.microMean = state.quotePrice;
         }
-        else if (roll < 0.5) {
-            state.microRegime = 'UP';
-            state.microDirection = 1;
-            state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 6);
-        }
-        else if (roll < 0.7) {
-            state.microRegime = 'DOWN';
-            state.microDirection = -1;
-            state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 6);
-        }
-        else if (roll < 0.95) {
-            state.microRegime = 'RETRACE';
+        else if (roll < 0.86) {
+            state.microRegime = 'DRIFT';
+            state.microVelocity = 0.96 + this.nextRandom(state) * 0.03;
+            state.microTicksRemaining = 5 + Math.floor(this.nextRandom(state) * 26);
             state.microDirection =
-                previousDirection === 0
-                    ? this.nextRandom(state) >= 0.5
-                        ? -1
-                        : 1
-                    : previousDirection === 1
-                        ? -1
-                        : 1;
-            state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 4);
-            state.microMean =
-                state.quotePrice * 0.5 + state.microMean * 0.5;
+                this.nextRandom(state) < 0.65 ? towardFair : randomDirection;
         }
         else {
             state.microRegime = 'BURST';
-            state.microDirection = this.nextRandom(state) >= 0.5 ? 1 : -1;
-            state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 3);
+            state.microVelocity = 0.9 + this.nextRandom(state) * 0.06;
+            state.microTicksRemaining = 2 + Math.floor(this.nextRandom(state) * 5);
+            state.microDirection =
+                this.nextRandom(state) < 0.6 ? towardFair : randomDirection;
             state.microImpulse = 1;
         }
-        if (state.microRegime === 'UP' || state.microRegime === 'DOWN') {
-            state.microMean = state.quotePrice;
+        const maxGap = 40 * tickSize * (asset.category === 'Currencies' ? 1 : 2);
+        if (Math.abs(state.price - state.quotePrice) > maxGap) {
+            state.microDirection = towardFair;
         }
     }
     regimeDrift(regime, volatility, trend) {
