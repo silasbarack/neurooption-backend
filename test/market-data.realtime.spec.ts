@@ -295,6 +295,37 @@ describe('real-time market data', () => {
     expect(ranges[Math.floor(ranges.length / 2)]).toBeLessThan(130);
   });
 
+  it.each([
+    ['EUR/USD OTC', 0.3],
+    ['GBP/JPY OTC', 0.45],
+  ])(
+    'keeps %s hourly ranges near real-market levels',
+    (symbol, maxMedianHourPercent) => {
+      const engine = new OtcStreamEngineService();
+      const start = Date.UTC(2026, 9, 6, 0, 0, 0);
+      const hourRanges: number[] = [];
+      let high = -Infinity;
+      let low = Infinity;
+
+      // Six hours at 100 ms; each call receives the whole 100 ms move.
+      for (let index = 1; index <= 6 * 36_000; index += 1) {
+        const mid = engine.nextTick(symbol, start + index * 100).mid;
+        high = Math.max(high, mid);
+        low = Math.min(low, mid);
+        if (index % 36_000 === 0) {
+          hourRanges.push(((high - low) / low) * 100);
+          high = -Infinity;
+          low = Infinity;
+        }
+      }
+
+      const sorted = [...hourRanges].sort((a, b) => a - b);
+      const median = (sorted[2] + sorted[3]) / 2;
+      expect(median).toBeLessThan(maxMedianHourPercent);
+      expect(median).toBeGreaterThan(0.08);
+    },
+  );
+
   it('delivers a whole move to callers slower than the sub-tick cadence', () => {
     const engine = new OtcStreamEngineService();
     const start = Date.UTC(2026, 9, 6, 10, 0, 0);

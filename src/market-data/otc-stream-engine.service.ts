@@ -6,6 +6,14 @@ import { NormalizedMarketTick } from './market-tick.types';
 // restores roughly the one-minute candle size the stream had before.
 const FAIR_VALUE_DIFFUSION = 1.3;
 
+// FX fair value is pulled toward an intraday anchor that itself follows price
+// over a couple of hours. Minutes stay a near random walk; hours do not run
+// away, so EUR/USD covers roughly 15-20 pips an hour as it does in practice.
+const FX_DIFFUSION = 0.7;
+const FX_ANCHOR_REVERSION_PER_SECOND = 1 / 600;
+const FX_ANCHOR_FOLLOW_SECONDS = 7_200;
+const FX_MAX_VELOCITY = 0.08;
+
 type MicroRegime = 'RANGE' | 'DRIFT' | 'BURST';
 
 // The quote moves on a 100 ms decision grid. A move of several ticks is
@@ -38,6 +46,8 @@ type OtcState = {
   volatility: number;
   trend: number;
   meanPrice: number;
+  /** Slow intraday anchor that FX fair value reverts toward. */
+  anchorPrice: number;
   regime: OtcRegime;
   spread: number;
   ticksInRegime: number;
@@ -181,9 +191,9 @@ export class OtcStreamEngineService {
       regimeDrift +
       momentumNoise;
 
+    const isCurrency = asset.category === 'Currencies';
     const maxVelocity =
-      state.volatility *
-      (asset.category === 'Currencies' ? 0.45 : 0.9);
+      state.volatility * (isCurrency ? FX_MAX_VELOCITY : 0.9);
     state.velocity = this.clamp(
       state.velocity,
       -maxVelocity,
@@ -203,7 +213,12 @@ export class OtcStreamEngineService {
 
     const anchorReversion =
       ((asset.basePrice - state.price) / Math.max(state.price, 1e-9)) *
-      (asset.category === 'Currencies' ? 0.00012 : 0.00004);
+      (isCurrency ? 0.00012 : 0.00004);
+
+    const intradayReversion = isCurrency
+      ? ((state.anchorPrice - state.price) / Math.max(state.price, 1e-9)) *
+        FX_ANCHOR_REVERSION_PER_SECOND
+      : 0;
 
     let shock = 0;
     const shockRoll = this.nextRandom(state);
@@ -226,8 +241,11 @@ export class OtcStreamEngineService {
 
     const rawLogReturn =
       state.velocity * dtSeconds +
-      gaussian * state.volatility * sqrtDt * FAIR_VALUE_DIFFUSION +
-      (meanReversion + anchorReversion) * dtSeconds +
+      gaussian *
+        state.volatility *
+        sqrtDt *
+        (isCurrency ? FX_DIFFUSION : FAIR_VALUE_DIFFUSION) +
+      (meanReversion + anchorReversion + intradayReversion) * dtSeconds +
       shock;
 
     const maxTickReturn = this.maxTickLogReturn(asset);
@@ -251,6 +269,9 @@ export class OtcStreamEngineService {
 
     state.meanPrice =
       state.meanPrice * 0.9995 + state.price * 0.0005;
+    const anchorFollow = dtSeconds / FX_ANCHOR_FOLLOW_SECONDS;
+    state.anchorPrice =
+      state.anchorPrice * (1 - anchorFollow) + state.price * anchorFollow;
 
     const spreadMultiplier =
       1 +
@@ -318,6 +339,7 @@ export class OtcStreamEngineService {
       volatility: this.baseTickVolatility(asset),
       trend: 0,
       meanPrice: asset.basePrice,
+      anchorPrice: asset.basePrice,
       regime: 'RANGE',
       spread: this.baseSpread(asset),
       ticksInRegime: 0,
