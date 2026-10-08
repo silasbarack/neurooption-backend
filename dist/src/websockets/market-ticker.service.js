@@ -14,20 +14,26 @@ const common_1 = require("@nestjs/common");
 const market_stream_service_1 = require("../market-data/market-stream.service");
 const latency_metrics_service_1 = require("../monitoring/latency-metrics.service");
 const market_gateway_1 = require("./market.gateway");
+const payout_engine_service_1 = require("../payout-engine/payout-engine.service");
 let MarketTickerService = class MarketTickerService {
-    constructor(marketStreamService, marketGateway, metrics) {
+    constructor(marketStreamService, marketGateway, metrics, payoutEngine) {
         this.marketStreamService = marketStreamService;
         this.marketGateway = marketGateway;
         this.metrics = metrics;
+        this.payoutEngine = payoutEngine;
         this.unsubscribe = null;
+        this.unsubscribePayouts = null;
     }
     onModuleInit() {
         this.marketStreamService.setWatchedSymbols((symbol) => this.marketGateway.isWatched(symbol));
         this.unsubscribe = this.marketStreamService.subscribe((event) => this.broadcast(event));
+        this.unsubscribePayouts = this.payoutEngine.subscribe((update) => this.marketGateway.broadcastPayoutUpdate(update));
     }
     onModuleDestroy() {
         this.unsubscribe?.();
         this.unsubscribe = null;
+        this.unsubscribePayouts?.();
+        this.unsubscribePayouts = null;
     }
     broadcast(event) {
         const { tick, candleUpdates } = event;
@@ -77,6 +83,7 @@ exports.MarketTickerService = MarketTickerService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [market_stream_service_1.MarketStreamService,
         market_gateway_1.MarketGateway,
-        latency_metrics_service_1.LatencyMetricsService])
+        latency_metrics_service_1.LatencyMetricsService,
+        payout_engine_service_1.PayoutEngineService])
 ], MarketTickerService);
 //# sourceMappingURL=market-ticker.service.js.map

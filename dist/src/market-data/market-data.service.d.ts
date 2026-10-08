@@ -2,6 +2,7 @@ import { OnApplicationBootstrap } from '@nestjs/common';
 import { OtcCandle } from './market-data.constants';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
 import { MarketStreamService } from './market-stream.service';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
 type OtcTick = {
     asset: string;
     price: number;
@@ -10,11 +11,15 @@ type OtcTick = {
 };
 export declare class MarketDataService implements OnApplicationBootstrap {
     private readonly marketStreamService;
-    constructor(marketStreamService: MarketStreamService);
+    private readonly payoutEngine;
+    constructor(marketStreamService: MarketStreamService, payoutEngine: PayoutEngineService);
     getAssets(): {
         serverTime: string;
         categories: import("./market-data.constants").AssetCategory[];
         assets: {
+            payout: number;
+            payoutVersion: number;
+            payoutUpdatedAt: string;
             symbol: string;
             label: string;
             category: import("./market-data.constants").AssetCategory;
@@ -26,16 +31,34 @@ export declare class MarketDataService implements OnApplicationBootstrap {
             source: string;
         }[];
     };
+    private payoutFields;
+    getPayouts(): {
+        serverTime: string;
+        marketType: "OTC";
+        note: string;
+        expiryAdjustments: {
+            maxSeconds?: number;
+            minSeconds?: number;
+            adjustPercent: number;
+        }[];
+        bounds: {
+            minPercent: number;
+            maxPercent: number;
+        };
+        payouts: import("../payout-engine/payout-engine.service").AssetPayoutSnapshot[];
+    };
     getQuotes(): {
         serverTime: string;
         quotes: {
+            payout: number;
+            payoutVersion: number;
+            payoutUpdatedAt: string;
             symbol: string;
             label: string;
             category: import("./market-data.constants").AssetCategory;
             precision: number;
             price: number;
             changePercent: number;
-            payout: number;
         }[];
     };
     getCategories(): import("./market-data.constants").AssetCategory[];

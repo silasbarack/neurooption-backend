@@ -14,23 +14,23 @@ export declare class LedgerService {
     postDoubleEntryTransaction(input: PostDoubleEntryInput, tx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -39,14 +39,14 @@ export declare class LedgerService {
     getUserAvailableBalance(userId: string, currency: AccountCurrency, tx?: PrismaClientOrTx): Promise<Decimal>;
     getUserStatement(userId: string, currency: AccountCurrency): Promise<({
         transaction: {
+            description: string | null;
             id: string;
-            createdAt: Date;
-            type: import(".prisma/client").$Enums.LedgerTransactionType;
             userId: string | null;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             tradeId: string | null;
+            type: import(".prisma/client").$Enums.LedgerTransactionType;
             amount: Prisma.Decimal;
-            description: string | null;
             idempotencyKey: string | null;
             depositId: string | null;
             withdrawalId: string | null;
@@ -54,46 +54,46 @@ export declare class LedgerService {
         };
         account: {
             id: string;
-            name: string;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            type: import(".prisma/client").$Enums.LedgerAccountType;
             userId: string | null;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            type: import(".prisma/client").$Enums.LedgerAccountType;
+            isActive: boolean;
             code: import(".prisma/client").$Enums.LedgerAccountCode;
             isSystem: boolean;
         };
     } & {
         id: string;
-        createdAt: Date;
-        transactionId: string;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         amount: Prisma.Decimal;
         side: import(".prisma/client").$Enums.LedgerEntrySide;
         memo: string | null;
         accountId: string;
+        transactionId: string;
     })[]>;
     confirmDeposit(input: ConfirmDepositInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -102,23 +102,23 @@ export declare class LedgerService {
     requestWithdrawal(input: RequestWithdrawalInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -127,23 +127,23 @@ export declare class LedgerService {
     markWithdrawalPaid(input: MarkWithdrawalPaidInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -152,23 +152,23 @@ export declare class LedgerService {
     rejectWithdrawal(input: RejectWithdrawalInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -177,23 +177,23 @@ export declare class LedgerService {
     placeTrade(input: PlaceTradeInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -202,23 +202,23 @@ export declare class LedgerService {
     settleTradeWon(input: SettleTradeWonInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -227,23 +227,23 @@ export declare class LedgerService {
     settleTradeLost(input: SettleTradeLostInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;
@@ -252,23 +252,23 @@ export declare class LedgerService {
     refundTrade(input: RefundTradeInput, externalTx?: PrismaClientOrTx): Promise<{
         entries: {
             id: string;
-            createdAt: Date;
-            transactionId: string;
             currency: import(".prisma/client").$Enums.AccountCurrency;
+            createdAt: Date;
             amount: Prisma.Decimal;
             side: import(".prisma/client").$Enums.LedgerEntrySide;
             memo: string | null;
             accountId: string;
+            transactionId: string;
         }[];
     } & {
+        description: string | null;
         id: string;
-        createdAt: Date;
-        type: import(".prisma/client").$Enums.LedgerTransactionType;
         userId: string | null;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        createdAt: Date;
         tradeId: string | null;
+        type: import(".prisma/client").$Enums.LedgerTransactionType;
         amount: Prisma.Decimal;
-        description: string | null;
         idempotencyKey: string | null;
         depositId: string | null;
         withdrawalId: string | null;

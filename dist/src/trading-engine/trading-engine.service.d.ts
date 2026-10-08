@@ -1,4 +1,5 @@
 import { MarketDataService } from '../market-data/market-data.service';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TradesService } from '../trades/trades.service';
@@ -11,8 +12,9 @@ export declare class TradingEngineService {
     private readonly transactionsService;
     private readonly tradesService;
     private readonly ledgerService;
+    private readonly payoutEngine;
     private readonly settlementTimers;
-    constructor(marketDataService: MarketDataService, walletsService: WalletsService, transactionsService: TransactionsService, tradesService: TradesService, ledgerService: LedgerService);
+    constructor(marketDataService: MarketDataService, walletsService: WalletsService, transactionsService: TransactionsService, tradesService: TradesService, ledgerService: LedgerService, payoutEngine: PayoutEngineService);
     private assertLedgerCurrency;
     placeTrade(dto: PlaceTradeDto): Promise<{
         trade: PlacedTrade;
@@ -116,7 +118,6 @@ export declare class TradingEngineService {
     }>;
     private applySettlement;
     private calculateResultStatus;
-    private calculatePayoutPercent;
     private scheduleSettlement;
     private clearSettlementTimer;
     private validateTradeInput;

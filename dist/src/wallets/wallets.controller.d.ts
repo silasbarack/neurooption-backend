@@ -7,15 +7,15 @@ export declare class WalletsController {
     constructor(walletsService: WalletsService);
     getWallets(userId: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         userId: string;
+        accountType: string;
         currency: string;
         balance: import("@prisma/client/runtime/library").Decimal;
-        locked: import("@prisma/client/runtime/library").Decimal;
-        accountType: string;
         balanceUsd: import("@prisma/client/runtime/library").Decimal;
+        locked: import("@prisma/client/runtime/library").Decimal;
         lockedUsd: import("@prisma/client/runtime/library").Decimal;
+        createdAt: Date;
+        updatedAt: Date;
     }[]>;
     deposit(dto: DepositDto): Promise<{
         message: string;

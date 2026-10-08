@@ -32,6 +32,7 @@ export declare class CandleAggregatorService {
     };
     getCurrentCandle(symbol: string, timeframe: MarketTimeframe | string): AggregatedCandle | undefined;
     getRecentCandles(symbol: string, timeframe: MarketTimeframe | string, limit?: number): AggregatedCandle[];
+    getLastTickTime(symbol: string): number | null;
     getLastSequence(symbol: string): number;
     private createCandle;
     private archive;

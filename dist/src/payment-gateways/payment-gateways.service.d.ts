@@ -7,11 +7,11 @@ export declare class PaymentGatewaysService {
     constructor(prisma: PrismaService);
     create(dto: CreatePaymentGatewayDto): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -25,11 +25,11 @@ export declare class PaymentGatewaysService {
     }>;
     findAll(): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -43,11 +43,11 @@ export declare class PaymentGatewaysService {
     }[]>;
     findActive(): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -61,11 +61,11 @@ export declare class PaymentGatewaysService {
     }[]>;
     findByType(type: PaymentGatewayType): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -79,11 +79,11 @@ export declare class PaymentGatewaysService {
     }[]>;
     findForDeposit(type: PaymentGatewayType): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -97,11 +97,11 @@ export declare class PaymentGatewaysService {
     }>;
     findForWithdrawal(type: PaymentGatewayType): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -115,11 +115,11 @@ export declare class PaymentGatewaysService {
     }>;
     findOne(id: string): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -133,11 +133,11 @@ export declare class PaymentGatewaysService {
     }>;
     update(id: string, dto: UpdatePaymentGatewayDto): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -151,11 +151,11 @@ export declare class PaymentGatewaysService {
     }>;
     enable(id: string): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;
@@ -169,11 +169,11 @@ export declare class PaymentGatewaysService {
     }>;
     disable(id: string): Promise<{
         id: string;
-        name: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
+        name: string;
         type: import(".prisma/client").$Enums.PaymentGatewayType;
+        isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
         publicKey: string | null;
         secretKey: string | null;

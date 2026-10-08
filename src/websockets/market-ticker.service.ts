@@ -2,15 +2,18 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MarketStreamEvent, MarketStreamService } from '../market-data/market-stream.service';
 import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
 import { MarketGateway } from './market.gateway';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
 
 @Injectable()
 export class MarketTickerService implements OnModuleInit, OnModuleDestroy {
   private unsubscribe: (() => void) | null = null;
+  private unsubscribePayouts: (() => void) | null = null;
 
   constructor(
     private readonly marketStreamService: MarketStreamService,
     private readonly marketGateway: MarketGateway,
     private readonly metrics: LatencyMetricsService,
+    private readonly payoutEngine: PayoutEngineService,
   ) {}
 
   onModuleInit() {
@@ -20,11 +23,16 @@ export class MarketTickerService implements OnModuleInit, OnModuleDestroy {
     this.unsubscribe = this.marketStreamService.subscribe((event) =>
       this.broadcast(event),
     );
+    this.unsubscribePayouts = this.payoutEngine.subscribe((update) =>
+      this.marketGateway.broadcastPayoutUpdate(update),
+    );
   }
 
   onModuleDestroy() {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.unsubscribePayouts?.();
+    this.unsubscribePayouts = null;
   }
 
   private broadcast(event: MarketStreamEvent) {

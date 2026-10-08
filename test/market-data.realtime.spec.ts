@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { Test } from '@nestjs/testing';
 import { MarketDataModule } from '../src/market-data/market-data.module';
 import { MarketDataService } from '../src/market-data/market-data.service';

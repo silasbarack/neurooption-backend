@@ -13,6 +13,7 @@ import {
 } from './market-data.constants';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
 import { MarketStreamService } from './market-stream.service';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
 
 type OtcTick = {
   asset: string;
@@ -112,7 +113,10 @@ const HISTORY_SLICE_MS = HISTORY_SLICE_MS_BASE;
 
 @Injectable()
 export class MarketDataService implements OnApplicationBootstrap {
-  constructor(private readonly marketStreamService: MarketStreamService) {
+  constructor(
+    private readonly marketStreamService: MarketStreamService,
+    private readonly payoutEngine: PayoutEngineService,
+  ) {
     new Logger('MarketHistory').log(
       `CPU quota ${CPU_QUOTA >= 1 ? 'none' : CPU_QUOTA.toFixed(2)}; history slices ${HISTORY_SLICE_MS} ms, pause ${HISTORY_PAUSE_MS} ms`,
     );
@@ -131,14 +135,40 @@ export class MarketDataService implements OnApplicationBootstrap {
         isActive: asset.isActive,
         marketType: 'OTC' as const,
         source: 'neurooption-otc-simulator-v2',
+        ...this.payoutFields(asset.symbol),
       })),
     };
   }
 
+  /** Published payout (60-second reference) and its version. */
+  private payoutFields(symbol: string) {
+    const snapshot = this.payoutEngine.getSnapshot(symbol);
+    return {
+      payout: snapshot?.payoutPercent ?? null,
+      payoutVersion: snapshot?.version ?? null,
+      payoutUpdatedAt: snapshot?.updatedAt ?? null,
+    };
+  }
+
+  /** Every published payout plus the rules the frontend needs to quote. */
+  getPayouts() {
+    return {
+      serverTime: new Date().toISOString(),
+      marketType: 'OTC' as const,
+      note: 'Synthetic OTC markets. Payouts follow measured conditions of the synthetic price engine.',
+      expiryAdjustments: this.payoutEngine.publicConfig().expiryAdjustments,
+      bounds: {
+        minPercent: this.payoutEngine.config.minPercent,
+        maxPercent: this.payoutEngine.config.maxPercent,
+      },
+      payouts: this.payoutEngine.listSnapshots(),
+    };
+  }
+
   /**
-   * Live price, 24h change and the 1-minute payout for every active asset,
-   * for the Markets list. The payout matches what the trading engine pays on
-   * an M1 chart with a 60s expiry.
+   * Live price, 24h change and the published payout for every active asset,
+   * for the Markets list. The payout is what the trading engine pays on a
+   * 60-second trade (see payout-engine.config.ts for other expiries).
    */
   getQuotes() {
     const now = Date.now();
@@ -161,7 +191,7 @@ export class MarketDataService implements OnApplicationBootstrap {
           precision: asset.precision,
           price,
           changePercent: Number(changePercent.toFixed(2)),
-          payout: Math.min(Math.max(Math.round(83 + asset.payoutBoost), 20), 92),
+          ...this.payoutFields(asset.symbol),
         };
       }),
     };

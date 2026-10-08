@@ -1000,6 +1000,9 @@ model EngineTrade {
   profitUsd    Decimal? @db.Decimal(30, 10)
 
   metadata  Json?
+  // Version of the asset payout the trade was accepted at (see
+  // AssetPayoutState). payoutPercent above is locked at acceptance.
+  payoutVersion Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1134,4 +1137,49 @@ model LedgerEntry {
 
   @@index([transactionId])
   @@index([accountId])
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic payout engine
+//
+// One row per tradeable asset holds the published payout, its version and the
+// engine's latest measurement. Every published change is appended to
+// AssetPayoutHistory with the reason and the measured conditions, so each
+// payout can be explained after the fact. Timestamps are UTC.
+// ---------------------------------------------------------------------------
+
+model AssetPayoutState {
+  assetSymbol     String    @id
+  marketType      String    @default("OTC")
+  category        String
+  payoutPercent   Decimal   @db.Decimal(6, 2)
+  baselinePercent Decimal   @db.Decimal(6, 2)
+  targetPercent   Decimal?  @db.Decimal(8, 4)
+  smoothedPercent Decimal?  @db.Decimal(8, 4)
+  version         Int       @default(1)
+  lastChangedAt   DateTime
+  lastReviewedAt  DateTime
+  lastEvaluatedAt DateTime?
+  riskMetrics     Json?
+  reason          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model AssetPayoutHistory {
+  id              String   @id @default(cuid())
+  assetSymbol     String
+  version         Int
+  previousPercent Decimal? @db.Decimal(6, 2)
+  payoutPercent   Decimal  @db.Decimal(6, 2)
+  targetPercent   Decimal? @db.Decimal(8, 4)
+  smoothedPercent Decimal? @db.Decimal(8, 4)
+  reason          String
+  riskMetrics     Json?
+  config          Json?
+  createdAt       DateTime @default(now())
+
+  @@unique([assetSymbol, version])
+  @@index([assetSymbol, createdAt])
+  @@index([createdAt])
 }

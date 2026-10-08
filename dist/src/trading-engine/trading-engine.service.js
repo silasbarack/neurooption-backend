@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const market_data_service_1 = require("../market-data/market-data.service");
 const market_data_constants_1 = require("../market-data/market-data.constants");
+const payout_engine_service_1 = require("../payout-engine/payout-engine.service");
 const wallets_service_1 = require("../wallets/wallets.service");
 const transactions_service_1 = require("../transactions/transactions.service");
 const trades_service_1 = require("../trades/trades.service");
@@ -22,12 +23,13 @@ const ledger_service_1 = require("../ledger/ledger.service");
 const trading_engine_types_1 = require("./trading-engine.types");
 const LEDGER_CURRENCIES = new Set(Object.values(client_1.AccountCurrency));
 let TradingEngineService = class TradingEngineService {
-    constructor(marketDataService, walletsService, transactionsService, tradesService, ledgerService) {
+    constructor(marketDataService, walletsService, transactionsService, tradesService, ledgerService, payoutEngine) {
         this.marketDataService = marketDataService;
         this.walletsService = walletsService;
         this.transactionsService = transactionsService;
         this.tradesService = tradesService;
         this.ledgerService = ledgerService;
+        this.payoutEngine = payoutEngine;
         this.settlementTimers = new Map();
     }
     assertLedgerCurrency(currency) {
@@ -55,9 +57,23 @@ let TradingEngineService = class TradingEngineService {
             expirySeconds,
         });
         const asset = this.findAsset(assetSymbol);
+        const quote = this.payoutEngine.quote(asset.symbol, expirySeconds);
+        if (!quote) {
+            throw new common_1.BadRequestException(`No payout available for ${asset.symbol}.`);
+        }
+        if (dto.quotedPayoutPercent !== undefined &&
+            dto.quotedPayoutPercent !== null &&
+            Number(dto.quotedPayoutPercent) !== quote.payoutPercent) {
+            throw new common_1.ConflictException({
+                statusCode: 409,
+                code: 'PAYOUT_CHANGED',
+                message: `The payout for ${asset.symbol} changed from ${dto.quotedPayoutPercent}% to ${quote.payoutPercent}%. Review the new payout and try again.`,
+                quote,
+            });
+        }
+        const payoutPercent = quote.payoutPercent;
         const entryTick = this.marketDataService.getTick(asset.symbol);
         const entryPrice = entryTick.price;
-        const payoutPercent = this.calculatePayoutPercent(asset.payoutBoost, timeframe, expirySeconds);
         const stakeUsd = (0, trading_engine_types_1.currencyToUsd)(amount, currency);
         const expectedProfitAmount = amount * (payoutPercent / 100);
         const expectedReturnAmount = amount + expectedProfitAmount;
@@ -114,8 +130,19 @@ let TradingEngineService = class TradingEngineService {
             expirySeconds,
             expiryTime,
             status: 'PENDING',
+            payoutVersion: quote.version,
             metadata: {
                 source: 'BACKEND_OTC_ENGINE',
+                marketType: quote.marketType,
+                payout: {
+                    acceptedPercent: payoutPercent,
+                    assetPayoutPercent: quote.assetPayoutPercent,
+                    expiryAdjustmentPercent: quote.expiryAdjustmentPercent,
+                    version: quote.version,
+                    quotedAt: quote.quotedAt,
+                    clientQuotedPercent: dto.quotedPayoutPercent ?? null,
+                    clientQuotedVersion: dto.payoutVersion ?? null,
+                },
             },
         });
         await this.transactionsService.create({
@@ -315,25 +342,6 @@ let TradingEngineService = class TradingEngineService {
         }
         return closePrice < entryPrice ? 'WON' : 'LOST';
     }
-    calculatePayoutPercent(payoutBoost, timeframe, expirySeconds) {
-        const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe] ?? 60;
-        let base = 84 + payoutBoost;
-        if (timeframeSeconds <= 15)
-            base -= 3;
-        else if (timeframeSeconds <= 30)
-            base -= 2;
-        else if (timeframeSeconds <= 60)
-            base -= 1;
-        else if (timeframeSeconds >= 900)
-            base += 1;
-        if (expirySeconds <= 15)
-            base -= 3;
-        else if (expirySeconds <= 30)
-            base -= 2;
-        else if (expirySeconds >= 300)
-            base += 1;
-        return Math.min(Math.max(Math.round(base), 20), 92);
-    }
     scheduleSettlement(tradeId, expiryTime) {
         this.clearSettlementTimer(tradeId);
         const delayMs = Math.max(expiryTime - Date.now(), 0);
@@ -388,6 +396,7 @@ exports.TradingEngineService = TradingEngineService = __decorate([
         wallets_service_1.WalletsService,
         transactions_service_1.TransactionsService,
         trades_service_1.TradesService,
-        ledger_service_1.LedgerService])
+        ledger_service_1.LedgerService,
+        payout_engine_service_1.PayoutEngineService])
 ], TradingEngineService);
 //# sourceMappingURL=trading-engine.service.js.map

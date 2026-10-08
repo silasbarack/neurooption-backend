@@ -155,6 +155,11 @@ export class CandleAggregatorService {
     return combined.slice(-Math.max(1, limit)).map((candle) => ({ ...candle }));
   }
 
+  /** Timestamp of the newest tick applied for the symbol, or null. */
+  getLastTickTime(symbol: string): number | null {
+    return this.lastTimestamp.get(symbol) ?? null;
+  }
+
   getLastSequence(symbol: string) {
     return this.lastSequence.get(symbol) ?? 0;
   }

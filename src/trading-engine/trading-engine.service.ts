@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AccountCurrency as LedgerCurrency } from '@prisma/client';
 import { MarketDataService } from '../market-data/market-data.service';
 import {
   MARKET_ASSETS,
   TIMEFRAME_SECONDS,
 } from '../market-data/market-data.constants';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TradesService } from '../trades/trades.service';
@@ -32,6 +38,7 @@ export class TradingEngineService {
     private readonly transactionsService: TransactionsService,
     private readonly tradesService: TradesService,
     private readonly ledgerService: LedgerService,
+    private readonly payoutEngine: PayoutEngineService,
   ) {}
 
   /**
@@ -76,14 +83,29 @@ export class TradingEngineService {
     });
 
     const asset = this.findAsset(assetSymbol);
+
+    // The payout is read once, here, and that value is the one stored on the
+    // trade and used at settlement. Later payout changes never touch it.
+    const quote = this.payoutEngine.quote(asset.symbol, expirySeconds);
+    if (!quote) {
+      throw new BadRequestException(`No payout available for ${asset.symbol}.`);
+    }
+    if (
+      dto.quotedPayoutPercent !== undefined &&
+      dto.quotedPayoutPercent !== null &&
+      Number(dto.quotedPayoutPercent) !== quote.payoutPercent
+    ) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'PAYOUT_CHANGED',
+        message: `The payout for ${asset.symbol} changed from ${dto.quotedPayoutPercent}% to ${quote.payoutPercent}%. Review the new payout and try again.`,
+        quote,
+      });
+    }
+    const payoutPercent = quote.payoutPercent;
+
     const entryTick = this.marketDataService.getTick(asset.symbol);
     const entryPrice = entryTick.price;
-
-    const payoutPercent = this.calculatePayoutPercent(
-      asset.payoutBoost,
-      timeframe,
-      expirySeconds,
-    );
 
     const stakeUsd = currencyToUsd(amount, currency);
     const expectedProfitAmount = amount * (payoutPercent / 100);
@@ -158,8 +180,19 @@ export class TradingEngineService {
       expirySeconds,
       expiryTime,
       status: 'PENDING',
+      payoutVersion: quote.version,
       metadata: {
         source: 'BACKEND_OTC_ENGINE',
+        marketType: quote.marketType,
+        payout: {
+          acceptedPercent: payoutPercent,
+          assetPayoutPercent: quote.assetPayoutPercent,
+          expiryAdjustmentPercent: quote.expiryAdjustmentPercent,
+          version: quote.version,
+          quotedAt: quote.quotedAt,
+          clientQuotedPercent: dto.quotedPayoutPercent ?? null,
+          clientQuotedVersion: dto.payoutVersion ?? null,
+        },
       },
     });
 
@@ -443,27 +476,6 @@ export class TradingEngineService {
     }
 
     return closePrice < entryPrice ? 'WON' : 'LOST';
-  }
-
-  private calculatePayoutPercent(
-    payoutBoost: number,
-    timeframe: string,
-    expirySeconds: number,
-  ) {
-    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe] ?? 60;
-
-    let base = 84 + payoutBoost;
-
-    if (timeframeSeconds <= 15) base -= 3;
-    else if (timeframeSeconds <= 30) base -= 2;
-    else if (timeframeSeconds <= 60) base -= 1;
-    else if (timeframeSeconds >= 900) base += 1;
-
-    if (expirySeconds <= 15) base -= 3;
-    else if (expirySeconds <= 30) base -= 2;
-    else if (expirySeconds >= 300) base += 1;
-
-    return Math.min(Math.max(Math.round(base), 20), 92);
   }
 
   private scheduleSettlement(tradeId: string, expiryTime: number) {

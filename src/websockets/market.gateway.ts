@@ -15,6 +15,10 @@ import {
   normalizeTimeframe,
 } from '../market-data/timeframe.config';
 import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
+import {
+  AssetPayoutUpdate,
+  PayoutEngineService,
+} from '../payout-engine/payout-engine.service';
 import { WebsocketEvents } from './websockets-events';
 
 const MAX_SUBSCRIPTIONS_PER_SOCKET = 12;
@@ -50,6 +54,9 @@ export type MarketCandleUpdate = {
   };
 };
 
+// Handlers below answer through the client's acknowledgement callback. Nest
+// treats a returned object with an `event` key as an event to emit instead
+// (and the callback then never fires), so successful replies use `type`.
 @WebSocketGateway({
   namespace: 'market',
   cors: {
@@ -68,6 +75,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly marketDataService: MarketDataService,
     private readonly metrics: LatencyMetricsService,
+    private readonly payoutEngine: PayoutEngineService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -83,6 +91,12 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       protocolVersion: 2,
       serverTimestamp,
       serverTime: new Date(serverTimestamp).toISOString(),
+    });
+    // Every (re)connection starts from the current payouts, so an update
+    // missed while disconnected never leaves a stale payout on screen.
+    client.emit(WebsocketEvents.ASSET_PAYOUT_SNAPSHOT, {
+      serverTimestamp,
+      payouts: this.payoutEngine.listSnapshots(),
     });
   }
 
@@ -119,7 +133,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const tick = this.marketDataService.getTick(symbol);
     return {
-      event: WebsocketEvents.SUBSCRIBE_SYMBOL,
+      type: WebsocketEvents.SUBSCRIBE_SYMBOL,
       symbol,
       timeframe,
       sequence: Number(tick.sequence ?? 0),
@@ -140,7 +154,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return {
-      event: WebsocketEvents.UNSUBSCRIBE_SYMBOL,
+      type: WebsocketEvents.UNSUBSCRIBE_SYMBOL,
       symbol,
       serverTimestamp: Date.now(),
     };
@@ -150,7 +164,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   serverTime(@MessageBody() data: { clientSentAt?: number } = {}) {
     const serverTimestamp = Date.now();
     return {
-      event: WebsocketEvents.SERVER_TIME,
+      type: WebsocketEvents.SERVER_TIME,
       clientSentAt: Number(data?.clientSentAt ?? 0),
       serverTimestamp,
       serverTime: new Date(serverTimestamp).toISOString(),
@@ -186,7 +200,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     return {
-      event: WebsocketEvents.RESYNC_RESPONSE,
+      type: WebsocketEvents.RESYNC_RESPONSE,
       symbol,
       timeframe,
       requestedSince: Number(data?.since ?? 0),
@@ -249,6 +263,11 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server
       .to(this.chartRoom(dto.symbol, dto.timeframe))
       .emit(WebsocketEvents.CANDLE_UPDATE, dto);
+  }
+
+  /** Payout changes are rare and small, so every client gets them. */
+  broadcastPayoutUpdate(update: AssetPayoutUpdate) {
+    this.server?.emit(WebsocketEvents.ASSET_PAYOUT_UPDATED, update);
   }
 
   symbolRoom(symbol: string) {

@@ -54,4 +54,23 @@ export class PlaceTradeDto {
   @Min(5)
   @Max(18000)
   expirySeconds!: number;
+
+  /**
+   * The payout the trader was shown. When sent, the trade is accepted only
+   * at exactly this payout; if it has changed, the trade is refused with the
+   * new quote instead of silently using a different payout.
+   */
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined || value === null ? undefined : Number(value)))
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  quotedPayoutPercent?: number;
+
+  /** Version of the asset payout the quote came from (informational). */
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined || value === null ? undefined : Number(value)))
+  @IsInt()
+  @Min(0)
+  payoutVersion?: number;
 }

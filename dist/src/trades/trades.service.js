@@ -72,6 +72,9 @@ let TradesService = class TradesService {
                     ? undefined
                     : new client_1.Prisma.Decimal(Number(input.profitUsd)),
                 metadata: input.metadata ?? undefined,
+                payoutVersion: input.payoutVersion === undefined || input.payoutVersion === null
+                    ? undefined
+                    : Number(input.payoutVersion),
             },
         });
         return this.formatTrade(trade);
@@ -211,6 +214,9 @@ let TradesService = class TradesService {
             stakeAmount: Number(trade.stakeAmount),
             stakeUsd: Number(trade.stakeUsd),
             payoutPercent: Number(trade.payoutPercent),
+            payoutVersion: trade.payoutVersion === null || trade.payoutVersion === undefined
+                ? undefined
+                : Number(trade.payoutVersion),
             expectedProfitAmount: Number(trade.expectedProfitAmount),
             expectedProfitUsd: Number(trade.expectedProfitUsd),
             expectedReturnAmount: Number(trade.expectedReturnAmount),

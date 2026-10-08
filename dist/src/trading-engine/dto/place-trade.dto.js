@@ -68,4 +68,19 @@ __decorate([
     (0, class_validator_1.Max)(18000),
     __metadata("design:type", Number)
 ], PlaceTradeDto.prototype, "expirySeconds", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === undefined || value === null ? undefined : Number(value))),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Number)
+], PlaceTradeDto.prototype, "quotedPayoutPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === undefined || value === null ? undefined : Number(value))),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], PlaceTradeDto.prototype, "payoutVersion", void 0);
 //# sourceMappingURL=place-trade.dto.js.map

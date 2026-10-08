@@ -88,6 +88,9 @@ let CandleAggregatorService = class CandleAggregatorService {
         const combined = active ? [...archived, active] : archived;
         return combined.slice(-Math.max(1, limit)).map((candle) => ({ ...candle }));
     }
+    getLastTickTime(symbol) {
+        return this.lastTimestamp.get(symbol) ?? null;
+    }
     getLastSequence(symbol) {
         return this.lastSequence.get(symbol) ?? 0;
     }

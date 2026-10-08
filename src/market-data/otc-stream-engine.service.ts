@@ -100,6 +100,17 @@ type OtcState = {
   microMean: number;
   /** Decaying burst energy; raises move odds and move size. */
   microImpulse: number;
+  /** Regime counters since the last drainRegimeStats (payout engine input). */
+  regimeDecisions: number;
+  regimeStressed: number;
+  regimeTrending: number;
+};
+
+export type OtcRegimeStats = {
+  decisions: number;
+  stressed: number;
+  trending: number;
+  current: string | null;
 };
 
 @Injectable()
@@ -215,6 +226,18 @@ export class OtcStreamEngineService {
       this.transitionRegime(state);
     }
 
+    state.regimeDecisions += 1;
+    if (state.regime === 'HIGH_VOLATILITY' || state.regime === 'BREAKOUT') {
+      state.regimeStressed += 1;
+    }
+    if (
+      state.regime === 'TREND_UP' ||
+      state.regime === 'TREND_DOWN' ||
+      state.regime === 'BREAKOUT'
+    ) {
+      state.regimeTrending += 1;
+    }
+
     const baselineVolatility = this.baseTickVolatility(asset);
     const volatilityPersistence = 0.97;
     const volatilityResponse = asset.category === 'Currencies' ? 0.018 : 0.03;
@@ -309,6 +332,26 @@ export class OtcStreamEngineService {
     state.nextDecisionAt = now + DECISION_INTERVAL_MS;
   }
 
+  /**
+   * How the generator actually spent its time since the last call: the
+   * number of 100 ms decisions and how many were in stressed or trending
+   * regimes. Resets the counters. Read-only with respect to prices.
+   */
+  drainRegimeStats(symbol: string): OtcRegimeStats {
+    const state = this.states.get(this.findAsset(symbol).symbol);
+    if (!state) return { decisions: 0, stressed: 0, trending: 0, current: null };
+    const stats = {
+      decisions: state.regimeDecisions,
+      stressed: state.regimeStressed,
+      trending: state.regimeTrending,
+      current: state.regime,
+    };
+    state.regimeDecisions = 0;
+    state.regimeStressed = 0;
+    state.regimeTrending = 0;
+    return stats;
+  }
+
   getLatestTick(symbol: string, now = Date.now()) {
     const asset = this.findAsset(symbol);
     const state = this.states.get(asset.symbol);
@@ -366,6 +409,9 @@ export class OtcStreamEngineService {
       microTicksRemaining: 0,
       microMean: asset.basePrice,
       microImpulse: 0,
+      regimeDecisions: 0,
+      regimeStressed: 0,
+      regimeTrending: 0,
     };
 
     this.states.set(asset.symbol, state);

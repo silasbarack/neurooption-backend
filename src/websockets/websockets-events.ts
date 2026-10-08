@@ -20,6 +20,8 @@ export const WebsocketEvents = {
   DEPOSIT_UPDATE: 'deposit_update',
   WITHDRAWAL_UPDATE: 'withdrawal_update',
   PAYOUT_UPDATE: 'payout_update',
+  ASSET_PAYOUT_UPDATED: 'asset:payout-updated',
+  ASSET_PAYOUT_SNAPSHOT: 'asset:payout-snapshot',
 
   ERROR: 'error',
 };
