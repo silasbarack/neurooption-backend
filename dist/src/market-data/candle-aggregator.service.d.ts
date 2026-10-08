@@ -23,6 +23,7 @@ export declare class CandleAggregatorService {
     private readonly history;
     private readonly lastSequence;
     private readonly lastTimestamp;
+    private readonly keysBySymbol;
     applyTick(tick: NormalizedMarketTick): {
         updates: CandleUpdate[];
         duplicate: boolean;
@@ -34,5 +35,6 @@ export declare class CandleAggregatorService {
     getLastSequence(symbol: string): number;
     private createCandle;
     private archive;
+    private keysFor;
     private key;
 }

@@ -17,6 +17,7 @@ let CandleAggregatorService = class CandleAggregatorService {
         this.history = new Map();
         this.lastSequence = new Map();
         this.lastTimestamp = new Map();
+        this.keysBySymbol = new Map();
     }
     applyTick(tick) {
         const previousSequence = this.lastSequence.get(tick.symbol);
@@ -45,8 +46,10 @@ let CandleAggregatorService = class CandleAggregatorService {
         this.lastSequence.set(tick.symbol, tick.sequence);
         this.lastTimestamp.set(tick.symbol, Math.max(previousTimestamp ?? tick.timestamp, tick.timestamp));
         const updates = [];
-        for (const timeframe of timeframe_config_1.SUPPORTED_TIMEFRAMES) {
-            const key = this.key(tick.symbol, timeframe);
+        const keys = this.keysFor(tick.symbol);
+        for (let index = 0; index < timeframe_config_1.SUPPORTED_TIMEFRAMES.length; index += 1) {
+            const timeframe = timeframe_config_1.SUPPORTED_TIMEFRAMES[index];
+            const key = keys[index];
             const bucketStart = (0, timeframe_config_1.timeframeBucketStart)(tick.timestamp, timeframe);
             const current = this.active.get(key);
             if (!current || bucketStart > current.time) {
@@ -55,7 +58,7 @@ let CandleAggregatorService = class CandleAggregatorService {
                 }
                 const next = this.createCandle(timeframe, bucketStart, tick.mid, tick.sequence);
                 this.active.set(key, next);
-                updates.push({ symbol: tick.symbol, timeframe, candle: { ...next } });
+                updates.push({ symbol: tick.symbol, timeframe, candle: next });
                 continue;
             }
             if (bucketStart < current.time) {
@@ -68,7 +71,7 @@ let CandleAggregatorService = class CandleAggregatorService {
             }
             current.volume += 1;
             current.lastSequence = tick.sequence;
-            updates.push({ symbol: tick.symbol, timeframe, candle: { ...current } });
+            updates.push({ symbol: tick.symbol, timeframe, candle: current });
         }
         return { updates, duplicate: false, outOfOrder: false, sequenceGap };
     }
@@ -111,6 +114,14 @@ let CandleAggregatorService = class CandleAggregatorService {
             candles.splice(0, candles.length - MAX_HISTORY_PER_STREAM);
         }
         this.history.set(key, candles);
+    }
+    keysFor(symbol) {
+        let keys = this.keysBySymbol.get(symbol);
+        if (!keys) {
+            keys = timeframe_config_1.SUPPORTED_TIMEFRAMES.map((timeframe) => this.key(symbol, timeframe));
+            this.keysBySymbol.set(symbol, keys);
+        }
+        return keys;
     }
     key(symbol, timeframe) {
         return `${symbol}|${timeframe}`;
