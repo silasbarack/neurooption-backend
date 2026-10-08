@@ -57,6 +57,14 @@ export declare class MarketDataController {
         serverTime: string;
     } & Record<string, unknown>;
     getMetrics(): {
+        event_loop_delay_ms: {
+            p50: number;
+            p99: number;
+            max: number;
+        };
+        transports: {
+            [k: string]: number;
+        };
         histograms: {
             [k: string]: {
                 count: number;

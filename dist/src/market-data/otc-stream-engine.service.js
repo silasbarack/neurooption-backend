@@ -26,6 +26,7 @@ const ANCHOR_FOLLOW_SECONDS = 7_200;
 const DECISION_INTERVAL_MS = 100;
 const DECISION_TOLERANCE_MS = 8;
 const MAX_SUBTICKS_PER_MOVE = 4;
+const STREAM_HEARTBEAT_MS = 500;
 const SUBTICK_STALE_MS = 60;
 let OtcStreamEngineService = class OtcStreamEngineService {
     constructor() {
@@ -40,10 +41,30 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             return true;
         return state.pendingSteps.length === 0 && now >= state.nextDecisionAt - DECISION_TOLERANCE_MS;
     }
+    isDecisionDue(symbol, now = Date.now()) {
+        const state = this.states.get(this.findAsset(symbol).symbol);
+        return !state || now >= state.nextDecisionAt - DECISION_TOLERANCE_MS;
+    }
     nextTick(symbol, now = Date.now()) {
         const asset = this.findAsset(symbol);
         const state = this.getState(asset, now);
         const tickSize = 10 ** -asset.precision;
+        this.advance(asset, state, now, tickSize);
+        return this.emitTick(asset, state, now, tickSize);
+    }
+    nextStreamTick(symbol, now = Date.now()) {
+        const asset = this.findAsset(symbol);
+        const state = this.getState(asset, now);
+        const tickSize = 10 ** -asset.precision;
+        const previousMid = this.roundToTick(state.quotePrice, tickSize);
+        this.advance(asset, state, now, tickSize);
+        if (this.roundToTick(state.quotePrice, tickSize) === previousMid &&
+            now - state.lastEmittedAt < STREAM_HEARTBEAT_MS) {
+            return null;
+        }
+        return this.emitTick(asset, state, now, tickSize);
+    }
+    advance(asset, state, now, tickSize) {
         if (this.decisionDue(state, now)) {
             for (const step of state.pendingSteps)
                 state.quotePrice += step;
@@ -52,11 +73,14 @@ let OtcStreamEngineService = class OtcStreamEngineService {
         }
         const step = state.pendingSteps.shift() ?? 0;
         state.quotePrice = this.roundToTick(state.quotePrice + step, tickSize);
+        state.lastTimestamp = now;
+    }
+    emitTick(asset, state, now, tickSize) {
         const roundedMid = this.roundToTick(state.quotePrice, tickSize);
         const roundedBid = this.roundToTick(roundedMid - state.spread / 2, tickSize);
         const roundedAsk = this.roundToTick(roundedMid + state.spread / 2, tickSize);
         state.sequence += 1;
-        state.lastTimestamp = now;
+        state.lastEmittedAt = now;
         return {
             symbol: asset.symbol,
             bid: roundedBid,
@@ -181,6 +205,7 @@ let OtcStreamEngineService = class OtcStreamEngineService {
             lastDecisionAt: now - DECISION_INTERVAL_MS,
             nextDecisionAt: now,
             pendingSteps: [],
+            lastEmittedAt: 0,
             lastMoveDirection: 0,
             recentAbsoluteReturn: 0,
             microRegime: 'RANGE',

@@ -22,6 +22,7 @@ let MarketTickerService = class MarketTickerService {
         this.unsubscribe = null;
     }
     onModuleInit() {
+        this.marketStreamService.setWatchedSymbols((symbol) => this.marketGateway.isWatched(symbol));
         this.unsubscribe = this.marketStreamService.subscribe((event) => this.broadcast(event));
     }
     onModuleDestroy() {

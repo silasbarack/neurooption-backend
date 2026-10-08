@@ -8,22 +8,60 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LatencyMetricsService = void 0;
 const common_1 = require("@nestjs/common");
+const node_perf_hooks_1 = require("node:perf_hooks");
 const HISTOGRAM_LIMIT = 2048;
+const SUMMARY_LOG_INTERVAL_MS = 60_000;
+class Ring {
+    constructor() {
+        this.values = new Float64Array(HISTOGRAM_LIMIT);
+        this.next = 0;
+        this.size = 0;
+    }
+    push(value) {
+        this.values[this.next] = value;
+        this.next = (this.next + 1) % HISTOGRAM_LIMIT;
+        this.size = Math.min(this.size + 1, HISTOGRAM_LIMIT);
+    }
+    toArray() {
+        return Array.from(this.values.subarray(0, this.size));
+    }
+    clear() {
+        this.next = 0;
+        this.size = 0;
+    }
+}
 let LatencyMetricsService = class LatencyMetricsService {
     constructor() {
+        this.logger = new common_1.Logger('MarketLatency');
         this.histograms = new Map();
         this.counters = new Map();
-        this.recentTicks = [];
+        this.transports = new Map();
+        this.ticksThisSecond = 0;
+        this.tickSecond = 0;
+        this.ticksPerSecond = 0;
+        this.eventLoopDelay = null;
+        this.logTimer = null;
+    }
+    onModuleInit() {
+        this.eventLoopDelay = (0, node_perf_hooks_1.monitorEventLoopDelay)({ resolution: 10 });
+        this.eventLoopDelay.enable();
+        this.logTimer = setInterval(() => this.logSummary(), SUMMARY_LOG_INTERVAL_MS);
+        this.logTimer.unref?.();
+    }
+    onModuleDestroy() {
+        this.eventLoopDelay?.disable();
+        if (this.logTimer)
+            clearInterval(this.logTimer);
     }
     observe(name, value) {
         if (!Number.isFinite(value) || value < 0)
             return;
-        const values = this.histograms.get(name) ?? [];
-        values.push(value);
-        if (values.length > HISTOGRAM_LIMIT) {
-            values.splice(0, values.length - HISTOGRAM_LIMIT);
+        let ring = this.histograms.get(name);
+        if (!ring) {
+            ring = new Ring();
+            this.histograms.set(name, ring);
         }
-        this.histograms.set(name, values);
+        ring.push(value);
     }
     increment(name, by = 1) {
         this.counters.set(name, Math.max(0, (this.counters.get(name) ?? 0) + by));
@@ -31,24 +69,60 @@ let LatencyMetricsService = class LatencyMetricsService {
     setCounter(name, value) {
         this.counters.set(name, Math.max(0, Math.round(value)));
     }
+    observeTransport(name) {
+        const key = name === 'websocket' || name === 'polling' ? name : 'other';
+        this.transports.set(key, (this.transports.get(key) ?? 0) + 1);
+    }
     markTick(at = Date.now()) {
-        this.recentTicks.push(at);
-        const cutoff = at - 1_000;
-        while (this.recentTicks.length > 0 && this.recentTicks[0] < cutoff) {
-            this.recentTicks.shift();
+        const second = Math.floor(at / 1_000);
+        if (second !== this.tickSecond) {
+            this.ticksPerSecond = second === this.tickSecond + 1 ? this.ticksThisSecond : 0;
+            this.tickSecond = second;
+            this.ticksThisSecond = 0;
         }
+        this.ticksThisSecond += 1;
     }
     snapshot() {
-        const histograms = Object.fromEntries(Array.from(this.histograms.entries()).map(([name, values]) => [
+        const histograms = Object.fromEntries(Array.from(this.histograms.entries()).map(([name, ring]) => [
             name,
-            this.summarize(values),
+            this.summarize(ring.toArray()),
         ]));
         return {
             timestamp: Date.now(),
-            ticks_per_second: this.recentTicks.length,
+            ticks_per_second: this.ticksPerSecond,
             ...Object.fromEntries(this.counters.entries()),
+            event_loop_delay_ms: this.eventLoopSummary(),
+            transports: Object.fromEntries(this.transports.entries()),
             histograms,
         };
+    }
+    logSummary() {
+        const age = this.summarize(this.histograms.get('client_tick_age_ms')?.toArray() ?? []);
+        const render = this.summarize(this.histograms.get('client_render_delay_ms')?.toArray() ?? []);
+        const loop = this.eventLoopSummary();
+        this.logger.log(JSON.stringify({
+            connections: this.counters.get('active_websocket_connections') ?? 0,
+            ticksPerSecond: this.ticksPerSecond,
+            eventLoopDelayMs: loop,
+            clientTickAgeMs: { n: age.count, p50: age.p50, p95: age.p95, max: age.max },
+            clientRenderDelayMs: { n: render.count, p50: render.p50, p95: render.p95 },
+            transports: Object.fromEntries(this.transports.entries()),
+            resyncs: this.counters.get('resync_requests') ?? 0,
+            reconnects: this.counters.get('reconnect_count') ?? 0,
+        }));
+        this.histograms.get('client_tick_age_ms')?.clear();
+        this.histograms.get('client_render_delay_ms')?.clear();
+        this.transports.clear();
+        this.counters.set('resync_requests', 0);
+        this.counters.set('reconnect_count', 0);
+        this.eventLoopDelay?.reset();
+    }
+    eventLoopSummary() {
+        const h = this.eventLoopDelay;
+        if (!h || h.count === 0)
+            return { p50: 0, p99: 0, max: 0 };
+        const ms = (ns) => Number((ns / 1e6).toFixed(1));
+        return { p50: ms(h.percentile(50)), p99: ms(h.percentile(99)), max: ms(h.max) };
     }
     summarize(values) {
         if (values.length === 0) {

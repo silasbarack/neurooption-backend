@@ -25,6 +25,8 @@ let MarketGateway = class MarketGateway {
     constructor(marketDataService, metrics) {
         this.marketDataService = marketDataService;
         this.metrics = metrics;
+        this.watched = new Set();
+        this.watchedCheckedAt = 0;
     }
     handleConnection(client) {
         this.metrics.setCounter('active_websocket_connections', this.server.sockets.size);
@@ -92,6 +94,7 @@ let MarketGateway = class MarketGateway {
                 message: 'Resync requests are rate limited.',
             };
         }
+        this.metrics.increment('resync_requests');
         const symbol = this.normalizeSymbol(data?.symbol);
         const timeframe = (0, timeframe_config_1.normalizeTimeframe)(data?.timeframe);
         const result = this.marketDataService.getCandles({
@@ -125,6 +128,9 @@ let MarketGateway = class MarketGateway {
         }
         if (data?.reconnect)
             this.metrics.increment('reconnect_count');
+        if (typeof data?.transport === 'string') {
+            this.metrics.observeTransport(data.transport);
+        }
         return { ok: true, serverTimestamp: Date.now() };
     }
     broadcastPriceUpdate(dto) {
@@ -142,6 +148,22 @@ let MarketGateway = class MarketGateway {
     }
     chartRoom(symbol, timeframe) {
         return `chart:${symbol}:${timeframe}`;
+    }
+    isWatched(symbol) {
+        const now = Date.now();
+        if (now - this.watchedCheckedAt > 250) {
+            this.watchedCheckedAt = now;
+            const next = new Set();
+            for (const room of this.server?.adapter?.rooms?.keys() ?? []) {
+                if (room.startsWith('symbol:'))
+                    next.add(room.slice(7));
+                else if (room.startsWith('chart:')) {
+                    next.add(room.slice(6, room.lastIndexOf(':')));
+                }
+            }
+            this.watched = next;
+        }
+        return this.watched.has(symbol);
     }
     roomSize(room) {
         return this.server.adapter.rooms.get(room)?.size ?? 0;

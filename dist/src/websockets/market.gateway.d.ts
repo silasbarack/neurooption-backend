@@ -101,6 +101,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
         tickAgeMs?: number;
         renderDelayMs?: number;
         reconnect?: boolean;
+        transport?: string;
     }): {
         ok: boolean;
         rateLimited: boolean;
@@ -114,6 +115,9 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
     broadcastCandleUpdate(dto: MarketCandleUpdate): void;
     symbolRoom(symbol: string): string;
     chartRoom(symbol: string, timeframe: string): string;
+    private watched;
+    private watchedCheckedAt;
+    isWatched(symbol: string): boolean;
     roomSize(room: string): number;
     private allowEvent;
     private normalizeSymbol;

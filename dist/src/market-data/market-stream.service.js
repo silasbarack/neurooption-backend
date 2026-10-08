@@ -24,6 +24,7 @@ let MarketStreamService = class MarketStreamService {
         this.intervalHandle = null;
         this.listeners = new Set();
         this.latestTicks = new Map();
+        this.isWatched = () => true;
     }
     onModuleInit() {
         this.tickAll();
@@ -37,13 +38,16 @@ let MarketStreamService = class MarketStreamService {
         }
         this.listeners.clear();
     }
+    setWatchedSymbols(isWatched) {
+        this.isWatched = isWatched;
+    }
     subscribe(listener) {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
     }
     getLatestTick(symbol) {
         const cached = this.latestTicks.get(symbol);
-        if (cached && Date.now() - cached.serverReceiveTimestamp <= 500) {
+        if (cached && Date.now() - cached.serverReceiveTimestamp <= 1_000) {
             return cached;
         }
         return this.generateTick(symbol);
@@ -57,9 +61,14 @@ let MarketStreamService = class MarketStreamService {
         for (const asset of market_data_constants_1.MARKET_ASSETS) {
             if (!asset.isActive)
                 continue;
-            if (!this.otcEngine.isDue(asset.symbol, now))
+            const due = this.isWatched(asset.symbol)
+                ? this.otcEngine.isDue(asset.symbol, now)
+                : this.otcEngine.isDecisionDue(asset.symbol, now);
+            if (!due)
                 continue;
-            const tick = this.generateTick(asset.symbol);
+            const tick = this.generateStreamTick(asset.symbol);
+            if (!tick)
+                continue;
             const aggregationStart = performance.now();
             const aggregation = this.candleAggregator.applyTick(tick);
             this.metrics.observe('candle_aggregation_time_ms', performance.now() - aggregationStart);
@@ -82,9 +91,17 @@ let MarketStreamService = class MarketStreamService {
             this.metrics.increment('ticks_dropped');
         }
     }
+    generateStreamTick(symbol) {
+        const now = Date.now();
+        const raw = this.otcEngine.nextStreamTick(symbol, now);
+        return raw ? this.recordTick(raw, now) : null;
+    }
     generateTick(symbol) {
-        const serverReceiveTimestamp = Date.now();
-        const raw = this.otcEngine.nextTick(symbol, serverReceiveTimestamp);
+        const now = Date.now();
+        return this.recordTick(this.otcEngine.nextTick(symbol, now), now);
+    }
+    recordTick(raw, serverReceiveTimestamp) {
+        const symbol = raw.symbol;
         const tick = {
             ...raw,
             serverReceiveTimestamp,

@@ -15,13 +15,17 @@ export declare class MarketStreamService implements OnModuleInit, OnModuleDestro
     private intervalHandle;
     private readonly listeners;
     private readonly latestTicks;
+    private isWatched;
     constructor(otcEngine: OtcStreamEngineService, candleAggregator: CandleAggregatorService, metrics: LatencyMetricsService);
     onModuleInit(): void;
     onModuleDestroy(): void;
+    setWatchedSymbols(isWatched: (symbol: string) => boolean): void;
     subscribe(listener: Listener): () => boolean;
     getLatestTick(symbol: string): NormalizedMarketTick;
     getCandleAggregator(): CandleAggregatorService;
     private tickAll;
+    private generateStreamTick;
     private generateTick;
+    private recordTick;
 }
 export {};
