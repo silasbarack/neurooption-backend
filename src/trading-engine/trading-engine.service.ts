@@ -279,6 +279,14 @@ export class TradingEngineService {
     return this.walletsService.getBalance(userId, accountType, currency);
   }
 
+  async topUpDemo(
+    userId: string,
+    amountUsd: number,
+    currency: AccountCurrency = 'USD',
+  ) {
+    return this.walletsService.topUpDemo(userId, amountUsd, currency);
+  }
+
   async getTransactions(userId = 'demo-user') {
     return this.transactionsService.findByUser(userId);
   }

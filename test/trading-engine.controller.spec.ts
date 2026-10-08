@@ -10,6 +10,7 @@ describe('TradingEngineController user binding', () => {
     getWallet: jest.fn(async (...args) => args),
     getOpenTrades: jest.fn(async (userId) => userId),
     settleTradeForUser: jest.fn(async (...args) => args),
+    topUpDemo: jest.fn(async (...args) => args),
   };
   const controller = new TradingEngineController(service as any);
   const signedIn = { user: { id: 'user-123' } } as any;
@@ -33,6 +34,12 @@ describe('TradingEngineController user binding', () => {
       UnauthorizedException,
     );
     expect(() => controller.getWallet(guest, 'QT Real', 'USD')).toThrow(UnauthorizedException);
+  });
+
+  it('tops up only the caller\'s demo account', async () => {
+    await controller.topUpDemo(signedIn, 50_000, 'KES');
+    expect(service.topUpDemo).toHaveBeenCalledWith('user-123', 50_000, 'KES');
+    expect(() => controller.topUpDemo(signedIn, 50_000, 'XYZ' as never)).toThrow();
   });
 
   it('settles only for the caller', async () => {

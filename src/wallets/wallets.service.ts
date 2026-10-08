@@ -8,6 +8,11 @@ import {
   usdToCurrency,
 } from '../trading-engine/trading-engine.types';
 
+/** Virtual amounts (USD) a demo account can add in one go. */
+export const DEMO_TOP_UP_AMOUNTS_USD = [20_000, 50_000, 60_000, 100_000];
+/** Demo funds can only be added while the balance is below this (USD). */
+export const DEMO_TOP_UP_THRESHOLD_USD = 10_000;
+
 @Injectable()
 export class WalletsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -33,9 +38,62 @@ export class WalletsService {
     accountType: AccountType = 'QT Demo',
     currency: AccountCurrency = 'USD',
   ) {
+    // Demo trades debit and credit the USD wallet, so that is the demo
+    // balance; other currencies show it converted.
+    if (accountType === 'QT Demo' && currency !== 'USD') {
+      const usdWallet = await this.ensureWallet(userId, accountType, 'USD');
+      return this.formatWallet({
+        ...usdWallet,
+        currency,
+        balance: usdToCurrency(Number(usdWallet.balanceUsd), currency),
+        locked: usdToCurrency(Number(usdWallet.lockedUsd), currency),
+      });
+    }
+
     const wallet = await this.ensureWallet(userId, accountType, currency);
 
     return this.formatWallet(wallet);
+  }
+
+  /**
+   * Adds virtual funds to a demo account. Only allowed while the demo
+   * balance is below DEMO_TOP_UP_THRESHOLD_USD; the check and the credit are
+   * a single conditional update, so a double click cannot add twice.
+   */
+  async topUpDemo(
+    userId: string,
+    amountUsd: number,
+    currency: AccountCurrency = 'USD',
+  ) {
+    if (!DEMO_TOP_UP_AMOUNTS_USD.includes(amountUsd)) {
+      throw new BadRequestException(
+        `Choose one of ${DEMO_TOP_UP_AMOUNTS_USD.join(', ')}.`,
+      );
+    }
+
+    const wallet = await this.ensureWallet(userId, 'QT Demo', 'USD');
+    const { count } = await this.prisma.engineWallet.updateMany({
+      where: {
+        id: wallet.id,
+        balanceUsd: { lt: new Prisma.Decimal(DEMO_TOP_UP_THRESHOLD_USD) },
+      },
+      data: {
+        balanceUsd: { increment: new Prisma.Decimal(amountUsd) },
+        balance: { increment: new Prisma.Decimal(amountUsd) },
+      },
+    });
+
+    if (count === 0) {
+      throw new BadRequestException(
+        'Demo funds can be added when your demo balance is below $10,000.',
+      );
+    }
+
+    return {
+      message: 'Demo funds added.',
+      addedUsd: amountUsd,
+      wallet: await this.getBalance(userId, 'QT Demo', currency),
+    };
   }
 
   async debit(userId: string, accountType: AccountType, amountUsd: number) {

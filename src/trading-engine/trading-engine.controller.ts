@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -15,6 +16,7 @@ import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { TradingEngineService } from './trading-engine.service';
 import { PlaceTradeDto } from './dto/place-trade.dto';
 import {
+  ACCOUNT_CURRENCIES,
   AccountCurrency,
   AccountType,
 } from './trading-engine.types';
@@ -78,6 +80,19 @@ export class TradingEngineController {
   ) {
     const userId = resolveUserId(req, accountType);
     return this.tradingEngineService.getWallet(userId, accountType, currency);
+  }
+
+  @Post('demo/top-up')
+  topUpDemo(
+    @Req() req: MaybeAuthenticatedRequest,
+    @Body('amount') amount: number,
+    @Body('currency') currency: AccountCurrency = 'USD',
+  ) {
+    if (!ACCOUNT_CURRENCIES.includes(currency)) {
+      throw new BadRequestException('Unsupported currency.');
+    }
+    const userId = resolveUserId(req, 'QT Demo');
+    return this.tradingEngineService.topUpDemo(userId, Number(amount), currency);
   }
 
   @Get('transactions')
