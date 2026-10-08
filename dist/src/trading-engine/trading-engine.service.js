@@ -189,6 +189,9 @@ let TradingEngineService = class TradingEngineService {
     async getWallet(userId = 'demo-user', accountType = 'QT Demo', currency = 'USD') {
         return this.walletsService.getBalance(userId, accountType, currency);
     }
+    async topUpDemo(userId, amountUsd, currency = 'USD') {
+        return this.walletsService.topUpDemo(userId, amountUsd, currency);
+    }
     async getTransactions(userId = 'demo-user') {
         return this.transactionsService.findByUser(userId);
     }

@@ -74,6 +74,22 @@ export declare class TradingEngineService {
         createdAt: any;
         updatedAt: any;
     }>;
+    topUpDemo(userId: string, amountUsd: number, currency?: AccountCurrency): Promise<{
+        message: string;
+        addedUsd: number;
+        wallet: {
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
+            balance: number;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
+        };
+    }>;
     getTransactions(userId?: string): Promise<{
         id: any;
         userId: any;

@@ -11,10 +11,10 @@ export declare class WalletsController {
         updatedAt: Date;
         userId: string;
         currency: string;
-        accountType: string;
         balance: import("@prisma/client/runtime/library").Decimal;
-        balanceUsd: import("@prisma/client/runtime/library").Decimal;
         locked: import("@prisma/client/runtime/library").Decimal;
+        accountType: string;
+        balanceUsd: import("@prisma/client/runtime/library").Decimal;
         lockedUsd: import("@prisma/client/runtime/library").Decimal;
     }[]>;
     deposit(dto: DepositDto): Promise<{

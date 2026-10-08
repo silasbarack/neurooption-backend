@@ -56,6 +56,22 @@ export declare class TradingEngineController {
         createdAt: any;
         updatedAt: any;
     }>;
+    topUpDemo(req: MaybeAuthenticatedRequest, amount: number, currency?: AccountCurrency): Promise<{
+        message: string;
+        addedUsd: number;
+        wallet: {
+            id: any;
+            userId: any;
+            accountType: any;
+            currency: any;
+            balance: number;
+            balanceUsd: number;
+            locked: number;
+            lockedUsd: number;
+            createdAt: any;
+            updatedAt: any;
+        };
+    }>;
     getTransactions(req: MaybeAuthenticatedRequest): Promise<{
         id: any;
         userId: any;

@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const optional_jwt_auth_guard_1 = require("../auth/optional-jwt-auth.guard");
 const trading_engine_service_1 = require("./trading-engine.service");
 const place_trade_dto_1 = require("./dto/place-trade.dto");
+const trading_engine_types_1 = require("./trading-engine.types");
 exports.GUEST_USER_ID = 'demo-user';
 function resolveUserId(req, accountType) {
     const userId = req.user?.id;
@@ -50,6 +51,13 @@ let TradingEngineController = class TradingEngineController {
     getWallet(req, accountType = 'QT Demo', currency = 'USD') {
         const userId = resolveUserId(req, accountType);
         return this.tradingEngineService.getWallet(userId, accountType, currency);
+    }
+    topUpDemo(req, amount, currency = 'USD') {
+        if (!trading_engine_types_1.ACCOUNT_CURRENCIES.includes(currency)) {
+            throw new common_1.BadRequestException('Unsupported currency.');
+        }
+        const userId = resolveUserId(req, 'QT Demo');
+        return this.tradingEngineService.topUpDemo(userId, Number(amount), currency);
     }
     getTransactions(req) {
         return this.tradingEngineService.getTransactions(resolveUserId(req));
@@ -102,6 +110,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], TradingEngineController.prototype, "getWallet", null);
+__decorate([
+    (0, common_1.Post)('demo/top-up'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)('amount')),
+    __param(2, (0, common_1.Body)('currency')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number, String]),
+    __metadata("design:returntype", void 0)
+], TradingEngineController.prototype, "topUpDemo", null);
 __decorate([
     (0, common_1.Get)('transactions'),
     __param(0, (0, common_1.Req)()),

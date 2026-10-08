@@ -9,11 +9,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WalletsService = void 0;
+exports.WalletsService = exports.DEMO_TOP_UP_THRESHOLD_USD = exports.DEMO_TOP_UP_AMOUNTS_USD = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../config/prisma.service");
 const trading_engine_types_1 = require("../trading-engine/trading-engine.types");
+exports.DEMO_TOP_UP_AMOUNTS_USD = [20_000, 50_000, 60_000, 100_000];
+exports.DEMO_TOP_UP_THRESHOLD_USD = 10_000;
 let WalletsService = class WalletsService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -31,8 +33,41 @@ let WalletsService = class WalletsService {
         return this.getWallet(userId);
     }
     async getBalance(userId, accountType = 'QT Demo', currency = 'USD') {
+        if (accountType === 'QT Demo' && currency !== 'USD') {
+            const usdWallet = await this.ensureWallet(userId, accountType, 'USD');
+            return this.formatWallet({
+                ...usdWallet,
+                currency,
+                balance: (0, trading_engine_types_1.usdToCurrency)(Number(usdWallet.balanceUsd), currency),
+                locked: (0, trading_engine_types_1.usdToCurrency)(Number(usdWallet.lockedUsd), currency),
+            });
+        }
         const wallet = await this.ensureWallet(userId, accountType, currency);
         return this.formatWallet(wallet);
+    }
+    async topUpDemo(userId, amountUsd, currency = 'USD') {
+        if (!exports.DEMO_TOP_UP_AMOUNTS_USD.includes(amountUsd)) {
+            throw new common_1.BadRequestException(`Choose one of ${exports.DEMO_TOP_UP_AMOUNTS_USD.join(', ')}.`);
+        }
+        const wallet = await this.ensureWallet(userId, 'QT Demo', 'USD');
+        const { count } = await this.prisma.engineWallet.updateMany({
+            where: {
+                id: wallet.id,
+                balanceUsd: { lt: new client_1.Prisma.Decimal(exports.DEMO_TOP_UP_THRESHOLD_USD) },
+            },
+            data: {
+                balanceUsd: { increment: new client_1.Prisma.Decimal(amountUsd) },
+                balance: { increment: new client_1.Prisma.Decimal(amountUsd) },
+            },
+        });
+        if (count === 0) {
+            throw new common_1.BadRequestException('Demo funds can be added when your demo balance is below $10,000.');
+        }
+        return {
+            message: 'Demo funds added.',
+            addedUsd: amountUsd,
+            wallet: await this.getBalance(userId, 'QT Demo', currency),
+        };
     }
     async debit(userId, accountType, amountUsd) {
         if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
