@@ -21,6 +21,12 @@ export type AggregatedCandle = {
   closed: boolean;
 };
 
+/**
+ * `candle` is the live candle itself, not a copy: read it before the next
+ * tick for the symbol, or copy it to keep it. (Copying every timeframe on
+ * every tick, when most are never broadcast, was most of the stream's
+ * garbage.)
+ */
 export type CandleUpdate = {
   symbol: string;
   timeframe: MarketTimeframe;
@@ -36,6 +42,8 @@ export class CandleAggregatorService {
   private readonly history = new Map<string, AggregatedCandle[]>();
   private readonly lastSequence = new Map<string, number>();
   private readonly lastTimestamp = new Map<string, number>();
+  /** Per-symbol map keys, one per timeframe, built once. */
+  private readonly keysBySymbol = new Map<string, string[]>();
 
   applyTick(tick: NormalizedMarketTick): {
     updates: CandleUpdate[];
@@ -82,8 +90,10 @@ export class CandleAggregatorService {
 
     const updates: CandleUpdate[] = [];
 
-    for (const timeframe of SUPPORTED_TIMEFRAMES) {
-      const key = this.key(tick.symbol, timeframe);
+    const keys = this.keysFor(tick.symbol);
+    for (let index = 0; index < SUPPORTED_TIMEFRAMES.length; index += 1) {
+      const timeframe = SUPPORTED_TIMEFRAMES[index];
+      const key = keys[index];
       const bucketStart = timeframeBucketStart(tick.timestamp, timeframe);
       const current = this.active.get(key);
 
@@ -100,7 +110,7 @@ export class CandleAggregatorService {
         );
 
         this.active.set(key, next);
-        updates.push({ symbol: tick.symbol, timeframe, candle: { ...next } });
+        updates.push({ symbol: tick.symbol, timeframe, candle: next });
         continue;
       }
 
@@ -116,7 +126,7 @@ export class CandleAggregatorService {
       current.volume += 1;
       current.lastSequence = tick.sequence;
 
-      updates.push({ symbol: tick.symbol, timeframe, candle: { ...current } });
+      updates.push({ symbol: tick.symbol, timeframe, candle: current });
     }
 
     return { updates, duplicate: false, outOfOrder: false, sequenceGap };
@@ -181,6 +191,15 @@ export class CandleAggregatorService {
     }
 
     this.history.set(key, candles);
+  }
+
+  private keysFor(symbol: string) {
+    let keys = this.keysBySymbol.get(symbol);
+    if (!keys) {
+      keys = SUPPORTED_TIMEFRAMES.map((timeframe) => this.key(symbol, timeframe));
+      this.keysBySymbol.set(symbol, keys);
+    }
+    return keys;
   }
 
   private key(symbol: string, timeframe: MarketTimeframe) {
