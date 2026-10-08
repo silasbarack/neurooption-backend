@@ -15,6 +15,10 @@ import {
   normalizeTimeframe,
 } from '../market-data/timeframe.config';
 import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
+import {
+  AssetPayoutUpdate,
+  PayoutEngineService,
+} from '../payout-engine/payout-engine.service';
 import { WebsocketEvents } from './websockets-events';
 
 const MAX_SUBSCRIPTIONS_PER_SOCKET = 12;
@@ -68,6 +72,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly marketDataService: MarketDataService,
     private readonly metrics: LatencyMetricsService,
+    private readonly payoutEngine: PayoutEngineService,
   ) {}
 
   handleConnection(client: Socket) {
@@ -83,6 +88,12 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       protocolVersion: 2,
       serverTimestamp,
       serverTime: new Date(serverTimestamp).toISOString(),
+    });
+    // Every (re)connection starts from the current payouts, so an update
+    // missed while disconnected never leaves a stale payout on screen.
+    client.emit(WebsocketEvents.ASSET_PAYOUT_SNAPSHOT, {
+      serverTimestamp,
+      payouts: this.payoutEngine.listSnapshots(),
     });
   }
 
@@ -249,6 +260,11 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server
       .to(this.chartRoom(dto.symbol, dto.timeframe))
       .emit(WebsocketEvents.CANDLE_UPDATE, dto);
+  }
+
+  /** Payout changes are rare and small, so every client gets them. */
+  broadcastPayoutUpdate(update: AssetPayoutUpdate) {
+    this.server?.emit(WebsocketEvents.ASSET_PAYOUT_UPDATED, update);
   }
 
   symbolRoom(symbol: string) {

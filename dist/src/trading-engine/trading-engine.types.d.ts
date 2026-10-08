@@ -14,6 +14,7 @@ export type PlacedTrade = {
     stakeAmount: number;
     stakeUsd: number;
     payoutPercent: number;
+    payoutVersion?: number;
     expectedProfitAmount: number;
     expectedProfitUsd: number;
     expectedReturnAmount: number;

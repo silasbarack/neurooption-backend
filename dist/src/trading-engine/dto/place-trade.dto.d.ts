@@ -8,4 +8,6 @@ export declare class PlaceTradeDto {
     currency?: AccountCurrency;
     amount: number;
     expirySeconds: number;
+    quotedPayoutPercent?: number;
+    payoutVersion?: number;
 }

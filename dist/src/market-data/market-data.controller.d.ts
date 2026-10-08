@@ -2,14 +2,58 @@ import { MarketDataService } from './market-data.service';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
 import { MarketTickQueryDto } from './dto/market-tick-query.dto';
 import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
 export declare class MarketDataController {
     private readonly marketDataService;
     private readonly latencyMetrics;
-    constructor(marketDataService: MarketDataService, latencyMetrics: LatencyMetricsService);
+    private readonly payoutEngine;
+    constructor(marketDataService: MarketDataService, latencyMetrics: LatencyMetricsService, payoutEngine: PayoutEngineService);
+    getPayouts(): {
+        serverTime: string;
+        marketType: "OTC";
+        note: string;
+        expiryAdjustments: {
+            maxSeconds?: number;
+            minSeconds?: number;
+            adjustPercent: number;
+        }[];
+        bounds: {
+            minPercent: number;
+            maxPercent: number;
+        };
+        payouts: import("../payout-engine/payout-engine.service").AssetPayoutSnapshot[];
+    };
+    getPayoutQuote(asset: string, expirySeconds?: string): import("../payout-engine/payout-engine.service").PayoutQuote;
+    getPayoutDiagnostics(asset: string): {
+        smoothedTargetPercent: number;
+        lastReviewedAt: string;
+        movementLastHour: import("../payout-engine/payout-smoothing").PayoutChange[];
+        target: import("../payout-engine/payout-model").PayoutTarget;
+        metrics: import("../payout-engine/payout-model").MarketConditionMetrics;
+        leader: boolean;
+        assetId: string;
+        symbol: string;
+        payoutPercent: number;
+        previousPercent: number | null;
+        marketType: "OTC" | "REAL";
+        category: string;
+        version: number;
+        updatedAt: string;
+        reason: string;
+        baselinePercent: number;
+        targetPercent: number | null;
+    };
+    getPayoutHistory(asset: string, limit?: string): Promise<{
+        asset: string;
+        history: import("../payout-engine/payout-repository").PayoutHistoryEntry[];
+    }>;
     getAssets(): {
         serverTime: string;
         categories: import("./market-data.constants").AssetCategory[];
         assets: {
+            payout: number;
+            payoutVersion: number;
+            payoutUpdatedAt: string;
             symbol: string;
             label: string;
             category: import("./market-data.constants").AssetCategory;
@@ -24,13 +68,15 @@ export declare class MarketDataController {
     getQuotes(): {
         serverTime: string;
         quotes: {
+            payout: number;
+            payoutVersion: number;
+            payoutUpdatedAt: string;
             symbol: string;
             label: string;
             category: import("./market-data.constants").AssetCategory;
             precision: number;
             price: number;
             changePercent: number;
-            payout: number;
         }[];
     };
     getCandles(query: MarketCandlesQueryDto): Promise<{

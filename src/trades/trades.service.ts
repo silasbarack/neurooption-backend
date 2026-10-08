@@ -105,6 +105,10 @@ export class TradesService {
             : new Prisma.Decimal(Number(input.profitUsd)),
 
         metadata: input.metadata ?? undefined,
+        payoutVersion:
+          input.payoutVersion === undefined || input.payoutVersion === null
+            ? undefined
+            : Number(input.payoutVersion),
       },
     });
 
@@ -284,6 +288,10 @@ export class TradesService {
       stakeUsd: Number(trade.stakeUsd),
 
       payoutPercent: Number(trade.payoutPercent),
+      payoutVersion:
+        trade.payoutVersion === null || trade.payoutVersion === undefined
+          ? undefined
+          : Number(trade.payoutVersion),
       expectedProfitAmount: Number(trade.expectedProfitAmount),
       expectedProfitUsd: Number(trade.expectedProfitUsd),
       expectedReturnAmount: Number(trade.expectedReturnAmount),

@@ -2,6 +2,7 @@ import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Namespace, Socket } from 'socket.io';
 import { MarketDataService } from '../market-data/market-data.service';
 import { LatencyMetricsService } from '../monitoring/latency-metrics.service';
+import { AssetPayoutUpdate, PayoutEngineService } from '../payout-engine/payout-engine.service';
 export type MarketPriceUpdate = {
     symbol: string;
     price: number;
@@ -34,8 +35,9 @@ export type MarketCandleUpdate = {
 export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly marketDataService;
     private readonly metrics;
+    private readonly payoutEngine;
     server: Namespace;
-    constructor(marketDataService: MarketDataService, metrics: LatencyMetricsService);
+    constructor(marketDataService: MarketDataService, metrics: LatencyMetricsService, payoutEngine: PayoutEngineService);
     handleConnection(client: Socket): void;
     handleDisconnect(): void;
     subscribeSymbol(client: Socket, data: {
@@ -113,6 +115,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
     };
     broadcastPriceUpdate(dto: MarketPriceUpdate): void;
     broadcastCandleUpdate(dto: MarketCandleUpdate): void;
+    broadcastPayoutUpdate(update: AssetPayoutUpdate): void;
     symbolRoom(symbol: string): string;
     chartRoom(symbol: string, timeframe: string): string;
     private watched;

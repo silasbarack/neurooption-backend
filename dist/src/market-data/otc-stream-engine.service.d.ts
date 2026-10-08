@@ -1,4 +1,10 @@
 import { NormalizedMarketTick } from './market-tick.types';
+export type OtcRegimeStats = {
+    decisions: number;
+    stressed: number;
+    trending: number;
+    current: string | null;
+};
 export declare class OtcStreamEngineService {
     private readonly states;
     isDue(symbol: string, now?: number): boolean;
@@ -9,6 +15,7 @@ export declare class OtcStreamEngineService {
     private advance;
     private emitTick;
     private decide;
+    drainRegimeStats(symbol: string): OtcRegimeStats;
     getLatestTick(symbol: string, now?: number): Omit<NormalizedMarketTick, "serverReceiveTimestamp">;
     private getState;
     private transitionRegime;

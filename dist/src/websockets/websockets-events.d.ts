@@ -16,5 +16,7 @@ export declare const WebsocketEvents: {
     DEPOSIT_UPDATE: string;
     WITHDRAWAL_UPDATE: string;
     PAYOUT_UPDATE: string;
+    ASSET_PAYOUT_UPDATED: string;
+    ASSET_PAYOUT_SNAPSHOT: string;
     ERROR: string;
 };

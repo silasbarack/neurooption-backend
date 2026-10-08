@@ -14,6 +14,7 @@ const node_fs_1 = require("node:fs");
 const common_1 = require("@nestjs/common");
 const market_data_constants_1 = require("./market-data.constants");
 const market_stream_service_1 = require("./market-stream.service");
+const payout_engine_service_1 = require("../payout-engine/payout-engine.service");
 const HISTORY_SLICE_MS_BASE = 4;
 function cpuQuota() {
     const read = (path) => {
@@ -40,8 +41,9 @@ const HISTORY_CACHE_KEYS = 60;
 const HISTORY_CACHE_SLACK = 120;
 const HISTORY_SLICE_MS = HISTORY_SLICE_MS_BASE;
 let MarketDataService = class MarketDataService {
-    constructor(marketStreamService) {
+    constructor(marketStreamService, payoutEngine) {
         this.marketStreamService = marketStreamService;
+        this.payoutEngine = payoutEngine;
         this.historyCache = new Map();
         this.dnaCache = new Map();
         new common_1.Logger('MarketHistory').log(`CPU quota ${CPU_QUOTA >= 1 ? 'none' : CPU_QUOTA.toFixed(2)}; history slices ${HISTORY_SLICE_MS} ms, pause ${HISTORY_PAUSE_MS} ms`);
@@ -60,7 +62,29 @@ let MarketDataService = class MarketDataService {
                 isActive: asset.isActive,
                 marketType: 'OTC',
                 source: 'neurooption-otc-simulator-v2',
+                ...this.payoutFields(asset.symbol),
             })),
+        };
+    }
+    payoutFields(symbol) {
+        const snapshot = this.payoutEngine.getSnapshot(symbol);
+        return {
+            payout: snapshot?.payoutPercent ?? null,
+            payoutVersion: snapshot?.version ?? null,
+            payoutUpdatedAt: snapshot?.updatedAt ?? null,
+        };
+    }
+    getPayouts() {
+        return {
+            serverTime: new Date().toISOString(),
+            marketType: 'OTC',
+            note: 'Synthetic OTC markets. Payouts follow measured conditions of the synthetic price engine.',
+            expiryAdjustments: this.payoutEngine.publicConfig().expiryAdjustments,
+            bounds: {
+                minPercent: this.payoutEngine.config.minPercent,
+                maxPercent: this.payoutEngine.config.maxPercent,
+            },
+            payouts: this.payoutEngine.listSnapshots(),
         };
     }
     getQuotes() {
@@ -82,7 +106,7 @@ let MarketDataService = class MarketDataService {
                     precision: asset.precision,
                     price,
                     changePercent: Number(changePercent.toFixed(2)),
-                    payout: Math.min(Math.max(Math.round(83 + asset.payoutBoost), 20), 92),
+                    ...this.payoutFields(asset.symbol),
                 };
             }),
         };
@@ -818,6 +842,7 @@ let MarketDataService = class MarketDataService {
 exports.MarketDataService = MarketDataService;
 exports.MarketDataService = MarketDataService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [market_stream_service_1.MarketStreamService])
+    __metadata("design:paramtypes", [market_stream_service_1.MarketStreamService,
+        payout_engine_service_1.PayoutEngineService])
 ], MarketDataService);
 //# sourceMappingURL=market-data.service.js.map

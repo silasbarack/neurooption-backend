@@ -18,10 +18,37 @@ const market_data_service_1 = require("./market-data.service");
 const market_candles_query_dto_1 = require("./dto/market-candles-query.dto");
 const market_tick_query_dto_1 = require("./dto/market-tick-query.dto");
 const latency_metrics_service_1 = require("../monitoring/latency-metrics.service");
+const payout_engine_service_1 = require("../payout-engine/payout-engine.service");
 let MarketDataController = class MarketDataController {
-    constructor(marketDataService, latencyMetrics) {
+    constructor(marketDataService, latencyMetrics, payoutEngine) {
         this.marketDataService = marketDataService;
         this.latencyMetrics = latencyMetrics;
+        this.payoutEngine = payoutEngine;
+    }
+    getPayouts() {
+        return this.marketDataService.getPayouts();
+    }
+    getPayoutQuote(asset, expirySeconds) {
+        const seconds = Number(expirySeconds ?? 60);
+        const quote = this.payoutEngine.quote(String(asset ?? ''), Number.isFinite(seconds) ? seconds : 60);
+        if (!quote)
+            throw new common_1.NotFoundException('Unknown asset.');
+        return quote;
+    }
+    getPayoutDiagnostics(asset) {
+        const diagnostics = this.payoutEngine.getDiagnostics(String(asset ?? ''));
+        if (!diagnostics)
+            throw new common_1.NotFoundException('Unknown asset.');
+        return diagnostics;
+    }
+    async getPayoutHistory(asset, limit) {
+        if (!this.payoutEngine.getSnapshot(String(asset ?? ''))) {
+            throw new common_1.NotFoundException('Unknown asset.');
+        }
+        return {
+            asset,
+            history: await this.payoutEngine.getHistory(String(asset), Number(limit) || 50),
+        };
     }
     getAssets() {
         return this.marketDataService.getAssets();
@@ -40,6 +67,35 @@ let MarketDataController = class MarketDataController {
     }
 };
 exports.MarketDataController = MarketDataController;
+__decorate([
+    (0, common_1.Get)('payouts'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], MarketDataController.prototype, "getPayouts", null);
+__decorate([
+    (0, common_1.Get)('payouts/quote'),
+    __param(0, (0, common_1.Query)('asset')),
+    __param(1, (0, common_1.Query)('expirySeconds')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], MarketDataController.prototype, "getPayoutQuote", null);
+__decorate([
+    (0, common_1.Get)('payouts/diagnostics'),
+    __param(0, (0, common_1.Query)('asset')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], MarketDataController.prototype, "getPayoutDiagnostics", null);
+__decorate([
+    (0, common_1.Get)('payouts/history'),
+    __param(0, (0, common_1.Query)('asset')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], MarketDataController.prototype, "getPayoutHistory", null);
 __decorate([
     (0, common_1.Get)('assets'),
     __metadata("design:type", Function),
@@ -75,6 +131,7 @@ __decorate([
 exports.MarketDataController = MarketDataController = __decorate([
     (0, common_1.Controller)('market-data'),
     __metadata("design:paramtypes", [market_data_service_1.MarketDataService,
-        latency_metrics_service_1.LatencyMetricsService])
+        latency_metrics_service_1.LatencyMetricsService,
+        payout_engine_service_1.PayoutEngineService])
 ], MarketDataController);
 //# sourceMappingURL=market-data.controller.js.map
