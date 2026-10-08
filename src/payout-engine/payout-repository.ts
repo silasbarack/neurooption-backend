@@ -187,30 +187,23 @@ function session(client: Client): LeaderSession {
       return true;
     },
     saveEvaluations: async (evaluations, evaluatedAt) => {
-      if (!evaluations.length) return;
-      // One statement for every asset rather than one update each.
-      const symbols = evaluations.map((item) => item.assetSymbol);
-      const targets = evaluations.map((item) => item.targetPercent);
-      const smoothed = evaluations.map((item) => item.smoothedPercent);
-      const reviewed = evaluations.map((item) => new Date(item.lastReviewedAt).toISOString());
-      const metrics = evaluations.map((item) => JSON.stringify(item.riskMetrics ?? null));
-      await client.$executeRaw`
-        UPDATE "AssetPayoutState" AS s
-        SET "targetPercent" = v.target,
-            "smoothedPercent" = v.smoothed,
-            "lastReviewedAt" = GREATEST(s."lastReviewedAt", v.reviewed),
-            "riskMetrics" = v.metrics,
-            "lastEvaluatedAt" = ${new Date(evaluatedAt)},
-            "updatedAt" = ${new Date(evaluatedAt)}
-        FROM (
-          SELECT
-            unnest(${symbols}::text[]) AS symbol,
-            unnest(${targets}::numeric[]) AS target,
-            unnest(${smoothed}::numeric[]) AS smoothed,
-            unnest(${reviewed}::timestamptz[]) AT TIME ZONE 'UTC' AS reviewed,
-            unnest(${metrics}::text[])::jsonb AS metrics
-        ) AS v
-        WHERE s."assetSymbol" = v.symbol`;
+      // Plain per-asset updates (a few dozen small statements a minute, all
+      // inside the leader's transaction). Bulk array-bound SQL was not worth
+      // the risk of driver/pooler differences for this volume.
+      for (const item of evaluations) {
+        await client.assetPayoutState.update({
+          where: { assetSymbol: item.assetSymbol },
+          data: {
+            targetPercent:
+              item.targetPercent === null ? null : new Prisma.Decimal(item.targetPercent),
+            smoothedPercent:
+              item.smoothedPercent === null ? null : new Prisma.Decimal(item.smoothedPercent),
+            lastReviewedAt: new Date(item.lastReviewedAt),
+            lastEvaluatedAt: new Date(evaluatedAt),
+            riskMetrics: (item.riskMetrics ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          },
+        });
+      }
     },
   };
 }

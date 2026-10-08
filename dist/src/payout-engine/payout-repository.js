@@ -91,30 +91,18 @@ function session(client) {
             return true;
         },
         saveEvaluations: async (evaluations, evaluatedAt) => {
-            if (!evaluations.length)
-                return;
-            const symbols = evaluations.map((item) => item.assetSymbol);
-            const targets = evaluations.map((item) => item.targetPercent);
-            const smoothed = evaluations.map((item) => item.smoothedPercent);
-            const reviewed = evaluations.map((item) => new Date(item.lastReviewedAt).toISOString());
-            const metrics = evaluations.map((item) => JSON.stringify(item.riskMetrics ?? null));
-            await client.$executeRaw `
-        UPDATE "AssetPayoutState" AS s
-        SET "targetPercent" = v.target,
-            "smoothedPercent" = v.smoothed,
-            "lastReviewedAt" = GREATEST(s."lastReviewedAt", v.reviewed),
-            "riskMetrics" = v.metrics,
-            "lastEvaluatedAt" = ${new Date(evaluatedAt)},
-            "updatedAt" = ${new Date(evaluatedAt)}
-        FROM (
-          SELECT
-            unnest(${symbols}::text[]) AS symbol,
-            unnest(${targets}::numeric[]) AS target,
-            unnest(${smoothed}::numeric[]) AS smoothed,
-            unnest(${reviewed}::timestamptz[]) AT TIME ZONE 'UTC' AS reviewed,
-            unnest(${metrics}::text[])::jsonb AS metrics
-        ) AS v
-        WHERE s."assetSymbol" = v.symbol`;
+            for (const item of evaluations) {
+                await client.assetPayoutState.update({
+                    where: { assetSymbol: item.assetSymbol },
+                    data: {
+                        targetPercent: item.targetPercent === null ? null : new client_1.Prisma.Decimal(item.targetPercent),
+                        smoothedPercent: item.smoothedPercent === null ? null : new client_1.Prisma.Decimal(item.smoothedPercent),
+                        lastReviewedAt: new Date(item.lastReviewedAt),
+                        lastEvaluatedAt: new Date(evaluatedAt),
+                        riskMetrics: (item.riskMetrics ?? client_1.Prisma.JsonNull),
+                    },
+                });
+            }
         },
     };
 }
