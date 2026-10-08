@@ -54,6 +54,9 @@ export type MarketCandleUpdate = {
   };
 };
 
+// Handlers below answer through the client's acknowledgement callback. Nest
+// treats a returned object with an `event` key as an event to emit instead
+// (and the callback then never fires), so successful replies use `type`.
 @WebSocketGateway({
   namespace: 'market',
   cors: {
@@ -130,7 +133,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const tick = this.marketDataService.getTick(symbol);
     return {
-      event: WebsocketEvents.SUBSCRIBE_SYMBOL,
+      type: WebsocketEvents.SUBSCRIBE_SYMBOL,
       symbol,
       timeframe,
       sequence: Number(tick.sequence ?? 0),
@@ -151,7 +154,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return {
-      event: WebsocketEvents.UNSUBSCRIBE_SYMBOL,
+      type: WebsocketEvents.UNSUBSCRIBE_SYMBOL,
       symbol,
       serverTimestamp: Date.now(),
     };
@@ -161,7 +164,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   serverTime(@MessageBody() data: { clientSentAt?: number } = {}) {
     const serverTimestamp = Date.now();
     return {
-      event: WebsocketEvents.SERVER_TIME,
+      type: WebsocketEvents.SERVER_TIME,
       clientSentAt: Number(data?.clientSentAt ?? 0),
       serverTimestamp,
       serverTime: new Date(serverTimestamp).toISOString(),
@@ -197,7 +200,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
 
     return {
-      event: WebsocketEvents.RESYNC_RESPONSE,
+      type: WebsocketEvents.RESYNC_RESPONSE,
       symbol,
       timeframe,
       requestedSince: Number(data?.since ?? 0),

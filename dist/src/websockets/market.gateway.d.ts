@@ -46,30 +46,32 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
     }): {
         event: string;
         message: string;
+        type?: undefined;
         symbol?: undefined;
         timeframe?: undefined;
         sequence?: undefined;
         serverTimestamp?: undefined;
     } | {
-        event: string;
+        type: string;
         symbol: string;
         timeframe: "S5" | "S10" | "S15" | "S30" | "M1" | "M2" | "M3" | "M5" | "M10" | "M15" | "M30" | "H1" | "H4" | "D1";
         sequence: number;
         serverTimestamp: number;
+        event?: undefined;
         message?: undefined;
     };
     unsubscribeSymbol(client: Socket, data: {
         symbol: string;
         timeframe?: string;
     }): {
-        event: string;
+        type: string;
         symbol: string;
         serverTimestamp: number;
     };
     serverTime(data?: {
         clientSentAt?: number;
     }): {
-        event: string;
+        type: string;
         clientSentAt: number;
         serverTimestamp: number;
         serverTime: string;
@@ -83,6 +85,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
     }): Promise<{
         event: string;
         message: string;
+        type?: undefined;
         symbol?: undefined;
         timeframe?: undefined;
         requestedSince?: undefined;
@@ -90,13 +93,14 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
         serverTimestamp?: undefined;
         candles?: undefined;
     } | {
-        event: string;
+        type: string;
         symbol: string;
         timeframe: "S5" | "S10" | "S15" | "S30" | "M1" | "M2" | "M3" | "M5" | "M10" | "M15" | "M30" | "H1" | "H4" | "D1";
         requestedSince: number;
         lastSequence: number;
         serverTimestamp: number;
         candles: import("../market-data/market-data.constants").OtcCandle[];
+        event?: undefined;
         message?: undefined;
     }>;
     clientMetrics(client: Socket, data: {

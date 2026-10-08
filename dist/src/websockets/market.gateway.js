@@ -65,7 +65,7 @@ let MarketGateway = class MarketGateway {
             client.join(this.chartRoom(symbol, timeframe));
         const tick = this.marketDataService.getTick(symbol);
         return {
-            event: websockets_events_1.WebsocketEvents.SUBSCRIBE_SYMBOL,
+            type: websockets_events_1.WebsocketEvents.SUBSCRIBE_SYMBOL,
             symbol,
             timeframe,
             sequence: Number(tick.sequence ?? 0),
@@ -79,7 +79,7 @@ let MarketGateway = class MarketGateway {
             client.leave(this.chartRoom(symbol, data.timeframe.toUpperCase()));
         }
         return {
-            event: websockets_events_1.WebsocketEvents.UNSUBSCRIBE_SYMBOL,
+            type: websockets_events_1.WebsocketEvents.UNSUBSCRIBE_SYMBOL,
             symbol,
             serverTimestamp: Date.now(),
         };
@@ -87,7 +87,7 @@ let MarketGateway = class MarketGateway {
     serverTime(data = {}) {
         const serverTimestamp = Date.now();
         return {
-            event: websockets_events_1.WebsocketEvents.SERVER_TIME,
+            type: websockets_events_1.WebsocketEvents.SERVER_TIME,
             clientSentAt: Number(data?.clientSentAt ?? 0),
             serverTimestamp,
             serverTime: new Date(serverTimestamp).toISOString(),
@@ -109,7 +109,7 @@ let MarketGateway = class MarketGateway {
             limit: Math.min(Math.max(Number(data?.limit ?? 320), 60), 420),
         });
         return {
-            event: websockets_events_1.WebsocketEvents.RESYNC_RESPONSE,
+            type: websockets_events_1.WebsocketEvents.RESYNC_RESPONSE,
             symbol,
             timeframe,
             requestedSince: Number(data?.since ?? 0),
