@@ -147,4 +147,24 @@ describeDb('payout engine with PostgreSQL', () => {
     }
     for (const total of bySymbol.values()) expect(total).toBeLessThanOrEqual(6);
   });
+
+  it('persists a cold-start cycle where no asset has a target yet', async () => {
+    await admin.assetPayoutHistory.deleteMany({});
+    await admin.assetPayoutState.deleteMany({});
+    const client = new PrismaClient();
+    clients.push(client);
+    const cold = new PayoutEngineService(
+      conditions(() => ({ dataQuality: 'INSUFFICIENT' })),
+      new PrismaPayoutRepository(client),
+    );
+    await cold.initialize(T0);
+    const warn = jest.spyOn((cold as any).logger, 'warn');
+    await cold.runCycle(T0 + MIN);
+    // The cycle must complete (not be skipped) and store every asset.
+    expect(warn).not.toHaveBeenCalled();
+    const rows = await admin.assetPayoutState.findMany();
+    expect(rows).toHaveLength(MARKET_ASSETS.filter((asset) => asset.isActive).length);
+    expect(rows.every((row) => row.targetPercent === null && row.lastEvaluatedAt !== null)).toBe(true);
+    expect(await admin.assetPayoutHistory.count()).toBe(0);
+  });
 });
