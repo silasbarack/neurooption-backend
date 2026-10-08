@@ -33,7 +33,7 @@ export declare class MarketDataController {
             payout: number;
         }[];
     };
-    getCandles(query: MarketCandlesQueryDto): {
+    getCandles(query: MarketCandlesQueryDto): Promise<{
         asset: {
             symbol: string;
             label: string;
@@ -49,7 +49,7 @@ export declare class MarketDataController {
         source: string;
         serverTime: string;
         candles: import("./market-data.constants").OtcCandle[];
-    };
+    }>;
     getTick(query: MarketTickQueryDto): {
         asset: string;
         price: number;

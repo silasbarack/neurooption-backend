@@ -1,3 +1,4 @@
+import { OnApplicationBootstrap } from '@nestjs/common';
 import { OtcCandle } from './market-data.constants';
 import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
 import { MarketStreamService } from './market-stream.service';
@@ -7,7 +8,7 @@ type OtcTick = {
     time: number;
     serverTime: string;
 };
-export declare class MarketDataService {
+export declare class MarketDataService implements OnApplicationBootstrap {
     private readonly marketStreamService;
     constructor(marketStreamService: MarketStreamService);
     getAssets(): {
@@ -39,7 +40,10 @@ export declare class MarketDataService {
     };
     getCategories(): import("./market-data.constants").AssetCategory[];
     getTick(assetSymbol: string): OtcTick & Record<string, unknown>;
-    getCandles(query: MarketCandlesQueryDto): {
+    onApplicationBootstrap(): void;
+    private readonly historyCache;
+    private historyFor;
+    getCandles(query: MarketCandlesQueryDto): Promise<{
         asset: {
             symbol: string;
             label: string;
@@ -55,11 +59,13 @@ export declare class MarketDataService {
         source: string;
         serverTime: string;
         candles: OtcCandle[];
-    };
+    }>;
     getLatestCandle(assetSymbol: string, timeframe: string): OtcCandle;
     private buildCandle;
     private priceAt;
+    private readonly dnaCache;
     private getAssetDna;
+    private computeAssetDna;
     private regimeMove;
     private stepMove;
     private impulse;
@@ -74,6 +80,7 @@ export declare class MarketDataService {
     private getSampleStepMs;
     private getCategoryMultiplier;
     private seededRandom;
+    private hashSeed;
     private roundPrice;
     private normalizeTimeframe;
     private normalizeLimit;

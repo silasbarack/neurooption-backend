@@ -10,12 +10,41 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MarketDataService = void 0;
+const node_fs_1 = require("node:fs");
 const common_1 = require("@nestjs/common");
 const market_data_constants_1 = require("./market-data.constants");
 const market_stream_service_1 = require("./market-stream.service");
+const HISTORY_SLICE_MS_BASE = 4;
+function cpuQuota() {
+    const read = (path) => {
+        try {
+            return (0, node_fs_1.readFileSync)(path, 'utf8').trim();
+        }
+        catch {
+            return null;
+        }
+    };
+    const v2 = read('/sys/fs/cgroup/cpu.max');
+    const v1Quota = read('/sys/fs/cgroup/cpu/cpu.cfs_quota_us');
+    const v1Period = read('/sys/fs/cgroup/cpu/cpu.cfs_period_us');
+    const [quota, period] = v2 ? v2.split(/\s+/) : [v1Quota, v1Period];
+    const share = Number(quota) / Number(period);
+    return Number.isFinite(share) && share > 0 && share < 1 ? share : 1;
+}
+const CPU_QUOTA = cpuQuota();
+const HISTORY_PAUSE_MS = CPU_QUOTA >= 1 ? 0 : Math.ceil(HISTORY_SLICE_MS_BASE * (1 / (CPU_QUOTA * 0.5) - 1));
+function pauseForStream() {
+    return new Promise((resolve) => HISTORY_PAUSE_MS > 0 ? setTimeout(resolve, HISTORY_PAUSE_MS) : setImmediate(resolve));
+}
+const HISTORY_CACHE_KEYS = 60;
+const HISTORY_CACHE_SLACK = 120;
+const HISTORY_SLICE_MS = HISTORY_SLICE_MS_BASE;
 let MarketDataService = class MarketDataService {
     constructor(marketStreamService) {
         this.marketStreamService = marketStreamService;
+        this.historyCache = new Map();
+        this.dnaCache = new Map();
+        new common_1.Logger('MarketHistory').log(`CPU quota ${CPU_QUOTA >= 1 ? 'none' : CPU_QUOTA.toFixed(2)}; history slices ${HISTORY_SLICE_MS} ms, pause ${HISTORY_PAUSE_MS} ms`);
     }
     getAssets() {
         return {
@@ -79,7 +108,28 @@ let MarketDataService = class MarketDataService {
             serverReceiveTimestamp: tick.serverReceiveTimestamp,
         };
     }
-    getCandles(query) {
+    onApplicationBootstrap() {
+        void this.getCandles({ asset: 'EUR/USD OTC', timeframe: 'M1', limit: 320 }).catch(() => undefined);
+    }
+    historyFor(symbol, timeframe) {
+        const key = `${symbol}|${timeframe}`;
+        let entry = this.historyCache.get(key);
+        if (entry) {
+            this.historyCache.delete(key);
+        }
+        else {
+            entry = new Map();
+        }
+        this.historyCache.set(key, entry);
+        while (this.historyCache.size > HISTORY_CACHE_KEYS) {
+            const oldest = this.historyCache.keys().next().value;
+            if (oldest === undefined)
+                break;
+            this.historyCache.delete(oldest);
+        }
+        return entry;
+    }
+    async getCandles(query) {
         const asset = this.findAsset(query.asset);
         const timeframe = this.normalizeTimeframe(query.timeframe);
         const timeframeSeconds = market_data_constants_1.TIMEFRAME_SECONDS[timeframe];
@@ -89,9 +139,26 @@ let MarketDataService = class MarketDataService {
         const currentCandleStart = Math.floor(now / intervalMs) * intervalMs;
         const firstStart = currentCandleStart - intervalMs * (limit - 1);
         const candles = [];
+        const history = this.historyFor(asset.symbol, timeframe);
+        let sliceStart = performance.now();
         for (let index = 0; index < limit; index += 1) {
             const candleStart = firstStart + index * intervalMs;
-            candles.push(this.buildCandle(asset, timeframe, candleStart, now));
+            const closed = candleStart + intervalMs <= now;
+            let candle = closed ? history.get(candleStart) : undefined;
+            if (!candle) {
+                candle = this.buildCandle(asset, timeframe, candleStart, now);
+                if (closed)
+                    history.set(candleStart, candle);
+                if (performance.now() - sliceStart > HISTORY_SLICE_MS) {
+                    await pauseForStream();
+                    sliceStart = performance.now();
+                }
+            }
+            candles.push({ ...candle });
+        }
+        for (const time of history.keys()) {
+            if (time < firstStart - intervalMs * HISTORY_CACHE_SLACK)
+                history.delete(time);
         }
         const aggregator = this.marketStreamService.getCandleAggregator();
         const recentLive = aggregator.getRecentCandles(asset.symbol, timeframe, limit);
@@ -249,6 +316,14 @@ let MarketDataService = class MarketDataService {
         return Math.max(asset.basePrice * (1 + totalMove), asset.basePrice * 0.05);
     }
     getAssetDna(asset) {
+        const cached = this.dnaCache.get(asset.symbol);
+        if (cached)
+            return cached;
+        const dna = this.computeAssetDna(asset);
+        this.dnaCache.set(asset.symbol, dna);
+        return dna;
+    }
+    computeAssetDna(asset) {
         const key = asset.symbol;
         const category = asset.category;
         const r1 = this.seededRandom(`${key}:dna:1`);
@@ -688,6 +763,9 @@ let MarketDataService = class MarketDataService {
         return 1;
     }
     seededRandom(input) {
+        return this.hashSeed(input);
+    }
+    hashSeed(input) {
         let hash = 2166136261;
         for (let index = 0; index < input.length; index += 1) {
             hash ^= input.charCodeAt(index);

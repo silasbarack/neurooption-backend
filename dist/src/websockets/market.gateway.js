@@ -87,7 +87,7 @@ let MarketGateway = class MarketGateway {
             serverTime: new Date(serverTimestamp).toISOString(),
         };
     }
-    resync(client, data) {
+    async resync(client, data) {
         if (!this.allowEvent(client, 'resync', 750)) {
             return {
                 event: websockets_events_1.WebsocketEvents.ERROR,
@@ -97,7 +97,7 @@ let MarketGateway = class MarketGateway {
         this.metrics.increment('resync_requests');
         const symbol = this.normalizeSymbol(data?.symbol);
         const timeframe = (0, timeframe_config_1.normalizeTimeframe)(data?.timeframe);
-        const result = this.marketDataService.getCandles({
+        const result = await this.marketDataService.getCandles({
             asset: symbol,
             timeframe,
             limit: Math.min(Math.max(Number(data?.limit ?? 320), 60), 420),
@@ -221,7 +221,7 @@ __decorate([
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], MarketGateway.prototype, "resync", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)(websockets_events_1.WebsocketEvents.CLIENT_METRICS),

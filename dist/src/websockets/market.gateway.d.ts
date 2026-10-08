@@ -78,7 +78,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
         since?: number;
         limit?: number;
         lastSequence?: number;
-    }): {
+    }): Promise<{
         event: string;
         message: string;
         symbol?: undefined;
@@ -96,7 +96,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
         serverTimestamp: number;
         candles: import("../market-data/market-data.constants").OtcCandle[];
         message?: undefined;
-    };
+    }>;
     clientMetrics(client: Socket, data: {
         tickAgeMs?: number;
         renderDelayMs?: number;
