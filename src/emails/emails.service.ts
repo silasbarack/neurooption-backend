@@ -6,7 +6,9 @@ import {
   EMAIL_LOGO_BASE64,
   EMAIL_LOGO_CID,
   EMAIL_LOGO_FILENAME,
+  EMAIL_LOGO_HEIGHT,
   EMAIL_LOGO_MIME,
+  EMAIL_LOGO_WIDTH,
 } from './email-logo';
 
 type MoneyEmailData = {
@@ -19,8 +21,15 @@ type MoneyEmailData = {
 
 type EmailTemplate = {
   subject: string;
+  /** Plain-text alternative, written per template. */
   body: string;
+  /** Branded HTML version built with the shared layout. */
+  html?: string;
 };
+
+type Tone = 'success' | 'info' | 'danger';
+
+type DetailRow = [label: string, value: string];
 
 type EmailProvider = 'brevo' | 'resend' | 'smtp' | 'none';
 
@@ -29,6 +38,29 @@ type EmailProvider = 'brevo' | 'resend' | 'smtp' | 'none';
 const LOGO_SRC_PLACEHOLDER = '__NEUROOPTION_LOGO_SRC__';
 
 const DEFAULT_FRONTEND_URL = 'https://neurooption-frontend.onrender.com';
+
+// Light brand palette shared by every email (inline styles only).
+const BRAND = {
+  page: '#F6F9FC',
+  card: '#FFFFFF',
+  heading: '#0D315E',
+  accent: '#0879AD',
+  teal: '#17ADB4',
+  divider: '#DCE7EF',
+  text: '#182B43',
+  muted: '#526579',
+  subtle: '#F6F9FC',
+  gradient: 'linear-gradient(120deg,#0D315E,#0879AD,#17ADB4)',
+} as const;
+
+const FONT_STACK =
+  "'Segoe UI',Roboto,'Helvetica Neue',Arial,Helvetica,sans-serif";
+
+const TONES: Record<Tone, { bg: string; fg: string; border: string }> = {
+  success: { bg: '#E8F6EF', fg: '#0B6E47', border: '#BEE5D1' },
+  info: { bg: '#E7F3F9', fg: '#0870A0', border: '#C3E0EE' },
+  danger: { bg: '#FDEFEE', fg: '#B42318', border: '#F4CBC6' },
+};
 
 // Render free web services block outbound SMTP ports 25/465/587, so an
 // unreachable SMTP server must fail fast instead of hanging the request.
@@ -163,7 +195,7 @@ export class EmailsService implements OnModuleInit {
   private getHostedLogoUrl(): string {
     return (
       this.env('EMAIL_LOGO_URL') ||
-      `${this.getFrontendUrl()}/neurooption-logo.jpg`
+      `${this.getFrontendUrl()}/brand/neurooption-logo-email.png`
     );
   }
 
@@ -181,49 +213,228 @@ export class EmailsService implements OnModuleInit {
     return cleaned && cleaned.length > 0 ? cleaned : 'User';
   }
 
+  private getSupportUrl(): string {
+    return `${this.getFrontendUrl()}/help`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shared layout. Every email is rendered through brandedHtml(): light page
+  // background, white card, official logo on a white cell, muted footer.
+  // ---------------------------------------------------------------------------
+
   private brandedHtml(content: string, preheader = ''): string {
-    return `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <meta name="color-scheme" content="light">
-          <meta name="supported-color-schemes" content="light">
-        </head>
-        <body style="margin:0;padding:0;background:#f3f7fa;font-family:Arial,Helvetica,sans-serif;color:#183149;">
-          <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${this.escapeHtml(preheader)}</div>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f3f7fa;padding:28px 12px;">
-            <tr><td align="center">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #dfe8ef;border-radius:18px;overflow:hidden;">
-                <tr>
-                  <td align="center" bgcolor="#05070b" style="padding:22px 28px 18px;border-bottom:3px solid #c9a227;background:#05070b;">
-                    <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="200" height="173" border="0" style="display:block;width:200px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;margin:0 auto;">
-                  </td>
-                </tr>
-                <tr><td style="padding:32px 28px;">${content}</td></tr>
-                <tr>
-                  <td style="padding:18px 28px;background:#f8fbfd;border-top:1px solid #e8eff4;color:#8293a5;font-size:12px;line-height:1.6;">
-                    &copy; NeuroOption. All rights reserved.<br>
-                    Secure account communications &bull; Never share verification codes or passwords with anyone.
-                  </td>
-                </tr>
-              </table>
-            </td></tr>
+    const supportUrl = this.getSupportUrl();
+    const year = new Date().getFullYear();
+
+    return `<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light only">
+    <title>NeuroOption</title>
+    <style>
+      :root { color-scheme: light only; supported-color-schemes: light only; }
+      body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+      a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+      @media only screen and (max-width: 620px) {
+        .no-shell { padding: 16px 10px !important; }
+        .no-pad { padding-left: 22px !important; padding-right: 22px !important; }
+        .no-h1 { font-size: 23px !important; line-height: 30px !important; }
+        .no-amount { font-size: 26px !important; line-height: 32px !important; }
+        .no-code { font-size: 30px !important; letter-spacing: 6px !important; }
+      }
+      @media only screen and (max-width: 480px) {
+        .no-btn { width: 100% !important; }
+        .no-btn a { display: block !important; }
+        .no-row td { display: block !important; width: 100% !important; text-align: left !important; }
+        .no-row td.no-label { padding-bottom: 0 !important; border-bottom: 0 !important; }
+        .no-row td.no-value { padding-top: 2px !important; }
+      }
+    </style>
+  </head>
+  <body bgcolor="${BRAND.page}" style="margin:0;padding:0;background-color:${BRAND.page};font-family:${FONT_STACK};color:${BRAND.text};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+    <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;">${this.escapeHtml(preheader)}${'&#8204;&nbsp;'.repeat(40)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${BRAND.page}" style="background-color:${BRAND.page};">
+      <tr>
+        <td align="center" class="no-shell" style="padding:32px 16px;">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="${BRAND.card}" style="width:100%;max-width:600px;background-color:${BRAND.card};border:1px solid ${BRAND.divider};border-radius:16px;border-collapse:separate;overflow:hidden;">
+            <tr>
+              <td height="4" bgcolor="${BRAND.accent}" style="height:4px;line-height:4px;font-size:0;background-color:${BRAND.accent};background-image:${BRAND.gradient};">&nbsp;</td>
+            </tr>
+            <tr>
+              <td align="center" bgcolor="#FFFFFF" style="padding:28px 24px 22px;background-color:#FFFFFF;border-bottom:1px solid ${BRAND.divider};">
+                <a href="${this.getFrontendUrl()}" target="_blank" style="text-decoration:none;color:${BRAND.heading};">
+                  <img src="${LOGO_SRC_PLACEHOLDER}" alt="NeuroOption" width="${EMAIL_LOGO_WIDTH}" height="${EMAIL_LOGO_HEIGHT}" border="0" style="display:block;width:${EMAIL_LOGO_WIDTH}px;max-width:100%;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none;background-color:#FFFFFF;font-family:${FONT_STACK};font-size:26px;font-weight:700;color:${BRAND.heading};text-align:center;">
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td class="no-pad" style="padding:32px 40px 34px;font-family:${FONT_STACK};font-size:15px;line-height:24px;color:${BRAND.text};">
+${content}
+              </td>
+            </tr>
+            <tr>
+              <td class="no-pad" bgcolor="${BRAND.subtle}" style="padding:22px 40px 24px;background-color:${BRAND.subtle};border-top:1px solid ${BRAND.divider};font-family:${FONT_STACK};font-size:12px;line-height:19px;color:${BRAND.muted};">
+                <p style="margin:0 0 8px;font-weight:700;color:${BRAND.heading};font-size:13px;">NeuroOption</p>
+                <p style="margin:0 0 8px;">Need help? Visit the <a href="${supportUrl}" target="_blank" style="color:${BRAND.accent};text-decoration:underline;font-weight:600;">Support Center</a> or use the in-app Support chat.</p>
+                <p style="margin:0 0 8px;">Secure account communications &bull; Never share verification codes or passwords with anyone. NeuroOption staff will never ask for them.</p>
+                <p style="margin:0;">&copy; ${year} NeuroOption. All rights reserved. &bull; <a href="${this.getFrontendUrl()}" target="_blank" style="color:${BRAND.accent};text-decoration:none;">Open NeuroOption</a></p>
+              </td>
+            </tr>
           </table>
-        </body>
-      </html>
-    `;
+          <p style="margin:16px 0 0;font-family:${FONT_STACK};font-size:11px;line-height:16px;color:${BRAND.muted};">You are receiving this email because of activity on your NeuroOption account.</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  }
+
+  private textFooter(): string {
+    return [
+      '--',
+      'NeuroOption',
+      `Need help? Support Center: ${this.getSupportUrl()}`,
+      'Secure account communications. Never share verification codes or passwords with anyone. NeuroOption staff will never ask for them.',
+      `(c) ${new Date().getFullYear()} NeuroOption. All rights reserved.`,
+    ].join('\n');
+  }
+
+  // --- Content building blocks (inline styles only) --------------------------
+
+  private h1(text: string): string {
+    return `<h1 class="no-h1" style="margin:0 0 12px;font-family:${FONT_STACK};font-size:26px;line-height:33px;font-weight:700;color:${BRAND.heading};">${this.escapeHtml(text)}</h1>`;
+  }
+
+  private h2(text: string): string {
+    return `<h2 style="margin:26px 0 12px;font-family:${FONT_STACK};font-size:16px;line-height:22px;font-weight:700;color:${BRAND.heading};">${this.escapeHtml(text)}</h2>`;
+  }
+
+  /** Paragraph; `html` must already be escaped. */
+  private p(html: string, muted = false): string {
+    return `<p style="margin:0 0 14px;font-family:${FONT_STACK};font-size:15px;line-height:24px;color:${muted ? BRAND.muted : BRAND.text};">${html}</p>`;
+  }
+
+  private strong(text: string): string {
+    return `<strong style="color:${BRAND.heading};font-weight:700;">${this.escapeHtml(text)}</strong>`;
+  }
+
+  private link(href: string, label: string): string {
+    return `<a href="${this.escapeHtml(href)}" target="_blank" style="color:${BRAND.accent};text-decoration:underline;font-weight:600;">${this.escapeHtml(label)}</a>`;
+  }
+
+  /** Bulletproof table button: solid #0879AD fallback, brand gradient on top. */
+  private button(href: string, label: string): string {
+    const safeHref = this.escapeHtml(href);
+
+    return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" class="no-btn" style="margin:24px 0 6px;border-collapse:separate;">
+  <tr>
+    <td align="center" bgcolor="${BRAND.accent}" style="border-radius:10px;background-color:${BRAND.accent};background-image:${BRAND.gradient};mso-padding-alt:14px 30px;">
+      <a href="${safeHref}" target="_blank" style="display:inline-block;padding:14px 30px;font-family:${FONT_STACK};font-size:15px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;">${this.escapeHtml(label)}&nbsp;&rarr;</a>
+    </td>
+  </tr>
+</table>`;
+  }
+
+  private pill(label: string, tone: Tone): string {
+    const t = TONES[tone];
+    return `<span style="display:inline-block;padding:3px 10px;border-radius:999px;background-color:${t.bg};border:1px solid ${t.border};color:${t.fg};font-size:12px;line-height:18px;font-weight:700;letter-spacing:.02em;">${this.escapeHtml(label)}</span>`;
+  }
+
+  private eyebrow(text: string): string {
+    return `<div style="margin:0 0 6px;font-family:${FONT_STACK};font-size:11px;line-height:16px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${BRAND.muted};">${this.escapeHtml(text)}</div>`;
+  }
+
+  /** Highlighted figure (amount, account email...). `value` is plain text. */
+  private highlight(label: string, value: string, note = '', size = 28): string {
+    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:6px 0 22px;border-collapse:separate;">
+  <tr>
+    <td bgcolor="${BRAND.subtle}" style="padding:18px 20px;background-color:${BRAND.subtle};border:1px solid ${BRAND.divider};border-left:4px solid ${BRAND.accent};border-radius:12px;">
+      ${this.eyebrow(label)}
+      <div class="${size >= 24 ? 'no-amount' : ''}" style="font-family:${FONT_STACK};font-size:${size}px;line-height:${size + 6}px;font-weight:700;color:${BRAND.heading};word-break:break-word;">${this.escapeHtml(value)}</div>
+      ${note ? `<div style="margin-top:6px;font-size:13px;line-height:20px;color:${BRAND.muted};">${note}</div>` : ''}
+    </td>
+  </tr>
+</table>`;
+  }
+
+  /** One-time code box. */
+  private codeBox(code: string): string {
+    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:8px 0 22px;border-collapse:separate;">
+  <tr>
+    <td align="center" bgcolor="${BRAND.subtle}" style="padding:22px 16px;background-color:${BRAND.subtle};border:1px dashed #B9D3E3;border-radius:12px;">
+      ${this.eyebrow('Verification code')}
+      <div class="no-code" style="font-family:'Courier New',Consolas,monospace;font-size:36px;line-height:44px;font-weight:700;letter-spacing:10px;color:${BRAND.heading};">${this.escapeHtml(code)}</div>
+    </td>
+  </tr>
+</table>`;
+  }
+
+  /** Label/value table; the status row (if any) is rendered as a pill. */
+  private detailsTable(
+    title: string,
+    rows: DetailRow[],
+    status?: { label: string; tone: Tone },
+  ): string {
+    const cell = 'padding:11px 0;border-bottom:1px solid ' + BRAND.divider + ';font-family:' + FONT_STACK + ';font-size:14px;line-height:21px;';
+    const row = (label: string, valueHtml: string) => `
+    <tr class="no-row">
+      <td class="no-label" width="42%" valign="top" style="${cell}color:${BRAND.muted};">${this.escapeHtml(label)}</td>
+      <td class="no-value" valign="top" align="right" style="${cell}color:${BRAND.text};font-weight:600;text-align:right;word-break:break-all;">${valueHtml}</td>
+    </tr>`;
+
+    const body =
+      rows.map(([label, value]) => row(label, this.escapeHtml(value))).join('') +
+      (status ? row('Status', this.pill(status.label, status.tone)) : '');
+
+    return `${this.h2(title)}
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 8px;border-top:1px solid ${BRAND.divider};">${body}
+</table>`;
+  }
+
+  /** Callout box; `html` must already be escaped. */
+  private notice(title: string, html: string, tone: Tone = 'info'): string {
+    const t = TONES[tone];
+    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:6px 0 20px;border-collapse:separate;">
+  <tr>
+    <td bgcolor="${t.bg}" style="padding:14px 18px;background-color:${t.bg};border:1px solid ${t.border};border-left:4px solid ${t.fg};border-radius:10px;font-family:${FONT_STACK};font-size:14px;line-height:22px;color:${BRAND.text};">
+      <div style="margin:0 0 4px;font-weight:700;color:${t.fg};">${this.escapeHtml(title)}</div>
+      ${html}
+    </td>
+  </tr>
+</table>`;
+  }
+
+  private divider(): string {
+    return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:26px 0 18px;"><tr><td height="1" bgcolor="${BRAND.divider}" style="height:1px;line-height:1px;font-size:0;background-color:${BRAND.divider};">&nbsp;</td></tr></table>`;
+  }
+
+  private signOff(): string {
+    return this.p(
+      `Thank you for choosing NeuroOption.<br>${this.strong('The NeuroOption Team')}`,
+    );
+  }
+
+  /** "Get help" section shared by account and money emails. */
+  private helpBlock(text: string): string {
+    return `${this.divider()}
+<p style="margin:0;font-family:${FONT_STACK};font-size:13px;line-height:21px;color:${BRAND.muted};">${this.strong('Get help')}<br>${this.escapeHtml(text)} ${this.link(this.getSupportUrl(), 'Contact Support')}</p>`;
+  }
+
+  private textDetails(title: string, rows: DetailRow[]): string {
+    return [title, ...rows.map(([label, value]) => `${label}: ${value}`)].join('\n');
   }
 
   private toHtml(body: string): string {
     const paragraphs = body
       .split('\n')
       .filter((line) => line.trim().length > 0)
-      .map(
-        (line) =>
-          `<p style="margin:0 0 12px;line-height:1.7;">${this.escapeHtml(line)}</p>`,
-      )
+      .map((line) => this.p(this.escapeHtml(line)))
       .join('');
 
     return this.brandedHtml(paragraphs);
@@ -319,7 +530,8 @@ export class EmailsService implements OnModuleInit {
     }
 
     try {
-      await this.deliver(provider, to, subject, body, html || this.toHtml(body));
+      const text = `${body}\n\n${this.textFooter()}`;
+      await this.deliver(provider, to, subject, text, html || this.toHtml(body));
       this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
       return true;
     } catch (error) {
@@ -335,13 +547,12 @@ export class EmailsService implements OnModuleInit {
     }
   }
 
-  async sendAccountCreatedEmail(
-    email: string,
-    fullName: string,
-  ): Promise<boolean> {
+  // ---------------------------------------------------------------------------
+  // Account emails
+  // ---------------------------------------------------------------------------
+
+  accountCreated(email: string, fullName: string): EmailTemplate {
     const name = this.formatName(fullName);
-    const safeName = this.escapeHtml(name);
-    const safeEmail = this.escapeHtml(email);
     const loginUrl = `${this.getFrontendUrl()}/login`;
 
     const body = `
@@ -365,70 +576,71 @@ The NeuroOption Team
     `.trim();
 
     const step = (num: number, title: string, text: string) => `
-      <tr>
-        <td width="34" valign="top" style="padding:0 0 14px;">
-          <div style="width:26px;height:26px;line-height:26px;border-radius:13px;background:#0b8ec2;color:#ffffff;font-size:13px;font-weight:700;text-align:center;">${num}</div>
-        </td>
-        <td valign="top" style="padding:2px 0 14px;color:#536a80;font-size:14px;line-height:1.6;">
-          <strong style="color:#10203a;">${title}</strong><br>${text}
-        </td>
-      </tr>`;
+    <tr>
+      <td width="40" valign="top" style="padding:0 0 16px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+          <td width="28" height="28" align="center" valign="middle" bgcolor="${BRAND.accent}" style="width:28px;height:28px;border-radius:14px;background-color:${BRAND.accent};background-image:${BRAND.gradient};color:#FFFFFF;font-family:${FONT_STACK};font-size:13px;line-height:28px;font-weight:700;text-align:center;">${num}</td>
+        </tr></table>
+      </td>
+      <td valign="top" style="padding:3px 0 16px;font-family:${FONT_STACK};font-size:14px;line-height:22px;color:${BRAND.muted};">
+        ${this.strong(title)}<br>${this.escapeHtml(text)}
+      </td>
+    </tr>`;
 
-    const html = this.brandedHtml(`
-      <h1 style="margin:0 0 10px;font-size:28px;color:#10203a;">Welcome to NeuroOption, ${safeName}!</h1>
-      <p style="margin:0 0 18px;color:#66788e;line-height:1.7;">Your account has been created successfully and is ready to use. We're glad to have you on board.</p>
-      <div style="padding:16px 18px;border-radius:14px;background:#edf9fc;border:1px solid #d5eef5;margin:0 0 24px;">
-        <span style="display:block;font-size:11px;font-weight:700;letter-spacing:.14em;color:#6f8194;margin-bottom:4px;">ACCOUNT EMAIL</span>
-        <strong style="color:#0b8ec2;font-size:16px;">${safeEmail}</strong>
-      </div>
-      <h2 style="margin:0 0 14px;font-size:17px;color:#10203a;">How to get started</h2>
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 10px;">
-        ${step(1, 'Practise on your demo account', 'Sign in and explore OTC markets, charts and trade controls risk-free.')}
-        ${step(2, 'Fund your real account', 'Make a deposit from the Finance section whenever you are ready to trade.')}
-        ${step(3, 'Verify your identity', 'Complete KYC in your profile so withdrawals are processed without delays.')}
-      </table>
-      <a href="${loginUrl}" style="display:inline-block;padding:13px 24px;border-radius:10px;background:#0b8ec2;color:#ffffff;text-decoration:none;font-weight:700;">Sign in to NeuroOption</a>
-      <p style="margin:26px 0 0;padding-top:18px;border-top:1px solid #e8eff4;color:#8293a5;font-size:13px;line-height:1.6;">
-        For your security, never share your password or verification codes with anyone &mdash; NeuroOption staff will never ask for them.
-        If you did not create this account, please contact Support Service immediately.
-      </p>
-      <p style="margin:16px 0 0;color:#536a80;line-height:1.6;">Thank you for choosing NeuroOption.<br><strong style="color:#10203a;">The NeuroOption Team</strong></p>
-    `, 'Your NeuroOption account is ready. Here is how to get started.');
+    const html = this.brandedHtml(
+      `
+${this.h1(`Welcome to NeuroOption, ${name}!`)}
+${this.p("Your account has been created successfully and is ready to use. We're glad to have you on board.", true)}
+${this.highlight('Account email', email, '', 17)}
+${this.h2('How to get started')}
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 4px;">
+  ${step(1, 'Practise on your demo account', 'Sign in and explore OTC markets, charts and trade controls risk-free.')}
+  ${step(2, 'Fund your real account', 'Make a deposit from the Finance section whenever you are ready to trade.')}
+  ${step(3, 'Verify your identity', 'Complete KYC in your profile so withdrawals are processed without delays.')}
+</table>
+${this.button(loginUrl, 'Sign in to NeuroOption')}
+${this.divider()}
+${this.p('For your security, never share your password or verification codes with anyone &mdash; NeuroOption staff will never ask for them. If you did not create this account, please contact Support Service immediately.', true)}
+${this.signOff()}`,
+      'Your NeuroOption account is ready. Here is how to get started.',
+    );
 
-    return this.sendEmail(
-      email,
-      'Welcome to NeuroOption - your account is ready',
+    return {
+      subject: 'Welcome to NeuroOption - your account is ready',
       body,
       html,
-    );
+    };
   }
 
-  async sendAccountDeletedEmail(
-    email: string,
-    fullName: string,
-  ): Promise<boolean> {
+  accountDeleted(fullName: string): EmailTemplate {
     const name = this.formatName(fullName);
 
-    return this.sendEmail(
-      email,
-      'NeuroOption Account Deleted',
-      `
+    const body = `
 Dear ${name},
 
 Your NeuroOption account has been deleted successfully.
-If you did not request this action, please contact Support Service immediately.
+If you did not request this action, please contact Support Service immediately: ${this.getSupportUrl()}
 Thank you for using NeuroOption.
-      `.trim(),
+    `.trim();
+
+    const html = this.brandedHtml(
+      `
+${this.h1('Your account has been deleted')}
+${this.p(`Dear ${this.escapeHtml(name)},`)}
+${this.p('Your NeuroOption account has been deleted successfully.')}
+${this.notice('Did not request this?', 'If you did not request this action, please contact Support Service immediately.', 'danger')}
+${this.button(this.getSupportUrl(), 'Contact Support')}
+${this.divider()}
+${this.p('Thank you for using NeuroOption.<br>' + this.strong('The NeuroOption Team'))}`,
+      'Your NeuroOption account has been deleted.',
     );
+
+    return { subject: 'NeuroOption Account Deleted', body, html };
   }
 
-  async sendPasswordRecoveryCodeEmail(
-    email: string,
-    code: string,
-    fullName = 'User',
-  ): Promise<boolean> {
+  passwordRecoveryCode(code: string, fullName = 'User'): EmailTemplate {
     const name = this.formatName(fullName);
-    const safeName = this.escapeHtml(name);
+
     const body = `
 Dear ${name},
 
@@ -437,284 +649,418 @@ This code expires in 10 minutes.
 If you did not request a password reset, you can ignore this email.
     `.trim();
 
-    const html = this.brandedHtml(`
-      <h1 style="margin:0 0 10px;font-size:26px;color:#10203a;">Password recovery</h1>
-      <p style="margin:0 0 18px;color:#66788e;line-height:1.7;">Hi ${safeName}, use the verification code below to reset your NeuroOption password.</p>
-      <div style="margin:18px 0 22px;padding:20px;text-align:center;border-radius:14px;background:#f0f9fc;border:1px solid #d8eef5;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;color:#6f8194;margin-bottom:8px;">VERIFICATION CODE</div>
-        <div style="font-size:36px;font-weight:800;letter-spacing:.22em;color:#0b8ec2;">${code}</div>
-      </div>
-      <p style="margin:0;color:#66788e;line-height:1.7;">This code expires in <strong>10 minutes</strong>. Never share it with anyone.</p>
-    `, `Your NeuroOption verification code is ${code}`);
+    const html = this.brandedHtml(
+      `
+${this.h1('Password recovery')}
+${this.p(`Hi ${this.escapeHtml(name)}, use the verification code below to reset your NeuroOption password.`)}
+${this.codeBox(code)}
+${this.p(`This code expires in ${this.strong('10 minutes')}. Never share it with anyone &mdash; NeuroOption staff will never ask for it.`)}
+${this.p('If you did not request a password reset, you can ignore this email. Your password will stay the same.', true)}`,
+      `Your NeuroOption verification code is ${code}`,
+    );
 
-    return this.sendEmail(email, 'Your NeuroOption verification code', body, html);
+    return { subject: 'Your NeuroOption verification code', body, html };
   }
 
-  async sendPasswordChangedEmail(
-    email: string,
-    fullName: string,
-  ): Promise<boolean> {
+  passwordChanged(fullName: string): EmailTemplate {
     const name = this.formatName(fullName);
 
-    return this.sendEmail(
-      email,
-      'Your NeuroOption password was changed',
-      `
+    const body = `
 Dear ${name},
 
 Your NeuroOption password was just changed successfully.
-If you did not make this change, please contact Support Service immediately.
-      `.trim(),
+If you did not make this change, please contact Support Service immediately: ${this.getSupportUrl()}
+    `.trim();
+
+    const html = this.brandedHtml(
+      `
+${this.h1('Your password was changed')}
+${this.p(`Dear ${this.escapeHtml(name)},`)}
+${this.p('Your NeuroOption password was just changed successfully. You can now sign in with your new password.')}
+${this.notice("Wasn't you?", 'If you did not make this change, please contact Support Service immediately so we can secure your account.', 'danger')}
+${this.button(this.getSupportUrl(), 'Contact Support')}`,
+      'Your NeuroOption password was just changed.',
+    );
+
+    return { subject: 'Your NeuroOption password was changed', body, html };
+  }
+
+  async sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.accountCreated(email, fullName));
+  }
+
+  async sendAccountDeletedEmail(email: string, fullName: string): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.accountDeleted(fullName));
+  }
+
+  async sendPasswordRecoveryCodeEmail(
+    email: string,
+    code: string,
+    fullName = 'User',
+  ): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.passwordRecoveryCode(code, fullName));
+  }
+
+  async sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.passwordChanged(fullName));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Money emails
+  // ---------------------------------------------------------------------------
+
+  private money(data: MoneyEmailData): string {
+    return `${data.amount} ${data.currency}`;
+  }
+
+  private moneyEmail(opts: {
+    heading: string;
+    intro: string;
+    amountLabel: string;
+    data: MoneyEmailData;
+    explanation: string;
+    detailsTitle: string;
+    rows: DetailRow[];
+    status?: { label: string; tone: Tone };
+    reason?: string;
+    help: string;
+    preheader: string;
+  }): string {
+    const historyUrl = `${this.getFrontendUrl()}/finance?tab=history`;
+
+    return this.brandedHtml(
+      `
+${this.h1(opts.heading)}
+${this.p(this.escapeHtml(opts.intro))}
+${opts.reason ? this.notice('Reason', this.escapeHtml(opts.reason), 'danger') : this.highlight(opts.amountLabel, this.money(opts.data), this.escapeHtml(opts.data.method))}
+${opts.explanation ? this.p(this.escapeHtml(opts.explanation), true) : ''}
+${this.detailsTable(opts.detailsTitle, opts.rows, opts.status)}
+${this.button(historyUrl, 'View transaction history')}
+${this.helpBlock(opts.help)}`,
+      opts.preheader,
     );
   }
 
   depositSuccessful(data: MoneyEmailData): EmailTemplate {
+    const amount = this.money(data);
+    const rows: DetailRow[] = [
+      ['Transaction', data.transactionId],
+      ['Date & Time', data.dateTime],
+      ['Payment Method', data.method],
+      ['Amount', amount],
+      ['Deposit amount', amount],
+    ];
+    const intro = `You have successfully funded your trading account with ${amount}.`;
+    const explanation = `The ${data.method} deposit has been successfully processed and transferred to your trading account.`;
+
     return {
       subject: 'NeuroOption Deposit Successful',
-      body: `
-You have successfully funded your trading account with ${data.amount} ${data.currency}.
-
-The ${data.method} deposit has been successfully processed and transferred to your trading account.
-
-Your Deposit
-
-Transaction
-${data.transactionId}
-
-Date & Time
-${data.dateTime}
-
-Payment Method
-${data.method}
-
-Amount
-${data.amount} ${data.currency}
-
-Deposit amount
-${data.amount} ${data.currency}
-      `.trim(),
+      body: [
+        intro,
+        explanation,
+        this.textDetails('Your Deposit', rows),
+        `View transaction history: ${this.getFrontendUrl()}/finance?tab=history`,
+      ].join('\n\n'),
+      html: this.moneyEmail({
+        heading: 'Deposit successful',
+        intro,
+        amountLabel: 'Deposit amount',
+        data,
+        explanation,
+        detailsTitle: 'Your Deposit',
+        rows: rows.slice(0, 3),
+        status: { label: 'Successful', tone: 'success' },
+        help: 'Questions about this deposit?',
+        preheader: `${amount} has been added to your NeuroOption trading account.`,
+      }),
     };
   }
 
   withdrawalRequested(data: MoneyEmailData): EmailTemplate {
+    const amount = this.money(data);
+    const rows: DetailRow[] = [
+      ['ID', data.transactionId],
+      ['Date & Time', data.dateTime],
+      ['Amount', amount],
+      ['Withdrawal Method', data.method],
+    ];
+    const intro = `You have placed a withdrawal request for ${amount} via ${data.method}.`;
+    const explanation =
+      'The withdrawal has been successfully received and placed in the queue for processing. We will send another email notification as soon as the status changes.';
+    const help =
+      'If you did not place this request or made it by mistake, please contact Support Service as soon as possible.';
+
     return {
       subject: 'NeuroOption Withdrawal Request Received',
-      body: `
-You have placed a withdrawal request for ${data.amount} ${data.currency} via ${data.method}.
-
-The withdrawal has been successfully received and placed in the queue for processing. We will send another email notification as soon as the status changes.
-
-Your Withdrawal Request
-
-ID
-${data.transactionId}
-
-Date & Time
-${data.dateTime}
-
-Amount
-${data.amount} ${data.currency}
-
-Withdrawal Method
-${data.method}
-
-Status
-Processed
-
-Get Help
-
-If you did not place this request or made it by mistake, please contact Support Service as soon as possible.
-      `.trim(),
+      body: [
+        intro,
+        explanation,
+        `${this.textDetails('Your Withdrawal Request', rows)}\nStatus: Processed`,
+        `Get Help\n${help}`,
+        `View transaction history: ${this.getFrontendUrl()}/finance?tab=history`,
+      ].join('\n\n'),
+      html: this.moneyEmail({
+        heading: 'Withdrawal request received',
+        intro,
+        amountLabel: 'Withdrawal amount',
+        data,
+        explanation,
+        detailsTitle: 'Your Withdrawal Request',
+        rows,
+        status: { label: 'Processed', tone: 'info' },
+        help,
+        preheader: `We received your withdrawal request for ${amount}.`,
+      }),
     };
   }
 
   withdrawalProcessing(data: MoneyEmailData): EmailTemplate {
+    const amount = this.money(data);
+    const rows: DetailRow[] = [
+      ['ID', data.transactionId],
+      ['Date & Time', data.dateTime],
+      ['Amount', amount],
+      ['Withdrawal Method', data.method],
+      ['Payment Amount', amount],
+    ];
+    const intro = `Your withdrawal of ${amount} using the ${data.method} method is being processed by the external provider.`;
+    const explanation =
+      'The withdrawal request has been forwarded to the financial provider for processing. This process may take some time.';
+    const help = 'Contact the Support Service if you need any assistance.';
+
     return {
       subject: 'NeuroOption Withdrawal Processing',
-      body: `
-Your withdrawal of ${data.amount} ${data.currency} using the ${data.method} method is being processed by the external provider.
-
-The withdrawal request has been forwarded to the financial provider for processing. This process may take some time.
-
-Your Withdrawal Request
-
-ID
-${data.transactionId}
-
-Date & Time
-${data.dateTime}
-
-Amount
-${data.amount} ${data.currency}
-
-Withdrawal Method
-${data.method}
-
-Payment Amount
-${data.amount} ${data.currency}
-
-Status
-In process
-
-Get Help
-
-Contact the Support Service if you need any assistance.
-      `.trim(),
+      body: [
+        intro,
+        explanation,
+        `${this.textDetails('Your Withdrawal Request', rows)}\nStatus: In process`,
+        `Get Help\n${help}`,
+        `View transaction history: ${this.getFrontendUrl()}/finance?tab=history`,
+      ].join('\n\n'),
+      html: this.moneyEmail({
+        heading: 'Withdrawal in process',
+        intro,
+        amountLabel: 'Withdrawal amount',
+        data,
+        explanation,
+        detailsTitle: 'Your Withdrawal Request',
+        rows,
+        status: { label: 'In process', tone: 'info' },
+        help,
+        preheader: `Your ${amount} withdrawal is being processed.`,
+      }),
     };
   }
 
   withdrawalCompleted(data: MoneyEmailData): EmailTemplate {
+    const amount = this.money(data);
+    const rows: DetailRow[] = [
+      ['ID', data.transactionId],
+      ['Date & Time', data.dateTime],
+      ['Amount', amount],
+      ['Withdrawal Method', data.method],
+      ['Payment Amount', amount],
+    ];
+    const intro = `Your withdrawal of ${amount} using the ${data.method} method has been completed.`;
+    const explanation =
+      'The withdrawal request has been successfully processed by our financial provider. The time to receive the funds depends on the payment method.';
+    const help = 'Contact the Support Service if you need any assistance.';
+
     return {
       subject: 'NeuroOption Withdrawal Completed',
-      body: `
-Your withdrawal of ${data.amount} ${data.currency} using the ${data.method} method has been completed.
-
-The withdrawal request has been successfully processed by our financial provider. The time to receive the funds depends on the payment method.
-
-Your Withdrawal Request
-
-ID
-${data.transactionId}
-
-Date & Time
-${data.dateTime}
-
-Amount
-${data.amount} ${data.currency}
-
-Withdrawal Method
-${data.method}
-
-Payment Amount
-${data.amount} ${data.currency}
-
-Status
-Completed
-
-Get Help
-
-Contact the Support Service if you need any assistance.
-      `.trim(),
+      body: [
+        intro,
+        explanation,
+        `${this.textDetails('Your Withdrawal Request', rows)}\nStatus: Completed`,
+        `Get Help\n${help}`,
+        `View transaction history: ${this.getFrontendUrl()}/finance?tab=history`,
+      ].join('\n\n'),
+      html: this.moneyEmail({
+        heading: 'Withdrawal completed',
+        intro,
+        amountLabel: 'Amount paid out',
+        data,
+        explanation,
+        detailsTitle: 'Your Withdrawal Request',
+        rows,
+        status: { label: 'Completed', tone: 'success' },
+        help,
+        preheader: `Your ${amount} withdrawal has been completed.`,
+      }),
     };
   }
 
-  withdrawalDeclined(
-    data: MoneyEmailData & { reason: string },
-  ): EmailTemplate {
+  withdrawalDeclined(data: MoneyEmailData & { reason: string }): EmailTemplate {
+    const amount = this.money(data);
+    const rows: DetailRow[] = [
+      ['ID', data.transactionId],
+      ['Date & Time', data.dateTime],
+      ['Amount', amount],
+      ['Withdrawal Method', data.method],
+    ];
+    const intro =
+      'Your withdrawal request has been declined after a careful review by the NeuroOption financial security system.';
+    const help = 'Contact the Support Service if you need further clarification.';
+
     return {
       subject: 'NeuroOption Withdrawal Declined',
-      body: `
-Your withdrawal request has been declined after a careful review by the NeuroOption financial security system.
-
-Reason:
-${data.reason}
-
-Your Withdrawal Request
-
-ID
-${data.transactionId}
-
-Date & Time
-${data.dateTime}
-
-Amount
-${data.amount} ${data.currency}
-
-Withdrawal Method
-${data.method}
-
-Status
-Declined
-
-Get Help
-
-Contact the Support Service if you need further clarification.
-      `.trim(),
+      body: [
+        intro,
+        `Reason:\n${data.reason}`,
+        `${this.textDetails('Your Withdrawal Request', rows)}\nStatus: Declined`,
+        `Get Help\n${help}`,
+        `View transaction history: ${this.getFrontendUrl()}/finance?tab=history`,
+      ].join('\n\n'),
+      html: this.moneyEmail({
+        heading: 'Withdrawal declined',
+        intro,
+        amountLabel: 'Withdrawal amount',
+        data,
+        explanation: '',
+        detailsTitle: 'Your Withdrawal Request',
+        rows,
+        status: { label: 'Declined', tone: 'danger' },
+        reason: data.reason,
+        help,
+        preheader: `Your ${amount} withdrawal request was declined.`,
+      }),
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // KYC emails
+  // ---------------------------------------------------------------------------
+
+  private kycEmail(opts: {
+    name: string;
+    heading: string;
+    status: { label: string; tone: Tone };
+    paragraphs: string[];
+    reason?: string;
+    after?: string;
+    cta?: string;
+    preheader: string;
+  }): string {
+    const profileUrl = `${this.getFrontendUrl()}/profile`;
+
+    return this.brandedHtml(
+      `
+<div style="margin:0 0 14px;">${this.pill(opts.status.label, opts.status.tone)}</div>
+${this.h1(opts.heading)}
+${this.p(`Dear ${this.escapeHtml(opts.name)},`)}
+${opts.paragraphs.map((text) => this.p(this.escapeHtml(text))).join('\n')}
+${opts.reason ? this.notice('Reason', this.escapeHtml(opts.reason), 'danger') : ''}
+${opts.after ? this.p(this.escapeHtml(opts.after), true) : ''}
+${opts.cta ? this.button(profileUrl, opts.cta) : ''}
+${this.divider()}
+${this.p('Thank you for using NeuroOption.<br>' + this.strong('The NeuroOption Team'))}`,
+      opts.preheader,
+    );
   }
 
   kycSubmitted(fullName: string): EmailTemplate {
     const name = this.formatName(fullName);
+    const paragraphs = [
+      'Thank you for uploading your KYC documents.',
+      'Our compliance team has received your documents and live face verification for careful review. We will notify you once the verification is complete.',
+    ];
 
     return {
       subject: 'NeuroOption KYC Documents Received',
-      body: `
-Dear ${name},
-
-Thank you for uploading your KYC documents.
-Our compliance team has received your documents and live face verification for careful review. We will notify you once the verification is complete.
-Thank you for using NeuroOption.
-      `.trim(),
+      body: [
+        `Dear ${name},`,
+        '',
+        ...paragraphs,
+        `Your account: ${this.getFrontendUrl()}/profile`,
+        'Thank you for using NeuroOption.',
+      ].join('\n'),
+      html: this.kycEmail({
+        name,
+        heading: 'We received your KYC documents',
+        status: { label: 'Under review', tone: 'info' },
+        paragraphs,
+        cta: 'View verification status',
+        preheader: 'Your KYC documents are under review.',
+      }),
     };
   }
 
   kycApproved(fullName: string): EmailTemplate {
     const name = this.formatName(fullName);
+    const paragraphs = [
+      'Your KYC verification has been approved.',
+      'You may now continue using NeuroOption services, subject to the platform rules and compliance requirements.',
+    ];
 
     return {
       subject: 'NeuroOption KYC Approved',
-      body: `
-Dear ${name},
-
-Your KYC verification has been approved.
-You may now continue using NeuroOption services, subject to the platform rules and compliance requirements.
-Thank you for using NeuroOption.
-      `.trim(),
+      body: [
+        `Dear ${name},`,
+        '',
+        ...paragraphs,
+        `Your account: ${this.getFrontendUrl()}/profile`,
+        'Thank you for using NeuroOption.',
+      ].join('\n'),
+      html: this.kycEmail({
+        name,
+        heading: 'Your identity is verified',
+        status: { label: 'Approved', tone: 'success' },
+        paragraphs,
+        cta: 'Go to your account',
+        preheader: 'Your NeuroOption KYC verification has been approved.',
+      }),
     };
   }
 
   kycRejected(fullName: string, reason: string): EmailTemplate {
     const name = this.formatName(fullName);
+    const after =
+      'Please upload clear and valid documents, and ensure your live face verification is visible and matches the submitted document.';
 
     return {
       subject: 'NeuroOption KYC Documents Rejected',
-      body: `
-Dear ${name},
-
-Your KYC documents could not be approved.
-
-Reason:
-${reason}
-
-Please upload clear and valid documents, and ensure your live face verification is visible and matches the submitted document.
-
-Thank you for using NeuroOption.
-      `.trim(),
+      body: [
+        `Dear ${name},`,
+        '',
+        'Your KYC documents could not be approved.',
+        '',
+        `Reason:\n${reason}`,
+        '',
+        after,
+        `Upload documents: ${this.getFrontendUrl()}/profile`,
+        '',
+        'Thank you for using NeuroOption.',
+      ].join('\n'),
+      html: this.kycEmail({
+        name,
+        heading: 'Action needed: re-upload your KYC documents',
+        status: { label: 'Rejected', tone: 'danger' },
+        paragraphs: ['Your KYC documents could not be approved.'],
+        reason,
+        after,
+        cta: 'Upload documents again',
+        preheader: 'Action needed: please re-upload your KYC documents.',
+      }),
     };
   }
 
-  async sendTemplateEmail(
-    email: string,
-    template: EmailTemplate,
-  ): Promise<boolean> {
-    return this.sendEmail(email, template.subject, template.body);
+  async sendTemplateEmail(email: string, template: EmailTemplate): Promise<boolean> {
+    return this.sendEmail(email, template.subject, template.body, template.html);
   }
 
-  async sendDepositSuccessfulEmail(
-    email: string,
-    data: MoneyEmailData,
-  ): Promise<boolean> {
+  async sendDepositSuccessfulEmail(email: string, data: MoneyEmailData): Promise<boolean> {
     return this.sendTemplateEmail(email, this.depositSuccessful(data));
   }
 
-  async sendWithdrawalRequestedEmail(
-    email: string,
-    data: MoneyEmailData,
-  ): Promise<boolean> {
+  async sendWithdrawalRequestedEmail(email: string, data: MoneyEmailData): Promise<boolean> {
     return this.sendTemplateEmail(email, this.withdrawalRequested(data));
   }
 
-  async sendWithdrawalProcessingEmail(
-    email: string,
-    data: MoneyEmailData,
-  ): Promise<boolean> {
+  async sendWithdrawalProcessingEmail(email: string, data: MoneyEmailData): Promise<boolean> {
     return this.sendTemplateEmail(email, this.withdrawalProcessing(data));
   }
 
-  async sendWithdrawalCompletedEmail(
-    email: string,
-    data: MoneyEmailData,
-  ): Promise<boolean> {
+  async sendWithdrawalCompletedEmail(email: string, data: MoneyEmailData): Promise<boolean> {
     return this.sendTemplateEmail(email, this.withdrawalCompleted(data));
   }
 
@@ -725,17 +1071,11 @@ Thank you for using NeuroOption.
     return this.sendTemplateEmail(email, this.withdrawalDeclined(data));
   }
 
-  async sendKycSubmittedEmail(
-    email: string,
-    fullName: string,
-  ): Promise<boolean> {
+  async sendKycSubmittedEmail(email: string, fullName: string): Promise<boolean> {
     return this.sendTemplateEmail(email, this.kycSubmitted(fullName));
   }
 
-  async sendKycApprovedEmail(
-    email: string,
-    fullName: string,
-  ): Promise<boolean> {
+  async sendKycApprovedEmail(email: string, fullName: string): Promise<boolean> {
     return this.sendTemplateEmail(email, this.kycApproved(fullName));
   }
 
