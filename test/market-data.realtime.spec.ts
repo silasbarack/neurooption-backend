@@ -425,6 +425,35 @@ describe('real-time market data', () => {
     },
   );
 
+  it('builds candle history without stalling the event loop, and reuses closed candles', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [MarketDataModule],
+    }).compile();
+    await moduleRef.init();
+    const marketData = moduleRef.get(MarketDataService);
+
+    // A timer like the 33 ms market stream must keep firing during a cold
+    // build of the most expensive history (daily candles).
+    let longestGap = 0;
+    let last = performance.now();
+    const timer = setInterval(() => {
+      const now = performance.now();
+      longestGap = Math.max(longestGap, now - last);
+      last = now;
+    }, 5);
+    const cold = await marketData.getCandles({ asset: 'Gold OTC', timeframe: 'D1', limit: 140 });
+    clearInterval(timer);
+    expect(longestGap).toBeLessThan(60);
+
+    // Closed candles come back identical from the cache, and much faster.
+    const started = performance.now();
+    const warm = await marketData.getCandles({ asset: 'Gold OTC', timeframe: 'D1', limit: 140 });
+    expect(performance.now() - started).toBeLessThan(50);
+    expect(warm.candles.slice(0, -1)).toEqual(cold.candles.slice(0, -1));
+
+    await moduleRef.close();
+  });
+
   it('anchors generated history to the oldest live candle without a visible seam', async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [MarketDataModule],
@@ -435,7 +464,7 @@ describe('real-time market data', () => {
     const marketData = moduleRef.get(MarketDataService);
     const aggregator = moduleRef.get(CandleAggregatorService);
     const live = aggregator.getRecentCandles('EUR/USD OTC', 'M2', 10);
-    const result = marketData.getCandles({
+    const result = await marketData.getCandles({
       asset: 'EUR/USD OTC',
       timeframe: 'M2',
       limit: 180,

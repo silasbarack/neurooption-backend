@@ -158,7 +158,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(WebsocketEvents.RESYNC_REQUEST)
-  resync(
+  async resync(
     @ConnectedSocket() client: Socket,
     @MessageBody()
     data: {
@@ -179,7 +179,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.metrics.increment('resync_requests');
     const symbol = this.normalizeSymbol(data?.symbol);
     const timeframe = normalizeTimeframe(data?.timeframe);
-    const result = this.marketDataService.getCandles({
+    const result = await this.marketDataService.getCandles({
       asset: symbol,
       timeframe,
       limit: Math.min(Math.max(Number(data?.limit ?? 320), 60), 420),

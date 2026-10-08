@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import {
   MARKET_ASSETS,
   MarketAsset,
@@ -57,9 +63,60 @@ type AssetDna = {
   phaseE: number;
 };
 
+const HISTORY_SLICE_MS_BASE = 4;
+
+/**
+ * CPU share the container may use (Render's free plan: 0.15), read from the
+ * cgroup; 1 when there is no quota.
+ */
+function cpuQuota(): number {
+  const read = (path: string) => {
+    try {
+      return readFileSync(path, 'utf8').trim();
+    } catch {
+      return null;
+    }
+  };
+  // cgroup v2: "<quota> <period>" or "max <period>".
+  const v2 = read('/sys/fs/cgroup/cpu.max');
+  // cgroup v1: separate files; quota -1 means unlimited.
+  const v1Quota = read('/sys/fs/cgroup/cpu/cpu.cfs_quota_us');
+  const v1Period = read('/sys/fs/cgroup/cpu/cpu.cfs_period_us');
+  const [quota, period] = v2 ? v2.split(/\s+/) : [v1Quota, v1Period];
+  const share = Number(quota) / Number(period);
+  return Number.isFinite(share) && share > 0 && share < 1 ? share : 1;
+}
+
+/**
+ * Pause between history slices. With a small CPU quota, building history
+ * flat out would use up each 100 ms quota period and freeze the stream for the
+ * rest of it, so slices are spaced to use at most half the quota; with no
+ * quota the build only yields so pending ticks go out first.
+ */
+const CPU_QUOTA = cpuQuota();
+const HISTORY_PAUSE_MS =
+  CPU_QUOTA >= 1 ? 0 : Math.ceil(HISTORY_SLICE_MS_BASE * (1 / (CPU_QUOTA * 0.5) - 1));
+
+function pauseForStream() {
+  return new Promise<void>((resolve) =>
+    HISTORY_PAUSE_MS > 0 ? setTimeout(resolve, HISTORY_PAUSE_MS) : setImmediate(resolve),
+  );
+}
+
+/** Asset/timeframe pairs whose closed history candles are cached. */
+const HISTORY_CACHE_KEYS = 60;
+/** Extra candles kept before the requested window, for slightly larger requests. */
+const HISTORY_CACHE_SLACK = 120;
+/** Longest stretch of history building between yields to the event loop. */
+const HISTORY_SLICE_MS = HISTORY_SLICE_MS_BASE;
+
 @Injectable()
-export class MarketDataService {
-  constructor(private readonly marketStreamService: MarketStreamService) {}
+export class MarketDataService implements OnApplicationBootstrap {
+  constructor(private readonly marketStreamService: MarketStreamService) {
+    new Logger('MarketHistory').log(
+      `CPU quota ${CPU_QUOTA >= 1 ? 'none' : CPU_QUOTA.toFixed(2)}; history slices ${HISTORY_SLICE_MS} ms, pause ${HISTORY_PAUSE_MS} ms`,
+    );
+  }
   getAssets() {
     return {
       serverTime: new Date().toISOString(),
@@ -134,7 +191,48 @@ export class MarketDataService {
     };
   }
 
-  getCandles(query: MarketCandlesQueryDto) {
+  /**
+   * The trading screen opens on EUR/USD M1, so its history is built in the
+   * background at startup (paced like any other request) and the first chart
+   * after a restart loads from the cache.
+   */
+  onApplicationBootstrap() {
+    void this.getCandles({ asset: 'EUR/USD OTC', timeframe: 'M1', limit: 320 }).catch(
+      () => undefined,
+    );
+  }
+
+  /**
+   * Closed historical candles never change, so they are kept per asset and
+   * timeframe and only new ones are built. Bounded to the most recently used
+   * HISTORY_CACHE_KEYS asset/timeframe pairs.
+   */
+  private readonly historyCache = new Map<string, Map<number, OtcCandle>>();
+
+  private historyFor(symbol: string, timeframe: string) {
+    const key = `${symbol}|${timeframe}`;
+    let entry = this.historyCache.get(key);
+    if (entry) {
+      this.historyCache.delete(key);
+    } else {
+      entry = new Map();
+    }
+    this.historyCache.set(key, entry);
+    while (this.historyCache.size > HISTORY_CACHE_KEYS) {
+      const oldest = this.historyCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.historyCache.delete(oldest);
+    }
+    return entry;
+  }
+
+  /**
+   * Builds candle history in short slices and yields between them, so a
+   * cold request never stalls the live price stream (on a small CPU quota a
+   * few hundred candles take long enough to freeze ticks for most of a
+   * second).
+   */
+  async getCandles(query: MarketCandlesQueryDto) {
     const asset = this.findAsset(query.asset);
     const timeframe = this.normalizeTimeframe(query.timeframe);
     const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
@@ -146,10 +244,30 @@ export class MarketDataService {
     const firstStart = currentCandleStart - intervalMs * (limit - 1);
 
     const candles: OtcCandle[] = [];
+    const history = this.historyFor(asset.symbol, timeframe);
+    let sliceStart = performance.now();
 
     for (let index = 0; index < limit; index += 1) {
       const candleStart = firstStart + index * intervalMs;
-      candles.push(this.buildCandle(asset, timeframe, candleStart, now));
+      const closed = candleStart + intervalMs <= now;
+      let candle = closed ? history.get(candleStart) : undefined;
+
+      if (!candle) {
+        candle = this.buildCandle(asset, timeframe, candleStart, now);
+        if (closed) history.set(candleStart, candle);
+
+        if (performance.now() - sliceStart > HISTORY_SLICE_MS) {
+          await pauseForStream();
+          sliceStart = performance.now();
+        }
+      }
+
+      // Copied: the prices below are rescaled to the live price.
+      candles.push({ ...candle });
+    }
+
+    for (const time of history.keys()) {
+      if (time < firstStart - intervalMs * HISTORY_CACHE_SLACK) history.delete(time);
     }
 
     const aggregator = this.marketStreamService.getCandleAggregator();
@@ -362,7 +480,18 @@ export class MarketDataService {
     return Math.max(asset.basePrice * (1 + totalMove), asset.basePrice * 0.05);
   }
 
+  /** An asset's DNA is fixed, so it is computed once per symbol. */
+  private readonly dnaCache = new Map<string, AssetDna>();
+
   private getAssetDna(asset: MarketAsset): AssetDna {
+    const cached = this.dnaCache.get(asset.symbol);
+    if (cached) return cached;
+    const dna = this.computeAssetDna(asset);
+    this.dnaCache.set(asset.symbol, dna);
+    return dna;
+  }
+
+  private computeAssetDna(asset: MarketAsset): AssetDna {
     const key = asset.symbol;
     const category = asset.category;
 
@@ -861,6 +990,10 @@ export class MarketDataService {
   }
 
   private seededRandom(input: string) {
+    return this.hashSeed(input);
+  }
+
+  private hashSeed(input: string) {
     let hash = 2166136261;
 
     for (let index = 0; index < input.length; index += 1) {
