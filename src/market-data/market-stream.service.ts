@@ -26,6 +26,8 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
   private intervalHandle: NodeJS.Timeout | null = null;
   private readonly listeners = new Set<Listener>();
   private readonly latestTicks = new Map<string, NormalizedMarketTick>();
+  /** Whether anyone is watching a symbol; set by the WebSocket layer. */
+  private isWatched: (symbol: string) => boolean = () => true;
 
   constructor(
     private readonly otcEngine: OtcStreamEngineService,
@@ -47,6 +49,15 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
     this.listeners.clear();
   }
 
+  /**
+   * Watched symbols get sub-ticks every ~33 ms; the rest are ticked only on
+   * their 100 ms decisions, which keeps their candles current at a third of
+   * the work.
+   */
+  setWatchedSymbols(isWatched: (symbol: string) => boolean) {
+    this.isWatched = isWatched;
+  }
+
   subscribe(listener: Listener) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -55,7 +66,8 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
   getLatestTick(symbol: string): NormalizedMarketTick {
     const cached = this.latestTicks.get(symbol);
 
-    if (cached && Date.now() - cached.serverReceiveTimestamp <= 500) {
+    // The stream sends at least one tick every 500 ms per symbol.
+    if (cached && Date.now() - cached.serverReceiveTimestamp <= 1_000) {
       return cached;
     }
 
@@ -73,9 +85,13 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
 
     for (const asset of MARKET_ASSETS) {
       if (!asset.isActive) continue;
-      if (!this.otcEngine.isDue(asset.symbol, now)) continue;
+      const due = this.isWatched(asset.symbol)
+        ? this.otcEngine.isDue(asset.symbol, now)
+        : this.otcEngine.isDecisionDue(asset.symbol, now);
+      if (!due) continue;
 
-      const tick = this.generateTick(asset.symbol);
+      const tick = this.generateStreamTick(asset.symbol);
+      if (!tick) continue;
       const aggregationStart = performance.now();
       const aggregation = this.candleAggregator.applyTick(tick);
 
@@ -108,9 +124,23 @@ export class MarketStreamService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** The stream's tick, or null when nothing changed (see nextStreamTick). */
+  private generateStreamTick(symbol: string): NormalizedMarketTick | null {
+    const now = Date.now();
+    const raw = this.otcEngine.nextStreamTick(symbol, now);
+    return raw ? this.recordTick(raw, now) : null;
+  }
+
   private generateTick(symbol: string): NormalizedMarketTick {
-    const serverReceiveTimestamp = Date.now();
-    const raw = this.otcEngine.nextTick(symbol, serverReceiveTimestamp);
+    const now = Date.now();
+    return this.recordTick(this.otcEngine.nextTick(symbol, now), now);
+  }
+
+  private recordTick(
+    raw: Omit<NormalizedMarketTick, 'serverReceiveTimestamp'>,
+    serverReceiveTimestamp: number,
+  ): NormalizedMarketTick {
+    const symbol = raw.symbol;
     const tick: NormalizedMarketTick = {
       ...raw,
       serverReceiveTimestamp,

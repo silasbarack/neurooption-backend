@@ -176,6 +176,7 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
     }
 
+    this.metrics.increment('resync_requests');
     const symbol = this.normalizeSymbol(data?.symbol);
     const timeframe = normalizeTimeframe(data?.timeframe);
     const result = this.marketDataService.getCandles({
@@ -203,7 +204,12 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   clientMetrics(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { tickAgeMs?: number; renderDelayMs?: number; reconnect?: boolean },
+    data: {
+      tickAgeMs?: number;
+      renderDelayMs?: number;
+      reconnect?: boolean;
+      transport?: string;
+    },
   ) {
     if (!this.allowEvent(client, 'metrics', 1_000)) {
       return { ok: false, rateLimited: true, serverTimestamp: Date.now() };
@@ -223,6 +229,9 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.metrics.observe('client_render_delay_ms', renderDelayMs);
     }
     if (data?.reconnect) this.metrics.increment('reconnect_count');
+    if (typeof data?.transport === 'string') {
+      this.metrics.observeTransport(data.transport);
+    }
 
     return { ok: true, serverTimestamp: Date.now() };
   }
@@ -248,6 +257,26 @@ export class MarketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   chartRoom(symbol: string, timeframe: string) {
     return `chart:${symbol}:${timeframe}`;
+  }
+
+  private watched = new Set<string>();
+  private watchedCheckedAt = 0;
+
+  /** Whether any client follows the symbol (price or chart room). */
+  isWatched(symbol: string) {
+    const now = Date.now();
+    if (now - this.watchedCheckedAt > 250) {
+      this.watchedCheckedAt = now;
+      const next = new Set<string>();
+      for (const room of this.server?.adapter?.rooms?.keys() ?? []) {
+        if (room.startsWith('symbol:')) next.add(room.slice(7));
+        else if (room.startsWith('chart:')) {
+          next.add(room.slice(6, room.lastIndexOf(':')));
+        }
+      }
+      this.watched = next;
+    }
+    return this.watched.has(symbol);
   }
 
   roomSize(room: string) {

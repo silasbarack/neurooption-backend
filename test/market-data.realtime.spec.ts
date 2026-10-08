@@ -331,6 +331,50 @@ describe('real-time market data', () => {
     },
   );
 
+  it('streams only ticks that change the price, plus a heartbeat, without sequence gaps', () => {
+    const engine = new OtcStreamEngineService();
+    const start = Date.UTC(2026, 9, 6, 10, 0, 0);
+    const sent: Array<{ time: number; mid: number; sequence: number }> = [];
+    let polls = 0;
+
+    for (let time = start; time < start + 60_000; time += 33) {
+      if (!engine.isDue('EUR/USD OTC', time)) continue;
+      polls += 1;
+      const tick = engine.nextStreamTick('EUR/USD OTC', time);
+      if (tick) sent.push({ time, mid: tick.mid, sequence: tick.sequence });
+    }
+
+    expect(sent.length).toBeLessThan(polls);
+    sent.forEach((tick, index) => {
+      if (index === 0) return;
+      const previous = sent[index - 1];
+      expect(tick.sequence).toBe(previous.sequence + 1);
+      // Either the price moved or it is a heartbeat after a quiet spell.
+      expect(tick.mid !== previous.mid || tick.time - previous.time >= 500).toBe(true);
+      expect(tick.time - previous.time).toBeLessThan(600);
+    });
+  });
+
+  it('ticks unwatched assets on decisions only, delivering whole moves', () => {
+    const engine = new OtcStreamEngineService();
+    const start = Date.UTC(2026, 9, 6, 10, 0, 0);
+    let calls = 0;
+    let previous = engine.nextTick('EUR/USD OTC', start).mid;
+
+    for (let time = start + 33; time < start + 60_000; time += 33) {
+      if (!engine.isDecisionDue('EUR/USD OTC', time)) continue;
+      calls += 1;
+      const tick = engine.nextStreamTick('EUR/USD OTC', time);
+      if (!tick) continue;
+      expect(Math.abs(tick.mid - previous) / previous).toBeLessThan(0.0002);
+      previous = tick.mid;
+    }
+
+    // About one call per 100 ms decision instead of one per 33 ms poll.
+    expect(calls).toBeGreaterThan(500);
+    expect(calls).toBeLessThan(700);
+  });
+
   it('delivers a whole move to callers slower than the sub-tick cadence', () => {
     const engine = new OtcStreamEngineService();
     const start = Date.UTC(2026, 9, 6, 10, 0, 0);
