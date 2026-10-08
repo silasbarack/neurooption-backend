@@ -9,6 +9,7 @@ type MoneyEmailData = {
 type EmailTemplate = {
     subject: string;
     body: string;
+    html?: string;
 };
 export declare class EmailsService implements OnModuleInit {
     private readonly logger;
@@ -25,15 +26,39 @@ export declare class EmailsService implements OnModuleInit {
     private getHostedLogoUrl;
     private escapeHtml;
     private formatName;
+    private getSupportUrl;
     private brandedHtml;
+    private textFooter;
+    private h1;
+    private h2;
+    private p;
+    private strong;
+    private link;
+    private button;
+    private pill;
+    private eyebrow;
+    private highlight;
+    private codeBox;
+    private detailsTable;
+    private notice;
+    private divider;
+    private signOff;
+    private helpBlock;
+    private textDetails;
     private toHtml;
     private postJson;
     private deliver;
     private sendEmail;
+    accountCreated(email: string, fullName: string): EmailTemplate;
+    accountDeleted(fullName: string): EmailTemplate;
+    passwordRecoveryCode(code: string, fullName?: string): EmailTemplate;
+    passwordChanged(fullName: string): EmailTemplate;
     sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean>;
     sendAccountDeletedEmail(email: string, fullName: string): Promise<boolean>;
     sendPasswordRecoveryCodeEmail(email: string, code: string, fullName?: string): Promise<boolean>;
     sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean>;
+    private money;
+    private moneyEmail;
     depositSuccessful(data: MoneyEmailData): EmailTemplate;
     withdrawalRequested(data: MoneyEmailData): EmailTemplate;
     withdrawalProcessing(data: MoneyEmailData): EmailTemplate;
@@ -41,6 +66,7 @@ export declare class EmailsService implements OnModuleInit {
     withdrawalDeclined(data: MoneyEmailData & {
         reason: string;
     }): EmailTemplate;
+    private kycEmail;
     kycSubmitted(fullName: string): EmailTemplate;
     kycApproved(fullName: string): EmailTemplate;
     kycRejected(fullName: string, reason: string): EmailTemplate;
