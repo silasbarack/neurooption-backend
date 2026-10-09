@@ -10,9 +10,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -28,9 +28,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -46,9 +46,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -64,9 +64,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -82,9 +82,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -100,9 +100,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -118,9 +118,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;
@@ -136,9 +136,9 @@ export declare class PaymentGatewaysController {
         createdAt: Date;
         updatedAt: Date;
         name: string;
-        type: import(".prisma/client").$Enums.PaymentGatewayType;
         isActive: boolean;
         direction: import(".prisma/client").$Enums.PaymentDirection;
+        type: import(".prisma/client").$Enums.PaymentGatewayType;
         publicKey: string | null;
         secretKey: string | null;
         callbackUrl: string | null;

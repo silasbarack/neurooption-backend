@@ -8,17 +8,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var UsersService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../config/prisma.service");
-const emails_service_1 = require("../emails/emails.service");
-let UsersService = UsersService_1 = class UsersService {
-    constructor(prisma, emailsService) {
+let UsersService = class UsersService {
+    constructor(prisma) {
         this.prisma = prisma;
-        this.emailsService = emailsService;
-        this.logger = new common_1.Logger(UsersService_1.name);
     }
     getUserModelFields() {
         const runtimeModel = this.prisma?._runtimeDataModel?.models?.User;
@@ -35,20 +31,6 @@ let UsersService = UsersService_1 = class UsersService {
             return null;
         const { password, passwordHash, hashedPassword, resetToken, resetPasswordToken, ...safeUser } = user;
         return safeUser;
-    }
-    getUserDisplayName(user) {
-        return (user?.fullName ||
-            user?.name ||
-            user?.email?.split('@')?.[0] ||
-            'Trader');
-    }
-    async sendAccountDeletedEmailSafely(user) {
-        try {
-            await this.emailsService.sendAccountDeletedEmail(user.email, this.getUserDisplayName(user));
-        }
-        catch (error) {
-            this.logger.error('Account deletion email failed', error);
-        }
     }
     async findAll() {
         const users = await this.prisma.user.findMany({
@@ -114,40 +96,10 @@ let UsersService = UsersService_1 = class UsersService {
         });
         return this.removePassword(updatedUser);
     }
-    async deleteMe(userId) {
-        const user = await this.prisma.user.findUnique({
-            where: {
-                id: userId,
-            },
-        });
-        if (!user) {
-            throw new common_1.NotFoundException('User account not found.');
-        }
-        try {
-            await this.prisma.user.delete({
-                where: {
-                    id: userId,
-                },
-            });
-        }
-        catch (error) {
-            this.logger.error('Account deletion failed', error);
-            if (error?.code === 'P2003') {
-                throw new common_1.BadRequestException('Account could not be deleted because it still has linked records.');
-            }
-            throw new common_1.BadRequestException('Account could not be deleted.');
-        }
-        await this.sendAccountDeletedEmailSafely(user);
-        return {
-            success: true,
-            message: 'Account deleted successfully.',
-        };
-    }
 };
 exports.UsersService = UsersService;
-exports.UsersService = UsersService = UsersService_1 = __decorate([
+exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        emails_service_1.EmailsService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

@@ -19,7 +19,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
     });
 
-    if (!user) {
+    // A deleted account's tokens stop working at once, not when they expire.
+    if (!user || user.status === 'DELETED') {
       throw new UnauthorizedException('Invalid token');
     }
 

@@ -1,11 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
-import { EmailsService } from '../emails/emails.service';
 
 export type UpdateUserPayload = {
   fullName?: string;
@@ -17,12 +11,7 @@ export type UpdateUserPayload = {
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly emailsService: EmailsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   private getUserModelFields(): string[] {
     const runtimeModel = (this.prisma as any)?._runtimeDataModel?.models?.User;
@@ -51,26 +40,6 @@ export class UsersService {
     } = user;
 
     return safeUser;
-  }
-
-  private getUserDisplayName(user: any): string {
-    return (
-      user?.fullName ||
-      user?.name ||
-      user?.email?.split('@')?.[0] ||
-      'Trader'
-    );
-  }
-
-  private async sendAccountDeletedEmailSafely(user: any): Promise<void> {
-    try {
-      await this.emailsService.sendAccountDeletedEmail(
-        user.email,
-        this.getUserDisplayName(user),
-      );
-    } catch (error) {
-      this.logger.error('Account deletion email failed', error as Error);
-    }
   }
 
   async findAll() {
@@ -152,42 +121,5 @@ export class UsersService {
     });
 
     return this.removePassword(updatedUser);
-  }
-
-  async deleteMe(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User account not found.');
-    }
-
-    try {
-      await this.prisma.user.delete({
-        where: {
-          id: userId,
-        },
-      });
-    } catch (error: any) {
-      this.logger.error('Account deletion failed', error);
-
-      if (error?.code === 'P2003') {
-        throw new BadRequestException(
-          'Account could not be deleted because it still has linked records.',
-        );
-      }
-
-      throw new BadRequestException('Account could not be deleted.');
-    }
-
-    await this.sendAccountDeletedEmailSafely(user);
-
-    return {
-      success: true,
-      message: 'Account deleted successfully.',
-    };
   }
 }

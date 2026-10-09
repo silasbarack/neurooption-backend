@@ -34,6 +34,9 @@ export declare class AuthService {
     private getUserDisplayName;
     private removeSensitiveFields;
     private signToken;
+    private readonly resetAttempts;
+    private isResetLocked;
+    private recordFailedResetAttempt;
     private sendEmailSafely;
     register(payload: RegisterPayload): Promise<{
         success: boolean;

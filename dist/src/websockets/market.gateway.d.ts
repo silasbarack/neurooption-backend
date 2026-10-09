@@ -54,7 +54,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
     } | {
         type: string;
         symbol: string;
-        timeframe: "S5" | "S10" | "S15" | "S30" | "M1" | "M2" | "M3" | "M5" | "M10" | "M15" | "M30" | "H1" | "H4" | "D1";
+        timeframe: "M1" | "S5" | "S10" | "S15" | "S30" | "M2" | "M3" | "M5" | "M10" | "M15" | "M30" | "H1" | "H4" | "D1";
         sequence: number;
         serverTimestamp: number;
         event?: undefined;
@@ -95,7 +95,7 @@ export declare class MarketGateway implements OnGatewayConnection, OnGatewayDisc
     } | {
         type: string;
         symbol: string;
-        timeframe: "S5" | "S10" | "S15" | "S30" | "M1" | "M2" | "M3" | "M5" | "M10" | "M15" | "M30" | "H1" | "H4" | "D1";
+        timeframe: "M1" | "S5" | "S10" | "S15" | "S30" | "M2" | "M3" | "M5" | "M10" | "M15" | "M30" | "H1" | "H4" | "D1";
         requestedSince: number;
         lastSequence: number;
         serverTimestamp: number;

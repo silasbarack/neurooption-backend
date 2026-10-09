@@ -27,6 +27,10 @@ type ForgotPasswordPayload = {
   email: string;
 };
 
+const RESET_REQUEST_COOLDOWN_MS = 60_000;
+const RESET_ATTEMPT_WINDOW_MS = 15 * 60_000;
+const MAX_RESET_ATTEMPTS = 5;
+
 type ResetPasswordPayload = {
   email: string;
   code: string;
@@ -104,6 +108,45 @@ export class AuthService {
       sub: user.id,
       email: user.email,
     });
+  }
+
+  // A six-digit code has only a million possibilities, so wrong guesses are
+  // limited per email: after MAX_RESET_ATTEMPTS the outstanding codes are
+  // cancelled and a new one must be requested.
+  private readonly resetAttempts = new Map<string, { count: number; since: number }>();
+
+  private isResetLocked(email: string): boolean {
+    const entry = this.resetAttempts.get(email);
+    if (!entry) return false;
+    if (Date.now() - entry.since > RESET_ATTEMPT_WINDOW_MS) {
+      this.resetAttempts.delete(email);
+      return false;
+    }
+    return entry.count >= MAX_RESET_ATTEMPTS;
+  }
+
+  private async recordFailedResetAttempt(email: string): Promise<void> {
+    const now = Date.now();
+    const current = this.resetAttempts.get(email);
+    const entry =
+      current && now - current.since <= RESET_ATTEMPT_WINDOW_MS
+        ? current
+        : { count: 0, since: now };
+    entry.count += 1;
+    this.resetAttempts.set(email, entry);
+
+    if (this.resetAttempts.size > 5000) {
+      for (const [key, value] of this.resetAttempts) {
+        if (now - value.since > RESET_ATTEMPT_WINDOW_MS) this.resetAttempts.delete(key);
+      }
+    }
+
+    if (entry.count >= MAX_RESET_ATTEMPTS) {
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (user) {
+        await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      }
+    }
   }
 
   private async sendEmailSafely(
@@ -185,7 +228,7 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user) {
+    if (!user || user.status === 'DELETED') {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
@@ -224,10 +267,27 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user) {
+    if (!user || user.status === 'DELETED') {
       return {
         success: true,
         message: 'If this email exists, a password reset message has been sent.',
+      };
+    }
+
+    // One code email per address per minute: stops the form being used to
+    // flood someone's inbox. Same answer as any other request, so it also
+    // reveals nothing about the account.
+    const recent = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        createdAt: { gt: new Date(Date.now() - RESET_REQUEST_COOLDOWN_MS) },
+      },
+    });
+
+    if (recent) {
+      return {
+        success: true,
+        message: 'If this email exists, a six-digit verification code has been sent.',
       };
     }
 
@@ -273,6 +333,12 @@ export class AuthService {
       throw new BadRequestException('Password must be at least 6 characters.');
     }
 
+    if (this.isResetLocked(email)) {
+      throw new BadRequestException(
+        'Too many incorrect codes. Request a new verification code and try again.',
+      );
+    }
+
     const codeHash = createHash('sha256').update(code).digest('hex');
 
     const resetRecord = await this.prisma.passwordResetToken.findFirst({
@@ -288,8 +354,11 @@ export class AuthService {
     });
 
     if (!resetRecord) {
+      await this.recordFailedResetAttempt(email);
       throw new BadRequestException('Invalid or expired verification code.');
     }
+
+    this.resetAttempts.delete(email);
 
     const hashedPassword = await bcrypt.hash(payload.password, 12);
     const passwordField = this.getPasswordFieldName();
