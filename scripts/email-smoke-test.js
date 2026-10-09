@@ -15,7 +15,7 @@ const match = sender.match(/<([^>]+)>/);
 const fromEmail = match ? match[1] : sender;
 const subject = 'NeuroOption email delivery smoke test';
 const body = `NeuroOption email delivery test at ${new Date().toISOString()}. This is a test; no account was changed.`;
-if (!recipient || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(recipient)) {
+if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
   console.error('Set EMAIL_TEST_TO to a real mailbox you control.');
   process.exit(2);
 }
@@ -45,7 +45,7 @@ async function api(url, headers, payload) {
     const host = env('SMTP_HOST'),service = env('SMTP_SERVICE');
     const port = Number(env('SMTP_PORT') || 587);
     const config = {
-      auth:{user:env('SMTP_USER'),pass:/gmail/i.test(service||host) ? env('SMTP_PASS').replace(/\\s+/g,'') : env('SMTP_PASS')},
+      auth:{user:env('SMTP_USER'),pass:/gmail/i.test(service||host) ? env('SMTP_PASS').replace(/\s+/g,'') : env('SMTP_PASS')},
       connectionTimeout:10000,greetingTimeout:10000,socketTimeout:20000,
       tls:{rejectUnauthorized:env('SMTP_REJECT_UNAUTHORIZED') !== 'false'}
     };
