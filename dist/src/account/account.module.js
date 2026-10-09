@@ -8,7 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AccountModule = void 0;
 const common_1 = require("@nestjs/common");
+const emails_module_1 = require("../emails/emails.module");
 const wallets_module_1 = require("../wallets/wallets.module");
+const account_deletion_service_1 = require("./account-deletion.service");
 const account_controller_1 = require("./account.controller");
 const account_service_1 = require("./account.service");
 let AccountModule = class AccountModule {
@@ -16,9 +18,9 @@ let AccountModule = class AccountModule {
 exports.AccountModule = AccountModule;
 exports.AccountModule = AccountModule = __decorate([
     (0, common_1.Module)({
-        imports: [wallets_module_1.WalletsModule],
+        imports: [wallets_module_1.WalletsModule, emails_module_1.EmailsModule],
         controllers: [account_controller_1.AccountController],
-        providers: [account_service_1.AccountService],
+        providers: [account_service_1.AccountService, account_deletion_service_1.AccountDeletionService],
     })
 ], AccountModule);
 //# sourceMappingURL=account.module.js.map

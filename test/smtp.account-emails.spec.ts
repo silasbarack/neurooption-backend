@@ -68,9 +68,9 @@ describe('account email delivery over SMTP', () => {
         email.accountCreated('recipient@example.test', 'Test Trader'),
         email.passwordRecoveryCode('123456', 'Test Trader'),
         email.passwordChanged('Test Trader'),
-        email.accountDeleted('Test Trader', {
+        email.accountDeletionConfirmed({ fullName: 'Test Trader',
           email: 'recipient@example.test', reference: 'NO-LOCAL-SMTP-TEST',
-          deletedAt: new Date('2026-10-09T12:00:00Z'), reason: 'I no longer use NeuroOption',
+          deletedAt: new Date('2026-10-09T12:00:00Z'), reasonLabel: 'I no longer use NeuroOption',
         }),
       ];
       for (const template of templates) {
@@ -93,7 +93,7 @@ describe('account email delivery over SMTP', () => {
       }
       const rawDeletion = messages[3].raw.replace(/=\r?\n/g, '');
       expect(rawDeletion).toContain('NO-LOCAL-SMTP-TEST');
-      expect(rawDeletion).toContain('Records that may be retained');
+      expect(rawDeletion).toContain('What we keep, and why');
       expect(messages[1].raw).toContain('123456');
     } finally {
       for (const key of Object.keys(overrides)) {

@@ -6,6 +6,13 @@ type MoneyEmailData = {
     transactionId: string;
     dateTime: string;
 };
+export type AccountDeletionEmailData = {
+    email: string;
+    fullName: string;
+    reference: string;
+    deletedAt: Date;
+    reasonLabel?: string;
+};
 type EmailTemplate = {
     subject: string;
     body: string;
@@ -50,11 +57,13 @@ export declare class EmailsService implements OnModuleInit {
     private deliver;
     private sendEmail;
     accountCreated(email: string, fullName: string): EmailTemplate;
-    accountDeleted(fullName: string): EmailTemplate;
+    private formatEat;
+    private bulletList;
+    accountDeletionConfirmed(data: AccountDeletionEmailData): EmailTemplate;
     passwordRecoveryCode(code: string, fullName?: string): EmailTemplate;
     passwordChanged(fullName: string): EmailTemplate;
     sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean>;
-    sendAccountDeletedEmail(email: string, fullName: string): Promise<boolean>;
+    sendAccountDeletionEmail(data: AccountDeletionEmailData): Promise<boolean>;
     sendPasswordRecoveryCodeEmail(email: string, code: string, fullName?: string): Promise<boolean>;
     sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean>;
     private money;

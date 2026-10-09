@@ -22,12 +22,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -37,14 +37,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -65,12 +65,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -80,14 +80,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -108,12 +108,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -123,14 +123,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -151,12 +151,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -166,14 +166,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -194,12 +194,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -209,14 +209,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -237,12 +237,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -252,14 +252,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -280,12 +280,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -295,14 +295,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -323,12 +323,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -338,14 +338,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -366,12 +366,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -381,14 +381,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -409,12 +409,12 @@ export declare class SocialTradingController {
         copies: {
             id: string;
             status: import(".prisma/client").$Enums.CopyTradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            followerUserId: string;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
             followerTradeId: string | null;
@@ -424,14 +424,14 @@ export declare class SocialTradingController {
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SocialFollowStatus;
         createdAt: Date;
         updatedAt: Date;
-        status: import(".prisma/client").$Enums.SocialFollowStatus;
+        traderUserId: string;
+        followerUserId: string;
         copyPercentage: import("@prisma/client/runtime/library").Decimal;
         maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
         minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
-        traderUserId: string;
         copiedTrades: number;
         totalProfit: import("@prisma/client/runtime/library").Decimal;
         totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -439,14 +439,14 @@ export declare class SocialTradingController {
     findCopyTrades(): Promise<({
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
+            traderUserId: string;
+            followerUserId: string;
             copyPercentage: import("@prisma/client/runtime/library").Decimal;
             maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
             minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
-            traderUserId: string;
             copiedTrades: number;
             totalProfit: import("@prisma/client/runtime/library").Decimal;
             totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -465,30 +465,30 @@ export declare class SocialTradingController {
         };
         masterTrade: {
             id: string;
-            userId: string;
             status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             expiresAt: Date;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
     } & {
         id: string;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        stakeAmount: import("@prisma/client/runtime/library").Decimal;
-        entryPrice: import("@prisma/client/runtime/library").Decimal;
-        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        followerUserId: string;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
+        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        entryPrice: import("@prisma/client/runtime/library").Decimal;
         openedAt: Date;
         closedAt: Date | null;
         followerTradeId: string | null;
@@ -499,14 +499,14 @@ export declare class SocialTradingController {
     findCopyTradesByFollower(followerUserId: string): Promise<({
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
+            traderUserId: string;
+            followerUserId: string;
             copyPercentage: import("@prisma/client/runtime/library").Decimal;
             maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
             minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
-            traderUserId: string;
             copiedTrades: number;
             totalProfit: import("@prisma/client/runtime/library").Decimal;
             totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -525,30 +525,30 @@ export declare class SocialTradingController {
         };
         masterTrade: {
             id: string;
-            userId: string;
             status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             expiresAt: Date;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
     } & {
         id: string;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        stakeAmount: import("@prisma/client/runtime/library").Decimal;
-        entryPrice: import("@prisma/client/runtime/library").Decimal;
-        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        followerUserId: string;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
+        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        entryPrice: import("@prisma/client/runtime/library").Decimal;
         openedAt: Date;
         closedAt: Date | null;
         followerTradeId: string | null;
@@ -559,14 +559,14 @@ export declare class SocialTradingController {
     findCopyTradesByMaster(masterUserId: string): Promise<({
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
+            traderUserId: string;
+            followerUserId: string;
             copyPercentage: import("@prisma/client/runtime/library").Decimal;
             maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
             minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
-            traderUserId: string;
             copiedTrades: number;
             totalProfit: import("@prisma/client/runtime/library").Decimal;
             totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -585,30 +585,30 @@ export declare class SocialTradingController {
         };
         masterTrade: {
             id: string;
-            userId: string;
             status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             expiresAt: Date;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
     } & {
         id: string;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        stakeAmount: import("@prisma/client/runtime/library").Decimal;
-        entryPrice: import("@prisma/client/runtime/library").Decimal;
-        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        followerUserId: string;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
+        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        entryPrice: import("@prisma/client/runtime/library").Decimal;
         openedAt: Date;
         closedAt: Date | null;
         followerTradeId: string | null;
@@ -619,14 +619,14 @@ export declare class SocialTradingController {
     updateCopyTrade(id: string, dto: UpdateCopyTradeDto): Promise<{
         socialFollow: {
             id: string;
+            status: import(".prisma/client").$Enums.SocialFollowStatus;
             createdAt: Date;
             updatedAt: Date;
-            status: import(".prisma/client").$Enums.SocialFollowStatus;
+            traderUserId: string;
+            followerUserId: string;
             copyPercentage: import("@prisma/client/runtime/library").Decimal;
             maxStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
             minStakeAmount: import("@prisma/client/runtime/library").Decimal | null;
-            followerUserId: string;
-            traderUserId: string;
             copiedTrades: number;
             totalProfit: import("@prisma/client/runtime/library").Decimal;
             totalLoss: import("@prisma/client/runtime/library").Decimal;
@@ -645,30 +645,30 @@ export declare class SocialTradingController {
         };
         masterTrade: {
             id: string;
-            userId: string;
             status: import(".prisma/client").$Enums.TradeStatus;
-            stakeAmount: import("@prisma/client/runtime/library").Decimal;
-            entryPrice: import("@prisma/client/runtime/library").Decimal;
-            profitAmount: import("@prisma/client/runtime/library").Decimal;
-            payoutRate: import("@prisma/client/runtime/library").Decimal;
+            userId: string;
             expiresAt: Date;
+            payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            profitAmount: import("@prisma/client/runtime/library").Decimal;
             tradingAccountId: string | null;
             assetId: string;
             expiryId: string | null;
             direction: import(".prisma/client").$Enums.TradeDirection;
+            stakeAmount: import("@prisma/client/runtime/library").Decimal;
+            entryPrice: import("@prisma/client/runtime/library").Decimal;
             openedAt: Date;
             closedAt: Date | null;
         };
     } & {
         id: string;
         status: import(".prisma/client").$Enums.CopyTradeStatus;
-        stakeAmount: import("@prisma/client/runtime/library").Decimal;
-        entryPrice: import("@prisma/client/runtime/library").Decimal;
-        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        followerUserId: string;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
         exitPrice: import("@prisma/client/runtime/library").Decimal | null;
-        followerUserId: string;
+        profitAmount: import("@prisma/client/runtime/library").Decimal;
+        stakeAmount: import("@prisma/client/runtime/library").Decimal;
+        entryPrice: import("@prisma/client/runtime/library").Decimal;
         openedAt: Date;
         closedAt: Date | null;
         followerTradeId: string | null;

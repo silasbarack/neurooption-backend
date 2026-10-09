@@ -44,21 +44,22 @@ ensure old queued codes cannot be used.
 
 ## Account deletion contract
 
-Authenticated DELETE /users/me accepts:
+Authenticated POST /account/delete accepts:
 
     {
-      "currentPassword": "<current password>",
-      "confirmation": "DELETE MY NEUROOPTION ACCOUNT",
-      "reason": "NO_LONGER_USE",
-      "otherReason": "<optional feedback for OTHER, maximum 500 characters>"
+      "password": "<current password>",
+      "confirmation": "DELETE",
+      "reason": "NOT_TRADING",
+      "comment": "<optional feedback for OTHER, maximum 500 characters>"
     }
 
-The phrase is exact and case-sensitive on the server and client. Reasons are
-optional; PREFER_NOT_TO_SAY is the default. Reasons also include taking a break,
-financial risks/losses, privacy/security, technical problems, deposit/withdrawal
-problems, another platform and Other. A user may only delete their own account.
-Legacy ID routes enforce the same authenticated ownership and body validation.
-Profile read/update/password routes also require ownership.
+The word is exact and case-sensitive on the server and client. Reasons are
+optional. The existing ten suggested reasons include trading, another platform,
+privacy/security, payments, trading conditions, finances, usability, a duplicate
+account, taking a break and Other. Optional comments allow up to 500 characters.
+A user may only delete their own account. Legacy DELETE /users routes remain
+removed. Profile read/update/password routes require ownership. Existing
+password and reset-code attempt limits are preserved.
 
 Closure is refused while any real balances, locked funds, nonzero user ledger
 accounts, open trades/copy trades, pending deposits, withdrawals or payouts, or
@@ -106,7 +107,7 @@ remove only their fixture records.
 
 The repository's existing broad lint debt is separate from this change; the
 lifecycle check lints all modified application files. Broader legacy endpoint
-authorization and reset rate limiting require a separate deployment review.
+authorization and distributed reset rate limiting require a separate deployment review.
 
 Rolling back the UI does not restore a closed account. Do not roll back to a JWT
 validator that ignores deletion and token versions after closures have occurred.

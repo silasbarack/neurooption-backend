@@ -15,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: { sub: string; tokenVersion?: number }) {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user || user.deletedAt || (payload.tokenVersion ?? 0) !== user.authTokenVersion) {
+    if (!user || user.deletedAt || user.status === 'DELETED' || (payload.tokenVersion ?? 0) !== user.authTokenVersion) {
       throw new UnauthorizedException('Invalid token');
     }
     return publicUser(user);

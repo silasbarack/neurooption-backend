@@ -28,7 +28,7 @@ export class ProfileService {
       },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || user.status === 'DELETED') {
       throw new NotFoundException('User not found');
     }
 
@@ -40,7 +40,7 @@ export class ProfileService {
       where: { id: userId },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || user.status === 'DELETED') {
       throw new NotFoundException('User not found');
     }
 
@@ -65,7 +65,7 @@ export class ProfileService {
     }
 
     const updated = await this.prisma.user.update({
-      where: { id: userId, deletedAt: null },
+      where: { id: userId, deletedAt: null, status: { not: 'DELETED' } },
       data: {
         fullName: dto.fullName,
         email: dto.email,
@@ -85,7 +85,7 @@ export class ProfileService {
       where: { id: userId },
     });
 
-    if (!user || user.deletedAt) {
+    if (!user || user.deletedAt || user.status === 'DELETED') {
       throw new NotFoundException('User not found');
     }
 
@@ -101,7 +101,7 @@ export class ProfileService {
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
 
     await this.prisma.user.update({
-      where: { id: userId, deletedAt: null, passwordHash: user.passwordHash },
+      where: { id: userId, deletedAt: null, status: { not: 'DELETED' }, passwordHash: user.passwordHash },
       data: {
         passwordHash,
       },

@@ -18,6 +18,9 @@ const bcrypt = require("bcrypt");
 const crypto_1 = require("crypto");
 const prisma_service_1 = require("../config/prisma.service");
 const emails_service_1 = require("../emails/emails.service");
+const RESET_REQUEST_COOLDOWN_MS = 60_000;
+const RESET_ATTEMPT_WINDOW_MS = 15 * 60_000;
+const MAX_RESET_ATTEMPTS = 5;
 let AuthService = AuthService_1 = class AuthService {
     constructor(prisma, jwtService, emailsService, configService) {
         this.prisma = prisma;
@@ -25,6 +28,7 @@ let AuthService = AuthService_1 = class AuthService {
         this.emailsService = emailsService;
         this.configService = configService;
         this.logger = new common_1.Logger(AuthService_1.name);
+        this.resetAttempts = new Map();
     }
     normalizeEmail(email) {
         return email.trim().toLowerCase();
@@ -71,6 +75,37 @@ let AuthService = AuthService_1 = class AuthService {
             sub: user.id,
             email: user.email,
         });
+    }
+    isResetLocked(email) {
+        const entry = this.resetAttempts.get(email);
+        if (!entry)
+            return false;
+        if (Date.now() - entry.since > RESET_ATTEMPT_WINDOW_MS) {
+            this.resetAttempts.delete(email);
+            return false;
+        }
+        return entry.count >= MAX_RESET_ATTEMPTS;
+    }
+    async recordFailedResetAttempt(email) {
+        const now = Date.now();
+        const current = this.resetAttempts.get(email);
+        const entry = current && now - current.since <= RESET_ATTEMPT_WINDOW_MS
+            ? current
+            : { count: 0, since: now };
+        entry.count += 1;
+        this.resetAttempts.set(email, entry);
+        if (this.resetAttempts.size > 5000) {
+            for (const [key, value] of this.resetAttempts) {
+                if (now - value.since > RESET_ATTEMPT_WINDOW_MS)
+                    this.resetAttempts.delete(key);
+            }
+        }
+        if (entry.count >= MAX_RESET_ATTEMPTS) {
+            const user = await this.prisma.user.findUnique({ where: { email } });
+            if (user) {
+                await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+            }
+        }
     }
     async sendEmailSafely(label, send) {
         try {
@@ -126,7 +161,7 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.prisma.user.findUnique({
             where: { email },
         });
-        if (!user) {
+        if (!user || user.status === 'DELETED') {
             throw new common_1.UnauthorizedException('Invalid email or password.');
         }
         const passwordField = this.getPasswordFieldName();
@@ -155,10 +190,22 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.prisma.user.findUnique({
             where: { email },
         });
-        if (!user) {
+        if (!user || user.status === 'DELETED') {
             return {
                 success: true,
                 message: 'If this email exists, a password reset message has been sent.',
+            };
+        }
+        const recent = await this.prisma.passwordResetToken.findFirst({
+            where: {
+                userId: user.id,
+                createdAt: { gt: new Date(Date.now() - RESET_REQUEST_COOLDOWN_MS) },
+            },
+        });
+        if (recent) {
+            return {
+                success: true,
+                message: 'If this email exists, a six-digit verification code has been sent.',
             };
         }
         const code = String((0, crypto_1.randomInt)(100000, 1000000));
@@ -189,6 +236,9 @@ let AuthService = AuthService_1 = class AuthService {
         if (payload.password.length < 6) {
             throw new common_1.BadRequestException('Password must be at least 6 characters.');
         }
+        if (this.isResetLocked(email)) {
+            throw new common_1.BadRequestException('Too many incorrect codes. Request a new verification code and try again.');
+        }
         const codeHash = (0, crypto_1.createHash)('sha256').update(code).digest('hex');
         const resetRecord = await this.prisma.passwordResetToken.findFirst({
             where: {
@@ -202,8 +252,10 @@ let AuthService = AuthService_1 = class AuthService {
             },
         });
         if (!resetRecord) {
+            await this.recordFailedResetAttempt(email);
             throw new common_1.BadRequestException('Invalid or expired verification code.');
         }
+        this.resetAttempts.delete(email);
         const hashedPassword = await bcrypt.hash(payload.password, 12);
         const passwordField = this.getPasswordFieldName();
         await this.prisma.user.update({

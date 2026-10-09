@@ -28,6 +28,8 @@ enum AccountStatus {
   PENDING_KYC
   SUSPENDED
   LOCKED
+  // Closed by the user (personal data removed, financial records kept).
+  DELETED
 }
 
 enum KycStatus {
@@ -1186,7 +1188,6 @@ model AssetPayoutHistory {
   @@index([assetSymbol, createdAt])
   @@index([createdAt])
 }
-
 
 model EmailOutbox {
   id               String   @id @default(uuid())

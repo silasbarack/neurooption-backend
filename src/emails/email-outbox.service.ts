@@ -87,11 +87,11 @@ export class EmailOutboxService implements OnApplicationBootstrap, OnModuleDestr
     if (claimed.count !== 1) return;
     const owned = { id: job.id, status: 'PROCESSING', leaseToken };
     const user = job.kind === 'ACCOUNT_DELETED' ? null :
-      await this.prisma.user.findUnique({ where: { id: job.userId || '' }, select: { deletedAt: true } });
+      await this.prisma.user.findUnique({ where: { id: job.userId || '' }, select: { deletedAt: true, status: true } });
     const reset = job.resetTokenId ?
       await this.prisma.passwordResetToken.findUnique({ where: { id: job.resetTokenId } }) : null;
     if (!job.recipient || !job.body || (job.expiresAt && job.expiresAt <= now) ||
-      (job.kind !== 'ACCOUNT_DELETED' && (!user || user.deletedAt)) ||
+      (job.kind !== 'ACCOUNT_DELETED' && (!user || user.deletedAt || user.status === 'DELETED')) ||
       (job.resetTokenId && (!reset || reset.used || reset.expiresAt <= now))) {
       await this.prisma.emailOutbox.updateMany({
         where: owned,

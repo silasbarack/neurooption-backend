@@ -32,7 +32,7 @@ export class DepositsService {
       where: { id: dto.userId },
     });
 
-    if (!user || user.deletedAt) throw new NotFoundException('User not found');
+    if (!user || user.deletedAt || user.status === 'DELETED') throw new NotFoundException('User not found');
 
     const wallet = await this.prisma.wallet.findUnique({
       where: { id: dto.walletId },

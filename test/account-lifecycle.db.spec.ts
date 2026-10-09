@@ -15,11 +15,12 @@ import { AffiliatesService } from '../src/affiliates/affiliates.service';
 import { SocialTradingService } from '../src/social-trading/social-trading.service';
 import { LedgerService } from '../src/ledger/ledger.service';
 import { lockActiveUser } from '../src/common/lock-active-user';
-import { DELETE_ACCOUNT_CONFIRMATION } from '../src/users/dto/delete-account.dto';
+import { AccountDeletionService } from '../src/account/account-deletion.service';
+import { DELETION_CONFIRMATION_WORD } from '../src/account/account-deletion.constants';
 
 const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 const password = 'synthetic-current-password';
-const deletion = { confirmation: DELETE_ACCOUNT_CONFIRMATION, currentPassword: password, reason: 'NO_LONGER_USE' as const };
+const deletion = { confirmation: DELETION_CONFIRMATION_WORD, password, reason: 'NOT_TRADING' };
 
 describeDb('account lifecycle with PostgreSQL', () => {
   const prisma = new PrismaService();
@@ -27,7 +28,8 @@ describeDb('account lifecycle with PostgreSQL', () => {
   const outbox = new EmailOutboxService(prisma, emails);
   const jwt = new JwtService({ secret: process.env.JWT_SECRET || 'dev_secret' });
   const auth = new AuthService(prisma, jwt, emails, outbox);
-  const users = new UsersService(prisma, emails, outbox);
+  const users = new UsersService(prisma);
+  const closure = new AccountDeletionService(prisma, emails, outbox);
   const profile = new ProfileService(prisma);
   const userIds: string[] = [];
   const assetIds: string[] = [];
@@ -164,6 +166,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
 
   it('invalidates superseded reset codes and cancels their queued messages', async () => {
     const first = await recoveryCode();
+    await prisma.passwordResetToken.updateMany({ where: { userId }, data: { createdAt: new Date(Date.now() - 61000) } });
     const second = await recoveryCode();
     expect(await prisma.passwordResetToken.findUnique({ where: { id: first.job.resetTokenId! } })).toBeNull();
     expect(await prisma.emailOutbox.findUnique({ where: { id: first.job.id } })).toMatchObject({
@@ -227,9 +230,9 @@ describeDb('account lifecycle with PostgreSQL', () => {
     await prisma.notification.create({
       data: { userId, type: 'ADMIN_ACTION', recipientEmail: address, subject: 'Old account notice', body: 'Old profile details' },
     });
-    const receipt = await users.deleteMe(userId, deletion);
+    const receipt = await closure.deleteAccount(userId, deletion);
     const deleted = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    expect(deleted).toMatchObject({ fullName: 'Deleted account', phone: null, status: 'LOCKED', authTokenVersion: 1 });
+    expect(deleted).toMatchObject({ fullName: 'Deleted user', phone: null, status: 'DELETED', authTokenVersion: 1 });
     expect(deleted.email).toContain('@deleted.neurooption.invalid');
     expect(deleted.deletedAt).toBeInstanceOf(Date);
     expect(await bcrypt.compare(password, deleted.passwordHash)).toBe(false);
@@ -258,7 +261,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
   it('rolls back closure when the detailed deletion email cannot be persisted', async () => {
     const { job } = await recoveryCode();
     jest.spyOn(outbox, 'enqueue').mockRejectedValueOnce(new Error('synthetic persistence failure'));
-    await expect(users.deleteMe(userId, deletion)).rejects.toThrow('synthetic persistence failure');
+    await expect(closure.deleteAccount(userId, deletion)).rejects.toThrow('synthetic persistence failure');
     expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({ email: address, deletedAt: null });
     expect(await prisma.emailOutbox.findUnique({ where: { id: job.id } })).toMatchObject({ status: 'PENDING' });
     expect(await prisma.passwordResetToken.count({ where: { userId } })).toBe(1);
@@ -266,7 +269,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
 
   it('blocks deletion when real money remains', async () => {
     await prisma.wallet.create({ data: { userId, balance: 1 } });
-    await expect(users.deleteMe(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
+    await expect(closure.deleteAccount(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
     expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({ deletedAt: null });
   });
 
@@ -277,7 +280,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
         expectedReturnAmount: 1.8, expectedReturnUsd: 1.8, entryPrice: 1,
         entryTime: new Date(), expiryTime: new Date(Date.now() + 60000), expirySeconds: 60 },
     });
-    await expect(users.deleteMe(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
+    await expect(closure.deleteAccount(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
   });
 
   it.each(['PENDING', 'PROCESSING'] as const)('blocks a %s payout even with a completed transaction and zero wallet', async (status) => {
@@ -286,26 +289,26 @@ describeDb('account lifecycle with PostgreSQL', () => {
       data: { userId, walletId: wallet.id, type: 'DEPOSIT', status: 'COMPLETED', amount: 2 },
     });
     await prisma.payout.create({ data: { userId, walletId: wallet.id, transactionId: transaction.id, amount: 2, status } });
-    await expect(users.deleteMe(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
+    await expect(closure.deleteAccount(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
     expect(await prisma.emailOutbox.count({ where: { userId, kind: 'ACCOUNT_DELETED' } })).toBe(0);
   });
 
   it.each(['PENDING', 'APPROVED'] as const)('blocks an unpaid %s affiliate commission without a transaction', async (status) => {
     await affiliateFixture(status);
-    await expect(users.deleteMe(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
+    await expect(closure.deleteAccount(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
     expect(await prisma.user.findUnique({ where: { id: userId } })).toMatchObject({ deletedAt: null });
   });
 
   it('blocks an open copy trade whose master trade has already settled', async () => {
     const { follow } = await copyFixture('OPEN');
-    await expect(users.deleteMe(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
+    await expect(closure.deleteAccount(userId, deletion)).rejects.toBeInstanceOf(ConflictException);
     expect(await prisma.socialFollow.findUnique({ where: { id: follow.id } })).toMatchObject({ status: 'ACTIVE' });
   });
 
   it('preserves settled copy and affiliate history, stops follows and disables commissions', async () => {
     const { follow, copy } = await copyFixture();
     const { affiliate, commission } = await affiliateFixture();
-    await users.deleteMe(userId, deletion);
+    await closure.deleteAccount(userId, deletion);
     expect(await prisma.copyTrade.findUnique({ where: { id: copy!.id } })).toMatchObject({
       socialFollowId: follow.id, status: 'WON',
     });
@@ -329,7 +332,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
       affiliateId: affiliate.id, affiliateUserId: userId, referredUserId: referred.id, amount: 10, commissionPercentage: 10,
     });
     await seen;
-    try { await users.deleteMe(userId, deletion); } finally { release(); }
+    try { await closure.deleteAccount(userId, deletion); } finally { release(); }
     await expect(pending).rejects.toBeInstanceOf(NotFoundException);
     expect(await prisma.affiliateCommission.count({ where: { affiliateUserId: userId, status: 'PENDING' } })).toBe(0);
   });
@@ -352,7 +355,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
       masterTradeId: trade.id, stakeAmount: 1, payoutRate: 0.8, entryPrice: 1,
     });
     await seen;
-    try { await users.deleteMe(userId, deletion); } finally { release(); }
+    try { await closure.deleteAccount(userId, deletion); } finally { release(); }
     await expect(pending).rejects.toBeInstanceOf(NotFoundException);
     expect(await prisma.copyTrade.count({ where: { followerUserId: userId } })).toBe(0);
   });
@@ -420,7 +423,7 @@ describeDb('account lifecycle with PostgreSQL', () => {
       },
     } as unknown as PrismaService;
     try {
-      await expect(new UsersService(coordinated, emails, outbox).deleteMe(userId, deletion))
+      await expect(new AccountDeletionService(coordinated, emails, outbox).deleteAccount(userId, deletion))
         .rejects.toBeInstanceOf(ConflictException);
     } finally { release(); await deposit; }
     expect(attempts).toBeGreaterThanOrEqual(2);
