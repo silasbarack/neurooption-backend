@@ -444,24 +444,92 @@ ${this.signOff()}`, 'Your NeuroOption account is ready. Here is how to get start
             html,
         };
     }
-    accountDeleted(fullName) {
-        const name = this.formatName(fullName);
+    formatEat(date) {
+        const text = new Intl.DateTimeFormat('en-GB', {
+            dateStyle: 'long',
+            timeStyle: 'medium',
+            timeZone: 'Africa/Nairobi',
+        }).format(date);
+        return `${text} EAT (UTC+3)`;
+    }
+    bulletList(items) {
+        const rows = items
+            .map((item) => `<li style="margin:0 0 8px;font-family:${FONT_STACK};font-size:14px;line-height:22px;color:${BRAND.text};">${this.escapeHtml(item)}</li>`)
+            .join('');
+        return `<ul style="margin:0 0 6px;padding:0 0 0 20px;">${rows}</ul>`;
+    }
+    accountDeletionConfirmed(data) {
+        const name = this.formatName(data.fullName);
+        const closedAt = this.formatEat(data.deletedAt);
+        const closedAtUtc = data.deletedAt.toISOString();
+        const supportUrl = this.getSupportUrl();
+        const registerUrl = `${this.getFrontendUrl()}/register`;
+        const removed = [
+            'Your sign-in access. Every active session was signed out and can no longer be used.',
+            'Your name, email address and phone number were removed from your profile.',
+            'Any password-reset codes and your referral code were cleared.',
+            'Copy-trading follows and any affiliate profile were switched off.',
+        ];
+        const kept = [
+            'Records of your deposits, withdrawals, trades and ledger entries, which we must keep to meet accounting, audit and anti-money-laundering obligations.',
+            'Identity-verification (KYC) records, if you submitted any.',
+            'A record of this deletion request.',
+        ];
+        const rows = [
+            ['Account email', data.email],
+            ['Account closed', closedAt],
+            ['Closed at (UTC)', closedAtUtc],
+            ['Funds at closing', 'No balance or open trades'],
+        ];
+        if (data.reasonLabel)
+            rows.push(['Reason you gave', data.reasonLabel]);
         const body = `
 Dear ${name},
 
-Your NeuroOption account has been deleted successfully.
-If you did not request this action, please contact Support Service immediately: ${this.getSupportUrl()}
-Thank you for using NeuroOption.
+This email confirms that your NeuroOption account has been deleted at your request. Please keep it as your record.
+
+Reference: ${data.reference}
+Account email: ${data.email}
+Account closed: ${closedAt}
+Closed at (UTC): ${closedAtUtc}
+Funds at closing: none (no balance and no open trades or pending payments)${data.reasonLabel ? `\nReason you gave: ${data.reasonLabel}` : ''}
+
+What we removed or switched off
+${removed.map((item) => `- ${item}`).join('\n')}
+
+What we keep, and why
+${kept.map((item) => `- ${item}`).join('\n')}
+These records are kept securely for as long as the law requires, are used only where the law requires it (for example audits or requests from regulators), and are never used for marketing.
+
+Coming back
+You can create a new account with the same email address at any time. A new account starts fresh: your previous balances, history and settings are not restored. Register again: ${registerUrl}
+
+Did you not ask for this?
+Contact Support immediately and quote reference ${data.reference}: ${supportUrl}
+
+We will not send you further emails about this account, other than replies to messages you send to Support.
+
+Thank you for having used NeuroOption.
+The NeuroOption Team
     `.trim();
         const html = this.brandedHtml(`
 ${this.h1('Your account has been deleted')}
 ${this.p(`Dear ${this.escapeHtml(name)},`)}
-${this.p('Your NeuroOption account has been deleted successfully.')}
-${this.notice('Did not request this?', 'If you did not request this action, please contact Support Service immediately.', 'danger')}
-${this.button(this.getSupportUrl(), 'Contact Support')}
-${this.divider()}
-${this.p('Thank you for using NeuroOption.<br>' + this.strong('The NeuroOption Team'))}`, 'Your NeuroOption account has been deleted.');
-        return { subject: 'NeuroOption Account Deleted', body, html };
+${this.p('This email confirms that your NeuroOption account was deleted at your request. Please keep it as your record.')}
+${this.highlight('Deletion reference', data.reference, 'Quote this if you contact Support about this deletion.', 24)}
+${this.detailsTable('Deletion details', rows, { label: 'Closed', tone: 'success' })}
+${this.h2('What we removed or switched off')}
+${this.bulletList(removed)}
+${this.h2('What we keep, and why')}
+${this.bulletList(kept)}
+${this.p('These records are kept securely for as long as the law requires, are used only where the law requires it (for example audits or requests from regulators), and are never used for marketing.', true)}
+${this.h2('Coming back')}
+${this.p('You can create a new account with the same email address at any time. A new account starts fresh: your previous balances, history and settings are not restored.')}
+${this.button(registerUrl, 'Create a new account')}
+${this.notice('Did you not ask for this?', `Contact Support immediately and quote reference ${this.escapeHtml(data.reference)} so we can investigate. ${this.link(supportUrl, 'Contact Support')}`, 'danger')}
+${this.p('We will not send you further emails about this account, other than replies to messages you send to Support.', true)}
+${this.signOff()}`, 'Your NeuroOption account has been deleted. Here are the details.');
+        return { subject: 'Your NeuroOption account has been deleted', body, html };
     }
     passwordRecoveryCode(code, fullName = 'User') {
         const name = this.formatName(fullName);
@@ -499,8 +567,8 @@ ${this.button(this.getSupportUrl(), 'Contact Support')}`, 'Your NeuroOption pass
     async sendAccountCreatedEmail(email, fullName) {
         return this.sendTemplateEmail(email, this.accountCreated(email, fullName));
     }
-    async sendAccountDeletedEmail(email, fullName) {
-        return this.sendTemplateEmail(email, this.accountDeleted(fullName));
+    async sendAccountDeletionEmail(data) {
+        return this.sendTemplateEmail(data.email, this.accountDeletionConfirmed(data));
     }
     async sendPasswordRecoveryCodeEmail(email, code, fullName = 'User') {
         return this.sendTemplateEmail(email, this.passwordRecoveryCode(code, fullName));

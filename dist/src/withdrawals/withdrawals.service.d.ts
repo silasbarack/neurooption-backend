@@ -10,39 +10,39 @@ export declare class WithdrawalsService {
     create(dto: CreateWithdrawalDto): Promise<{
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -55,15 +55,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;
@@ -74,39 +74,39 @@ export declare class WithdrawalsService {
     findAll(): Promise<({
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -119,15 +119,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;
@@ -138,39 +138,39 @@ export declare class WithdrawalsService {
     findByUser(userId: string): Promise<({
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -183,15 +183,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;
@@ -202,39 +202,39 @@ export declare class WithdrawalsService {
     findOne(id: string): Promise<{
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -247,15 +247,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;
@@ -266,39 +266,39 @@ export declare class WithdrawalsService {
     updateStatus(id: string, dto: UpdateWithdrawalStatusDto): Promise<{
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -311,15 +311,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;
@@ -330,39 +330,39 @@ export declare class WithdrawalsService {
     approve(id: string, externalRef?: string): Promise<{
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -375,15 +375,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;
@@ -394,39 +394,39 @@ export declare class WithdrawalsService {
     reject(id: string, rejectionReason: string): Promise<{
         user: {
             id: string;
-            fullName: string;
             email: string;
             phone: string;
+            fullName: string;
         };
         wallet: {
             id: string;
+            createdAt: Date;
+            updatedAt: Date;
             userId: string;
             currency: string;
             balance: Prisma.Decimal;
             locked: Prisma.Decimal;
-            createdAt: Date;
-            updatedAt: Date;
         };
         transaction: {
-            description: string | null;
             id: string;
-            userId: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
             updatedAt: Date;
-            walletId: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            status: import(".prisma/client").$Enums.TransactionStatus;
+            userId: string;
+            description: string | null;
             amount: Prisma.Decimal;
+            type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
+            walletId: string;
         };
         gateway: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             name: string;
-            type: import(".prisma/client").$Enums.PaymentGatewayType;
             isActive: boolean;
             direction: import(".prisma/client").$Enums.PaymentDirection;
+            type: import(".prisma/client").$Enums.PaymentGatewayType;
             publicKey: string | null;
             secretKey: string | null;
             callbackUrl: string | null;
@@ -439,15 +439,15 @@ export declare class WithdrawalsService {
         };
     } & {
         id: string;
-        userId: string;
-        currency: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.TransactionStatus;
         createdAt: Date;
         updatedAt: Date;
-        walletId: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
+        userId: string;
+        currency: string;
         amount: Prisma.Decimal;
         transactionId: string;
-        phone: string | null;
+        walletId: string;
         externalRef: string | null;
         rejectionReason: string | null;
         accountNumber: string | null;

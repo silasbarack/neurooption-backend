@@ -28,6 +28,8 @@ enum AccountStatus {
   PENDING_KYC
   SUSPENDED
   LOCKED
+  // Closed by the user (personal data removed, financial records kept).
+  DELETED
 }
 
 enum KycStatus {

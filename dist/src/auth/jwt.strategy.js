@@ -27,7 +27,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         const user = await this.prisma.user.findUnique({
             where: { id: payload.sub },
         });
-        if (!user) {
+        if (!user || user.status === 'DELETED') {
             throw new common_1.UnauthorizedException('Invalid token');
         }
         const { passwordHash, ...safeUser } = user;
