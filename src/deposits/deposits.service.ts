@@ -11,6 +11,7 @@ import {
   TransactionType,
 } from '@prisma/client';
 
+import { lockActiveUser } from '../common/lock-active-user';
 import { PrismaService } from '../config/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
@@ -31,7 +32,7 @@ export class DepositsService {
       where: { id: dto.userId },
     });
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user || user.deletedAt) throw new NotFoundException('User not found');
 
     const wallet = await this.prisma.wallet.findUnique({
       where: { id: dto.walletId },
@@ -61,6 +62,7 @@ export class DepositsService {
     const amount = new Prisma.Decimal(dto.amount);
 
     return this.prisma.$transaction(async (tx) => {
+      await lockActiveUser(tx, dto.userId);
       const transaction = await tx.transaction.create({
         data: {
           userId: dto.userId,

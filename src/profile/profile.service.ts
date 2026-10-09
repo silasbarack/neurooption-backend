@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../config/prisma.service';
+import { publicUser } from '../users/public-user';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -27,11 +28,11 @@ export class ProfileService {
       },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundException('User not found');
     }
 
-    return this.sanitizeUser(user);
+    return publicUser(user);
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -39,7 +40,7 @@ export class ProfileService {
       where: { id: userId },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundException('User not found');
     }
 
@@ -64,7 +65,7 @@ export class ProfileService {
     }
 
     const updated = await this.prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, deletedAt: null },
       data: {
         fullName: dto.fullName,
         email: dto.email,
@@ -76,7 +77,7 @@ export class ProfileService {
       },
     });
 
-    return this.sanitizeUser(updated);
+    return publicUser(updated);
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -84,7 +85,7 @@ export class ProfileService {
       where: { id: userId },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new NotFoundException('User not found');
     }
 
@@ -100,7 +101,7 @@ export class ProfileService {
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
 
     await this.prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, deletedAt: null, passwordHash: user.passwordHash },
       data: {
         passwordHash,
       },
@@ -111,8 +112,4 @@ export class ProfileService {
     };
   }
 
-  private sanitizeUser(user: any) {
-    const { passwordHash, ...safeUser } = user;
-    return safeUser;
-  }
 }

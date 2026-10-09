@@ -8,6 +8,7 @@ import {
   Prisma,
 } from '@prisma/client';
 
+import { lockActiveUser } from '../common/lock-active-user';
 import { PrismaService } from '../config/prisma.service';
 import {
   ConfirmDepositInput,
@@ -117,6 +118,7 @@ export class LedgerService {
     escrow: LedgerAccount;
     withdrawalPending: LedgerAccount;
   }> {
+    await lockActiveUser(tx, userId);
     const [available, escrow, withdrawalPending] = await Promise.all([
       this.getOrCreateAccount(tx, {
         userId,
@@ -173,6 +175,8 @@ export class LedgerService {
       });
       if (existing) return existing;
     }
+
+    if (input.userId) await lockActiveUser(tx, input.userId);
 
     if (input.entries.length < 2) {
       throw new BadRequestException(

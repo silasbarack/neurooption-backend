@@ -19,7 +19,7 @@ type MoneyEmailData = {
   dateTime: string;
 };
 
-type EmailTemplate = {
+export type EmailTemplate = {
   subject: string;
   /** Plain-text alternative, written per template. */
   body: string;
@@ -466,8 +466,9 @@ ${content}
     html: string,
   ): Promise<void> {
     if (provider === 'smtp') {
-      await this.getTransporter().sendMail({
+      const result = await this.getTransporter().sendMail({
         from: this.getFromAddress(),
+        replyTo: this.env('EMAIL_REPLY_TO') || undefined,
         to,
         subject,
         text,
@@ -481,6 +482,11 @@ ${content}
           },
         ],
       });
+      const accepted: Array<string | { address: string }> = result.accepted || [];
+      if (!accepted.some((recipient) =>
+        (typeof recipient === 'string' ? recipient : recipient.address).toLowerCase() === to.toLowerCase())) {
+        throw new Error('SMTP server did not accept the recipient.');
+      }
       return;
     }
 
@@ -494,6 +500,7 @@ ${content}
         { 'api-key': this.env('BREVO_API_KEY'), accept: 'application/json' },
         {
           sender: this.parseFromAddress(),
+          ...(this.env('EMAIL_REPLY_TO') ? { replyTo: { email: this.env('EMAIL_REPLY_TO') } } : {}),
           to: [{ email: to }],
           subject,
           htmlContent: hostedHtml,
@@ -508,6 +515,7 @@ ${content}
       { Authorization: `Bearer ${this.env('RESEND_API_KEY')}` },
       {
         from: this.getFromAddress(),
+        ...(this.env('EMAIL_REPLY_TO') ? { reply_to: this.env('EMAIL_REPLY_TO') } : {}),
         to: [to],
         subject,
         html: hostedHtml,
@@ -525,24 +533,18 @@ ${content}
     const provider = this.getProvider();
 
     if (provider === 'none') {
-      this.logger.warn(`Email is not configured. "${subject}" not sent to ${to}.`);
+      this.logger.warn(`Email is not configured. "${subject}" was not sent.`);
       return false;
     }
 
     try {
       const text = `${body}\n\n${this.textFooter()}`;
       await this.deliver(provider, to, subject, text, html || this.toHtml(body));
-      this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
+      this.logger.log(`Provider accepted "${subject}" via ${provider}.`);
       return true;
     } catch (error) {
-      this.logger.error(
-        `Failed to send "${subject}" to ${to} via ${provider}: ${this.errorMessage(error)}`,
-      );
-
-      if (error instanceof Error && error.stack) {
-        this.logger.error(error.stack);
-      }
-
+      const code = (error as { code?: string })?.code || 'EMAIL_PROVIDER_ERROR';
+      this.logger.error('Failed to send "' + subject + '" via ' + provider + ' (' + code + '). Check verified sender and provider configuration.');
       return false;
     }
   }
@@ -612,29 +614,48 @@ ${this.signOff()}`,
     };
   }
 
-  accountDeleted(fullName: string): EmailTemplate {
+  accountDeleted(fullName: string, details?: {
+    email: string; reference: string; deletedAt: Date; reason: string;
+  }): EmailTemplate {
     const name = this.formatName(fullName);
-
-    const body = `
-Dear ${name},
-
-Your NeuroOption account has been deleted successfully.
-If you did not request this action, please contact Support Service immediately: ${this.getSupportUrl()}
-Thank you for using NeuroOption.
-    `.trim();
-
+    const rows: DetailRow[] = details ? [
+      ['Account email', details.email],
+      ['Deletion reference', details.reference],
+      ['Deleted on', new Intl.DateTimeFormat('en-KE', {
+        timeZone: 'Africa/Nairobi', dateStyle: 'long', timeStyle: 'long',
+      }).format(details.deletedAt) + ' (Africa/Nairobi, UTC+03:00)'],
+      ['Reason selected', details.reason],
+    ] : [];
+    const removed = 'Your profile name, email address, phone number and password have been removed from the active account. Account access and existing sessions have ended, and previous password reset codes are invalid.';
+    const retained = 'Historical trading, payment, KYC, support and security records may be retained separately for applicable recordkeeping obligations. Account deletion does not erase those retained records. Contact Support to ask about retention or further erasure requests.';
+    const funds = 'Deletion does not transfer or withdraw funds. Any remaining real funds and outstanding activity must be settled before closure.';
+    const recovery = 'Your previous account credentials cannot be restored. If you did not request deletion, contact NeuroOption Support immediately and include the deletion reference. Never send your password or verification codes.';
+    const body = [
+      'Dear ' + name + ',', '',
+      'Your NeuroOption account has been deleted successfully.',
+      rows.length ? this.textDetails('Deletion details', rows) : '',
+      'What changed', removed,
+      'Funds and outstanding activity', funds,
+      'Records that may be retained', retained,
+      'Account recovery and support', recovery,
+      'Support Center: ' + this.getSupportUrl(),
+      this.env('EMAIL_REPLY_TO') ? 'You can reply to this email for Support: ' + this.env('EMAIL_REPLY_TO') : '',
+      'The NeuroOption Team',
+    ].filter(Boolean).join('\n\n');
     const html = this.brandedHtml(
-      `
-${this.h1('Your account has been deleted')}
-${this.p(`Dear ${this.escapeHtml(name)},`)}
-${this.p('Your NeuroOption account has been deleted successfully.')}
-${this.notice('Did not request this?', 'If you did not request this action, please contact Support Service immediately.', 'danger')}
-${this.button(this.getSupportUrl(), 'Contact Support')}
-${this.divider()}
-${this.p('Thank you for using NeuroOption.<br>' + this.strong('The NeuroOption Team'))}`,
-      'Your NeuroOption account has been deleted.',
+      this.h1('Your account has been deleted') +
+      this.p('Dear ' + this.escapeHtml(name) + ',') +
+      this.p('Your NeuroOption account has been deleted successfully.') +
+      (rows.length ? this.detailsTable('Deletion details', rows) : '') +
+      this.h2('What changed') + this.p(this.escapeHtml(removed)) +
+      this.h2('Funds and outstanding activity') + this.p(this.escapeHtml(funds)) +
+      this.h2('Records that may be retained') + this.p(this.escapeHtml(retained)) +
+      this.notice('Did not request this?', this.escapeHtml(recovery), 'danger') +
+      this.button(this.getSupportUrl(), 'Contact Support') +
+      (this.env('EMAIL_REPLY_TO') ? this.p('You can reply to this email for Support.') : '') +
+      this.divider() + this.p(this.strong('The NeuroOption Team')),
+      'Your NeuroOption account has been deleted. Keep your deletion reference for Support.',
     );
-
     return { subject: 'NeuroOption Account Deleted', body, html };
   }
 
