@@ -5,6 +5,8 @@ import * as bcrypt from 'bcrypt';
 import { AccountDeletionService } from '../src/account/account-deletion.service';
 import { AuthService } from '../src/auth/auth.service';
 import { JwtStrategy } from '../src/auth/jwt.strategy';
+import { PrismaService } from '../src/config/prisma.service';
+import { EmailOutboxService } from '../src/emails/email-outbox.service';
 import { EmailsService } from '../src/emails/emails.service';
 
 /** Runs against PostgreSQL (DATABASE_URL), like the other database tests. */
@@ -13,8 +15,13 @@ const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 describeDb('account deletion with PostgreSQL', () => {
   const prisma = new PrismaClient();
   const sent: any[] = [];
-  const emails = { sendAccountDeletionEmail: jest.fn(async (d: any) => (sent.push(d), true)) };
-  const service = new AccountDeletionService(prisma as any, emails as unknown as EmailsService);
+  const emails = new EmailsService();
+  jest.spyOn(emails, 'sendTemplateEmail').mockImplementation(async (email, template) => {
+    sent.push({ email, template }); return true;
+  });
+  const outbox = new EmailOutboxService(prisma as unknown as PrismaService, emails);
+  jest.spyOn(outbox, 'kick').mockImplementation(() => undefined);
+  const service = new AccountDeletionService(prisma as unknown as PrismaService, emails, outbox);
   const created: string[] = [];
 
   async function newUser(label: string) {
@@ -32,6 +39,14 @@ describeDb('account deletion with PostgreSQL', () => {
   }
 
   afterAll(async () => {
+    const scope = { userId: { in: created } };
+    await prisma.emailOutbox.deleteMany({ where: scope });
+    await prisma.passwordResetToken.deleteMany({ where: scope });
+    await prisma.engineTrade.deleteMany({ where: scope });
+    await prisma.auditLog.deleteMany({ where: scope });
+    await prisma.wallet.deleteMany({ where: scope });
+    await prisma.user.deleteMany({ where: { id: { in: created } } });
+    jest.restoreAllMocks();
     await prisma.$disconnect();
   });
 
@@ -76,17 +91,18 @@ describeDb('account deletion with PostgreSQL', () => {
 
     const result = await service.deleteAccount(
       user.id,
-      { password: 'pw-123456', confirmation: 'delete', reason: 'NOT_TRADING', comment: 'bye' },
+      { password: 'pw-123456', confirmation: 'DELETE', reason: 'NOT_TRADING', comment: 'bye' },
       { ipAddress: '10.1.1.1', userAgent: 'jest' },
     );
 
-    expect(result).toMatchObject({ success: true, emailSent: true });
-    expect(result.reference).toMatch(/^DEL-[0-9A-F]{8}$/);
-    expect(sent.at(-1)).toMatchObject({ email: user.email, fullName: user.fullName, reference: result.reference });
+    expect(result).toMatchObject({ success: true, emailSent: false, emailDelivery: 'queued' });
+    await outbox.processPending();
+    expect(result.reference).toMatch(/^DEL-[0-9A-F-]{36}$/);
+    expect(sent.at(-1)).toMatchObject({ email: user.email, template: { body: expect.stringContaining(result.reference) } });
 
     const row = await prisma.user.findUnique({ where: { id: user.id } });
     expect(row).toMatchObject({ status: 'DELETED', fullName: 'Deleted user', phone: null, referralCode: null });
-    expect(row?.email).toBe(`deleted-${user.id}@deleted.neurooption.invalid`);
+    expect(row?.email).toContain('@deleted.neurooption.invalid');
     expect(await bcrypt.compare('pw-123456', row!.passwordHash)).toBe(false);
 
     expect(await prisma.passwordResetToken.count({ where: { userId: user.id } })).toBe(0);
@@ -94,7 +110,7 @@ describeDb('account deletion with PostgreSQL', () => {
     const audit = await prisma.auditLog.findFirst({ where: { userId: user.id, action: 'ACCOUNT_DELETED' } });
     expect(audit).toMatchObject({ targetId: user.id, ipAddress: '10.1.1.1' });
     expect((audit!.metadata as any).reason).toBe('NOT_TRADING');
-    expect((audit!.metadata as any).emailSent).toBe(true);
+    expect((audit!.metadata as any).emailDelivery).toBe('queued');
 
     // Existing tokens stop working at once; the account cannot sign in.
     const strategy = new JwtStrategy(prisma as any);

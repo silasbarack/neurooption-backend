@@ -1,113 +1,37 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
+import { EmailOutboxService } from '../emails/email-outbox.service';
+import { serializableTransaction } from '../common/serializable-transaction';
+import { lockActiveUser } from '../common/lock-active-user';
+import { publicUser } from '../users/public-user';
 
-type RegisterPayload = {
-  fullName?: string;
-  name?: string;
-  email: string;
-  password: string;
-};
-
-type LoginPayload = {
-  email: string;
-  password: string;
-};
-
-type ForgotPasswordPayload = {
-  email: string;
-};
+type RegisterPayload = { fullName?: string; name?: string; email: string; password: string };
+type LoginPayload = { email: string; password: string };
+type ForgotPasswordPayload = { email: string };
+type ResetPasswordPayload = { email: string; code: string; password: string };
 
 const RESET_REQUEST_COOLDOWN_MS = 60_000;
 const RESET_ATTEMPT_WINDOW_MS = 15 * 60_000;
 const MAX_RESET_ATTEMPTS = 5;
 
-type ResetPasswordPayload = {
-  email: string;
-  code: string;
-  password: string;
-};
-
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly emailsService: EmailsService,
-    private readonly configService: ConfigService,
+    private readonly outbox: EmailOutboxService,
   ) {}
 
-  private normalizeEmail(email: string): string {
-    return email.trim().toLowerCase();
-  }
-
-  private getUserModelFields(): string[] {
-    const runtimeModel = (this.prisma as any)?._runtimeDataModel?.models?.User;
-
-    if (!runtimeModel?.fields) {
-      return [];
-    }
-
-    return runtimeModel.fields.map((field: any) => field.name);
-  }
-
-  private getPasswordFieldName(): string {
-    const fields = this.getUserModelFields();
-
-    if (fields.includes('password')) return 'password';
-    if (fields.includes('passwordHash')) return 'passwordHash';
-    if (fields.includes('hashedPassword')) return 'hashedPassword';
-
-    return 'password';
-  }
-
-  private getNameFieldName(): string | null {
-    const fields = this.getUserModelFields();
-
-    if (fields.includes('fullName')) return 'fullName';
-    if (fields.includes('name')) return 'name';
-
-    return null;
-  }
-
-  private getUserDisplayName(user: any): string {
-    return (
-      user?.fullName ||
-      user?.name ||
-      user?.email?.split('@')?.[0] ||
-      'Trader'
-    );
-  }
-
-  private removeSensitiveFields(user: any) {
-    if (!user) return null;
-
-    const {
-      password,
-      passwordHash,
-      hashedPassword,
-      ...safeUser
-    } = user;
-
-    return safeUser;
-  }
-
-  private signToken(user: any): string {
-    return this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-    });
+  private normalizeEmail(email: string): string { return email.trim().toLowerCase(); }
+  private getUserDisplayName(user: User): string { return user.fullName || user.email.split('@')[0] || 'Trader'; }
+  private signToken(user: User): string {
+    return this.jwtService.sign({ sub: user.id, email: user.email, tokenVersion: user.authTokenVersion });
   }
 
   // A six-digit code has only a million possibilities, so wrong guesses are
@@ -143,254 +67,121 @@ export class AuthService {
 
     if (entry.count >= MAX_RESET_ATTEMPTS) {
       const user = await this.prisma.user.findUnique({ where: { email } });
-      if (user) {
-        await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      if (user && !user.deletedAt && user.status !== 'DELETED') {
+        await serializableTransaction(this.prisma, async (tx) => {
+          await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+          await this.outbox.cancel(tx, user.id, 'PASSWORD_RECOVERY');
+        });
       }
-    }
-  }
-
-  private async sendEmailSafely(
-    label: string,
-    send: () => Promise<boolean>,
-  ): Promise<void> {
-    try {
-      await send();
-    } catch (error) {
-      this.logger.error(`${label} failed`, error as Error);
     }
   }
 
   async register(payload: RegisterPayload) {
     const email = this.normalizeEmail(payload.email || '');
     const fullName = (payload.fullName || payload.name || '').trim();
-
-    if (!email || !payload.password) {
-      throw new BadRequestException('Email and password are required.');
-    }
-
-    if (payload.password.length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters.');
-    }
-
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
+    if (!email || !payload.password) throw new BadRequestException('Email and password are required.');
+    if (payload.password.length < 6) throw new BadRequestException('Password must be at least 6 characters.');
+    if (await this.prisma.user.findUnique({ where: { email } })) {
       throw new BadRequestException('An account with this email already exists.');
     }
-
-    const hashedPassword = await bcrypt.hash(payload.password, 12);
-
-    const passwordField = this.getPasswordFieldName();
-    const nameField = this.getNameFieldName();
-
-    const userData: Record<string, any> = {
-      email,
-      [passwordField]: hashedPassword,
-    };
-
-    if (nameField) {
-      userData[nameField] = fullName;
-    }
-
-    const user = await this.prisma.user.create({
-      data: userData as any,
+    const passwordHash = await bcrypt.hash(payload.password, 12);
+    const user = await serializableTransaction(this.prisma, async (tx) => {
+      const created = await tx.user.create({ data: { email, fullName, passwordHash } });
+      await this.outbox.enqueue(tx, {
+        userId: created.id, kind: 'ACCOUNT_CREATED', deduplicationKey: 'welcome:' + created.id,
+        recipient: created.email,
+        template: this.emailsService.accountCreated(created.email, this.getUserDisplayName(created)),
+      });
+      return created;
     });
-
-    // Don't make the sign-up response wait on the mail provider.
-    void this.sendEmailSafely('sendAccountCreatedEmail', () =>
-      this.emailsService.sendAccountCreatedEmail(
-        user.email,
-        this.getUserDisplayName(user),
-      ),
-    );
-
+    this.outbox.kick();
     const token = this.signToken(user);
-
-    return {
-      success: true,
-      message: 'Account created successfully.',
-      token,
-      accessToken: token,
-      user: this.removeSensitiveFields(user),
-    };
+    return { success: true, message: 'Account created successfully.', token, accessToken: token, user: publicUser(user), emailDelivery: 'queued' };
   }
 
   async login(payload: LoginPayload) {
     const email = this.normalizeEmail(payload.email || '');
-
-    if (!email || !payload.password) {
-      throw new BadRequestException('Email and password are required.');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user || user.status === 'DELETED') {
+    if (!email || !payload.password) throw new BadRequestException('Email and password are required.');
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.deletedAt || user.status === 'DELETED' || !(await bcrypt.compare(payload.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password.');
     }
-
-    const passwordField = this.getPasswordFieldName();
-    const savedPassword = (user as any)[passwordField];
-
-    if (!savedPassword) {
-      throw new UnauthorizedException('Invalid email or password.');
-    }
-
-    const validPassword = await bcrypt.compare(payload.password, savedPassword);
-
-    if (!validPassword) {
-      throw new UnauthorizedException('Invalid email or password.');
-    }
-
     const token = this.signToken(user);
-
-    return {
-      success: true,
-      message: 'Signed in successfully.',
-      token,
-      accessToken: token,
-      user: this.removeSensitiveFields(user),
-    };
+    return { success: true, message: 'Signed in successfully.', token, accessToken: token, user: publicUser(user) };
   }
 
   async forgotPassword(payload: ForgotPasswordPayload) {
     const email = this.normalizeEmail(payload.email || '');
-
-    if (!email) {
-      throw new BadRequestException('Email is required.');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user || user.status === 'DELETED') {
-      return {
-        success: true,
-        message: 'If this email exists, a password reset message has been sent.',
-      };
-    }
-
-    // One code email per address per minute: stops the form being used to
-    // flood someone's inbox. Same answer as any other request, so it also
-    // reveals nothing about the account.
-    const recent = await this.prisma.passwordResetToken.findFirst({
-      where: {
-        userId: user.id,
-        createdAt: { gt: new Date(Date.now() - RESET_REQUEST_COOLDOWN_MS) },
-      },
-    });
-
-    if (recent) {
-      return {
-        success: true,
-        message: 'If this email exists, a six-digit verification code has been sent.',
-      };
-    }
-
-    const code = String(randomInt(100000, 1000000));
-    const codeHash = createHash('sha256').update(code).digest('hex');
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 10);
-
-    await this.prisma.passwordResetToken.deleteMany({
-      where: { userId: user.id },
-    });
-
-    await this.prisma.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        token: codeHash,
-        expiresAt,
-      },
-    });
-
-    await this.sendEmailSafely('sendPasswordRecoveryCodeEmail', () =>
-      this.emailsService.sendPasswordRecoveryCodeEmail(
-        user.email,
-        code,
-        this.getUserDisplayName(user),
-      ),
-    );
-
-    return {
+    if (!email) throw new BadRequestException('Email is required.');
+    const response = {
       success: true,
-      message: 'If this email exists, a six-digit verification code has been sent.',
+      message: 'If an account exists for this email, a six-digit verification code will be emailed shortly.',
     };
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.deletedAt || user.status === 'DELETED') return response;
+    const code = String(randomInt(100000, 1000000));
+    const token = createHash('sha256').update(code).digest('hex');
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await serializableTransaction(this.prisma, async (tx) => {
+      const active = await tx.user.findUnique({ where: { id: user.id } });
+      if (!active || active.deletedAt || active.status === 'DELETED') return;
+      await lockActiveUser(tx, user.id);
+      const recent = await tx.passwordResetToken.findFirst({
+        where: { userId: user.id, createdAt: { gt: new Date(Date.now() - RESET_REQUEST_COOLDOWN_MS) } },
+      });
+      if (recent) return;
+      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await this.outbox.cancel(tx, user.id, 'PASSWORD_RECOVERY');
+      const reset = await tx.passwordResetToken.create({ data: { userId: user.id, token, expiresAt } });
+      await this.outbox.enqueue(tx, {
+        userId: user.id, kind: 'PASSWORD_RECOVERY', deduplicationKey: 'password-recovery:' + reset.id,
+        recipient: active.email, expiresAt, resetTokenId: reset.id,
+        template: this.emailsService.passwordRecoveryCode(code, this.getUserDisplayName(active)),
+      });
+    });
+    this.outbox.kick();
+    return response;
   }
 
   async resetPassword(payload: ResetPasswordPayload) {
     const email = this.normalizeEmail(payload.email || '');
     const code = String(payload.code || '').trim();
-
     if (!email || !/^\d{6}$/.test(code) || !payload.password) {
       throw new BadRequestException('Email, six-digit verification code and new password are required.');
     }
-
-    if (payload.password.length < 6) {
-      throw new BadRequestException('Password must be at least 6 characters.');
-    }
-
+    if (payload.password.length < 6) throw new BadRequestException('Password must be at least 6 characters.');
     if (this.isResetLocked(email)) {
-      throw new BadRequestException(
-        'Too many incorrect codes. Request a new verification code and try again.',
-      );
+      throw new BadRequestException('Too many incorrect codes. Request a new verification code and try again.');
     }
-
-    const codeHash = createHash('sha256').update(code).digest('hex');
-
-    const resetRecord = await this.prisma.passwordResetToken.findFirst({
-      where: {
-        token: codeHash,
-        used: false,
-        expiresAt: { gt: new Date() },
-        user: { email },
-      },
-      include: {
-        user: true,
-      },
+    const token = createHash('sha256').update(code).digest('hex');
+    const reset = await this.prisma.passwordResetToken.findFirst({
+      where: { token, used: false, expiresAt: { gt: new Date() }, user: { email, deletedAt: null, status: { not: 'DELETED' } } },
+      include: { user: true },
     });
-
-    if (!resetRecord) {
+    if (!reset) {
       await this.recordFailedResetAttempt(email);
       throw new BadRequestException('Invalid or expired verification code.');
     }
-
+    const passwordHash = await bcrypt.hash(payload.password, 12);
+    await serializableTransaction(this.prisma, async (tx) => {
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: { id: reset.id, used: false, expiresAt: { gt: new Date() }, user: { deletedAt: null, status: { not: 'DELETED' } } },
+        data: { used: true },
+      });
+      if (consumed.count !== 1) throw new BadRequestException('Invalid or expired verification code.');
+      const user = await tx.user.update({
+        where: { id: reset.userId, deletedAt: null, status: { not: 'DELETED' } },
+        data: { passwordHash, authTokenVersion: { increment: 1 } },
+      });
+      await tx.passwordResetToken.deleteMany({ where: { userId: reset.userId, id: { not: reset.id } } });
+      await this.outbox.cancel(tx, reset.userId, 'PASSWORD_RECOVERY');
+      await this.outbox.enqueue(tx, {
+        userId: user.id, kind: 'PASSWORD_CHANGED', deduplicationKey: 'password-changed:' + reset.id,
+        recipient: user.email, template: this.emailsService.passwordChanged(this.getUserDisplayName(user)),
+      });
+    });
     this.resetAttempts.delete(email);
-
-    const hashedPassword = await bcrypt.hash(payload.password, 12);
-    const passwordField = this.getPasswordFieldName();
-
-    await this.prisma.user.update({
-      where: {
-        id: resetRecord.userId,
-      },
-      data: {
-        [passwordField]: hashedPassword,
-      } as any,
-    });
-
-    await this.prisma.passwordResetToken.update({
-      where: { id: resetRecord.id },
-      data: { used: true },
-    });
-
-    await this.prisma.passwordResetToken.deleteMany({
-      where: { userId: resetRecord.userId, id: { not: resetRecord.id } },
-    });
-
-    await this.sendEmailSafely('sendPasswordChangedEmail', () =>
-      this.emailsService.sendPasswordChangedEmail(
-        resetRecord.user.email,
-        this.getUserDisplayName(resetRecord.user),
-      ),
-    );
-
-    return {
-      success: true,
-      message: 'Password reset successfully.',
-    };
+    this.outbox.kick();
+    return { success: true, message: 'Password reset successfully.', emailDelivery: 'queued' };
   }
 }

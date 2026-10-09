@@ -29,7 +29,7 @@ export type AccountDeletionEmailData = {
   reasonLabel?: string;
 };
 
-type EmailTemplate = {
+export type EmailTemplate = {
   subject: string;
   /** Plain-text alternative, written per template. */
   body: string;
@@ -476,8 +476,9 @@ ${content}
     html: string,
   ): Promise<void> {
     if (provider === 'smtp') {
-      await this.getTransporter().sendMail({
+      const result = await this.getTransporter().sendMail({
         from: this.getFromAddress(),
+        replyTo: this.env('EMAIL_REPLY_TO') || undefined,
         to,
         subject,
         text,
@@ -491,6 +492,11 @@ ${content}
           },
         ],
       });
+      const accepted: Array<string | { address: string }> = result.accepted || [];
+      if (!accepted.some((recipient) =>
+        (typeof recipient === 'string' ? recipient : recipient.address).toLowerCase() === to.toLowerCase())) {
+        throw new Error('SMTP server did not accept the recipient.');
+      }
       return;
     }
 
@@ -504,6 +510,7 @@ ${content}
         { 'api-key': this.env('BREVO_API_KEY'), accept: 'application/json' },
         {
           sender: this.parseFromAddress(),
+          ...(this.env('EMAIL_REPLY_TO') ? { replyTo: { email: this.env('EMAIL_REPLY_TO') } } : {}),
           to: [{ email: to }],
           subject,
           htmlContent: hostedHtml,
@@ -518,6 +525,7 @@ ${content}
       { Authorization: `Bearer ${this.env('RESEND_API_KEY')}` },
       {
         from: this.getFromAddress(),
+        ...(this.env('EMAIL_REPLY_TO') ? { reply_to: this.env('EMAIL_REPLY_TO') } : {}),
         to: [to],
         subject,
         html: hostedHtml,
@@ -535,24 +543,18 @@ ${content}
     const provider = this.getProvider();
 
     if (provider === 'none') {
-      this.logger.warn(`Email is not configured. "${subject}" not sent to ${to}.`);
+      this.logger.warn(`Email is not configured. "${subject}" was not sent.`);
       return false;
     }
 
     try {
       const text = `${body}\n\n${this.textFooter()}`;
       await this.deliver(provider, to, subject, text, html || this.toHtml(body));
-      this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
+      this.logger.log(`Provider accepted "${subject}" via ${provider}.`);
       return true;
     } catch (error) {
-      this.logger.error(
-        `Failed to send "${subject}" to ${to} via ${provider}: ${this.errorMessage(error)}`,
-      );
-
-      if (error instanceof Error && error.stack) {
-        this.logger.error(error.stack);
-      }
-
+      const code = (error as { code?: string })?.code || 'EMAIL_PROVIDER_ERROR';
+      this.logger.error('Failed to send "' + subject + '" via ' + provider + ' (' + code + '). Check verified sender and provider configuration.');
       return false;
     }
   }
@@ -654,7 +656,7 @@ ${this.signOff()}`,
     const registerUrl = `${this.getFrontendUrl()}/register`;
 
     const removed = [
-      'Your sign-in access. Every active session was signed out and can no longer be used.',
+      'Your sign-in access. Existing sessions were revoked and can no longer access the account.',
       'Your name, email address and phone number were removed from your profile.',
       'Any password-reset codes and your referral code were cleared.',
       'Copy-trading follows and any affiliate profile were switched off.',
@@ -662,7 +664,7 @@ ${this.signOff()}`,
     const kept = [
       'Records of your deposits, withdrawals, trades and ledger entries, which we must keep to meet accounting, audit and anti-money-laundering obligations.',
       'Identity-verification (KYC) records, if you submitted any.',
-      'A record of this deletion request.',
+      'Support and security records, and a record of this deletion request.',
     ];
 
     const rows: DetailRow[] = [
@@ -689,7 +691,7 @@ ${removed.map((item) => `- ${item}`).join('\n')}
 
 What we keep, and why
 ${kept.map((item) => `- ${item}`).join('\n')}
-These records are kept securely for as long as the law requires, are used only where the law requires it (for example audits or requests from regulators), and are never used for marketing.
+Historical records may be retained for applicable accounting, audit and anti-money-laundering obligations. They are never used for marketing. Contact Support to ask about retention periods or further erasure requests.
 
 Coming back
 You can create a new account with the same email address at any time. A new account starts fresh: your previous balances, history and settings are not restored. Register again: ${registerUrl}
@@ -697,7 +699,7 @@ You can create a new account with the same email address at any time. A new acco
 Did you not ask for this?
 Contact Support immediately and quote reference ${data.reference}: ${supportUrl}
 
-We will not send you further emails about this account, other than replies to messages you send to Support.
+Queued account emails have been stopped. Messages already being processed by an email provider may still arrive. You can still contact Support after closure.
 
 Thank you for having used NeuroOption.
 The NeuroOption Team
@@ -714,12 +716,12 @@ ${this.h2('What we removed or switched off')}
 ${this.bulletList(removed)}
 ${this.h2('What we keep, and why')}
 ${this.bulletList(kept)}
-${this.p('These records are kept securely for as long as the law requires, are used only where the law requires it (for example audits or requests from regulators), and are never used for marketing.', true)}
+${this.p('Historical records may be retained for applicable accounting, audit and anti-money-laundering obligations. They are never used for marketing. Contact Support to ask about retention periods or further erasure requests.', true)}
 ${this.h2('Coming back')}
 ${this.p('You can create a new account with the same email address at any time. A new account starts fresh: your previous balances, history and settings are not restored.')}
 ${this.button(registerUrl, 'Create a new account')}
 ${this.notice('Did you not ask for this?', `Contact Support immediately and quote reference ${this.escapeHtml(data.reference)} so we can investigate. ${this.link(supportUrl, 'Contact Support')}`, 'danger')}
-${this.p('We will not send you further emails about this account, other than replies to messages you send to Support.', true)}
+${this.p('Queued account emails have been stopped. Messages already being processed by an email provider may still arrive. You can still contact Support after closure.', true)}
 ${this.signOff()}`,
       'Your NeuroOption account has been deleted. Here are the details.',
     );

@@ -1,206 +1,129 @@
-import { randomBytes } from 'node:crypto';
+import { randomUUID } from 'crypto';
 import {
-  ConflictException,
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-  NotFoundException,
-  UnauthorizedException,
-  BadRequestException,
+  BadRequestException, ConflictException, HttpException, HttpStatus,
+  Injectable, NotFoundException, UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
-import {
-  DELETION_CONFIRMATION_WORD,
-  DELETION_REASONS,
-  DUST,
-} from './account-deletion.constants';
+import { EmailOutboxService } from '../emails/email-outbox.service';
+import { lockActiveUser } from '../common/lock-active-user';
+import { serializableTransaction } from '../common/serializable-transaction';
+import { DELETION_CONFIRMATION_WORD, DELETION_REASONS } from './account-deletion.constants';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 
 type Db = PrismaClient | Prisma.TransactionClient;
-
 export type DeletionBlocker = {
-  code:
-    | 'STAFF_ACCOUNT'
-    | 'FUNDS'
-    | 'LOCKED_FUNDS'
-    | 'OPEN_TRADES'
-    | 'PENDING_WITHDRAWAL'
-    | 'PENDING_DEPOSIT';
+  code: 'STAFF_ACCOUNT' | 'FUNDS' | 'LOCKED_FUNDS' | 'OPEN_TRADES' | 'PENDING_WITHDRAWAL' |
+    'PENDING_DEPOSIT' | 'PENDING_PAYOUT' | 'UNPAID_COMMISSION' | 'PENDING_ACTIVITY';
   message: string;
-  /** Where the person can fix it, when there is somewhere to go. */
   action?: { label: string; path: string };
 };
 
 const MAX_PASSWORD_FAILURES = 5;
 const PASSWORD_WINDOW_MS = 15 * 60_000;
 
-const kes = (value: number) =>
-  `KES ${value.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-/** "silas@gmail.com" -> "s***@gmail.com" */
 export function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
-  if (!domain) return '***';
-  return `${local.slice(0, 1)}***@${domain}`;
+  return domain ? local.slice(0, 1) + '***@' + domain : '***';
 }
 
-/**
- * Closing an account.
- *
- * The User row is kept (deposits, withdrawals, trades and ledger entries
- * point at it and must be retained), but it is switched to DELETED and all
- * personal details are removed, so the person is gone from the platform and
- * the email address can be registered again. It is refused while any money
- * or open position is still tied to the account, so nothing is ever stranded.
- */
 @Injectable()
 export class AccountDeletionService {
-  private readonly logger = new Logger(AccountDeletionService.name);
   private readonly passwordFailures = new Map<string, { count: number; since: number }>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emails: EmailsService,
+    private readonly outbox: EmailOutboxService,
   ) {}
 
-  /** What the deletion screen needs: suggested reasons and anything in the way. */
   async check(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.status === 'DELETED') throw new NotFoundException('Account not found.');
-
+    if (!user || user.deletedAt || user.status === 'DELETED') throw new NotFoundException('Account not found.');
     const blockers = await this.findBlockers(this.prisma, user);
     return {
-      canDelete: blockers.length === 0,
-      blockers,
-      reasons: DELETION_REASONS,
-      confirmationWord: DELETION_CONFIRMATION_WORD,
-      emailHint: maskEmail(user.email),
+      canDelete: blockers.length === 0, blockers, reasons: DELETION_REASONS,
+      confirmationWord: DELETION_CONFIRMATION_WORD, emailHint: maskEmail(user.email),
     };
   }
 
-  async deleteAccount(
-    userId: string,
-    dto: DeleteAccountDto,
-    meta: { ipAddress?: string; userAgent?: string } = {},
-  ) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.status === 'DELETED') throw new NotFoundException('Account not found.');
-
-    if (dto.confirmation?.trim().toUpperCase() !== DELETION_CONFIRMATION_WORD) {
-      throw new BadRequestException(`Type ${DELETION_CONFIRMATION_WORD} to confirm.`);
+  async deleteAccount(userId: string, dto: DeleteAccountDto, meta: { ipAddress?: string; userAgent?: string } = {}) {
+    if (dto?.confirmation !== DELETION_CONFIRMATION_WORD) {
+      throw new BadRequestException('Type ' + DELETION_CONFIRMATION_WORD + ' exactly to confirm.');
     }
-
-    await this.verifyPassword(user.id, dto.password, user.passwordHash);
-
     const reason = DELETION_REASONS.find((item) => item.code === dto.reason);
-    const comment = dto.comment?.trim() || undefined;
-
-    // Taken before anything is removed: the confirmation goes to the address
-    // the account had.
-    const original = {
-      email: user.email,
-      fullName: user.fullName,
-      memberSince: user.createdAt,
-    };
-
-    const unusablePassword = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
+    if ((dto.reason && !reason) || (dto.comment && (typeof dto.comment !== 'string' || dto.comment.length > 500))) {
+      throw new BadRequestException('Choose a valid deletion reason and keep optional feedback within 500 characters.');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt || user.status === 'DELETED') throw new NotFoundException('Account not found.');
+    await this.verifyPassword(user.id, dto.password, user.passwordHash);
+    const reference = 'DEL-' + randomUUID().toUpperCase();
     const deletedAt = new Date();
+    const passwordHash = await bcrypt.hash(randomUUID(), 12);
+    const comment = dto.comment?.trim() || undefined;
+    const reasonLabel = reason?.label || 'Prefer not to say';
 
-    const audit = await this.prisma.$transaction(async (tx) => {
-      // Checked again inside the transaction so a deposit or trade that
-      // arrived since the screen loaded is not missed.
-      const blockers = await this.findBlockers(tx, user);
+    const notificationEmail = await serializableTransaction(this.prisma, async (tx) => {
+      await lockActiveUser(tx, userId);
+      const current = await tx.user.findUnique({ where: { id: userId } });
+      if (!current || current.deletedAt || current.status === 'DELETED') throw new NotFoundException('Account not found.');
+      if (current.passwordHash !== user.passwordHash) {
+        throw new UnauthorizedException('Account credentials changed. Sign in again before deleting the account.');
+      }
+      const blockers = await this.findBlockers(tx, current);
       if (blockers.length) {
         throw new ConflictException({
-          statusCode: 409,
-          code: 'ACCOUNT_DELETION_BLOCKED',
-          message: 'This account cannot be deleted yet.',
-          blockers,
+          statusCode: 409, code: 'ACCOUNT_DELETION_BLOCKED',
+          message: 'This account cannot be deleted yet.', blockers,
         });
       }
 
-      // The status condition makes a double submit close the account once.
-      const closed = await tx.user.updateMany({
-        where: { id: user.id, status: { not: 'DELETED' } },
-        data: {
-          status: 'DELETED',
-          email: `deleted-${user.id}@deleted.neurooption.invalid`,
-          fullName: 'Deleted user',
-          phone: null,
-          referralCode: null,
-          passwordHash: unusablePassword,
-        },
-      });
-      if (closed.count !== 1) throw new NotFoundException('Account not found.');
-
-      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await tx.passwordResetToken.deleteMany({ where: { userId } });
+      await this.outbox.cancel(tx, userId);
       await tx.socialFollow.updateMany({
-        where: { OR: [{ followerUserId: user.id }, { traderUserId: user.id }] },
-        data: { status: 'STOPPED' },
+        where: { OR: [{ followerUserId: userId }, { traderUserId: userId }] }, data: { status: 'STOPPED' },
       });
-      await tx.affiliate.updateMany({ where: { userId: user.id }, data: { status: 'DISABLED' } });
-
-      return tx.auditLog.create({
+      await tx.affiliate.updateMany({ where: { userId }, data: { status: 'DISABLED' } });
+      await tx.notification.updateMany({ where: { userId }, data: { recipientEmail: '', body: '' } });
+      await tx.tradingAccount.updateMany({ where: { userId }, data: { isActive: false } });
+      await tx.ledgerAccount.updateMany({ where: { userId }, data: { isActive: false } });
+      await tx.user.update({
+        where: { id: userId },
         data: {
-          userId: user.id,
-          action: 'ACCOUNT_DELETED',
-          targetType: 'User',
-          targetId: user.id,
+          status: 'DELETED', fullName: 'Deleted user',
+          email: 'deleted-' + reference.slice(4).toLowerCase() + '@deleted.neurooption.invalid',
+          phone: null, passwordHash, referralCode: null, referredById: null,
+          deletedAt, deletionReference: reference, authTokenVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId, action: 'ACCOUNT_DELETED', targetType: 'User', targetId: userId,
           description: 'Account deleted by its owner.',
-          metadata: {
-            reason: reason?.code ?? null,
-            comment: comment ?? null,
-            deletedAt: deletedAt.toISOString(),
-          },
-          ipAddress: meta.ipAddress,
-          userAgent: meta.userAgent?.slice(0, 300),
+          ipAddress: meta.ipAddress, userAgent: meta.userAgent?.slice(0, 300),
+          metadata: { reference, deletedAt: deletedAt.toISOString(), reason: reason?.code ?? null,
+            comment: comment ?? null, emailDelivery: 'queued' },
         },
       });
+      await this.outbox.enqueue(tx, {
+        userId, kind: 'ACCOUNT_DELETED', deduplicationKey: 'account-deleted:' + userId,
+        recipient: current.email,
+        template: this.emails.accountDeletionConfirmed({
+          email: current.email, fullName: current.fullName || current.email.split('@')[0] || 'Trader',
+          reference, deletedAt, reasonLabel: reasonLabel + (dto.reason === 'OTHER' && comment ? ': ' + comment : ''),
+        }),
+      });
+      return current.email;
     });
-
-    this.passwordFailures.delete(user.id);
-    const reference = `DEL-${audit.id.slice(0, 8).toUpperCase()}`;
-
-    // The account is already closed; a mail failure must not undo that, but
-    // the person is told honestly whether the confirmation went out.
-    let emailSent = false;
-    try {
-      emailSent = await this.emails.sendAccountDeletionEmail({
-        email: original.email,
-        fullName: original.fullName,
-        reference,
-        deletedAt,
-        reasonLabel: reason?.label,
-      });
-    } catch (error) {
-      this.logger.error(`Deletion email for ${reference} failed: ${(error as Error).message}`);
-    }
-
-    await this.prisma.auditLog
-      .update({
-        where: { id: audit.id },
-        data: {
-          metadata: {
-            reason: reason?.code ?? null,
-            comment: comment ?? null,
-            deletedAt: deletedAt.toISOString(),
-            emailSent,
-          },
-        },
-      })
-      .catch(() => undefined);
-
+    this.passwordFailures.delete(userId);
+    this.outbox.kick();
     return {
-      success: true,
-      message: 'Your account has been deleted.',
-      reference,
-      emailSent,
-      emailHint: maskEmail(original.email),
+      success: true, message: 'Your account has been deleted.', deleted: true, reference,
+      deletionReference: reference, deletedAt: deletedAt.toISOString(), notificationEmail,
+      emailHint: maskEmail(notificationEmail), emailSent: false, emailDelivery: 'queued' as const,
     };
   }
 
@@ -208,91 +131,68 @@ export class AccountDeletionService {
     const now = Date.now();
     const entry = this.passwordFailures.get(userId);
     if (entry && now - entry.since <= PASSWORD_WINDOW_MS && entry.count >= MAX_PASSWORD_FAILURES) {
-      throw new HttpException(
-        'Too many incorrect passwords. Try again in a few minutes.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+      throw new HttpException('Too many incorrect passwords. Try again in a few minutes.', HttpStatus.TOO_MANY_REQUESTS);
     }
-
-    const valid = await bcrypt.compare(password ?? '', hash).catch(() => false);
-    if (valid) return;
-
+    if (typeof password === 'string' && await bcrypt.compare(password, hash).catch(() => false)) return;
     const fresh = entry && now - entry.since <= PASSWORD_WINDOW_MS ? entry : { count: 0, since: now };
-    fresh.count += 1;
+    fresh.count++;
     this.passwordFailures.set(userId, fresh);
     throw new UnauthorizedException('That password is not correct.');
   }
 
-  private async findBlockers(
-    db: Db,
-    user: { id: string; role: string },
-  ): Promise<DeletionBlocker[]> {
+  private async findBlockers(db: Db, user: { id: string; role: string }): Promise<DeletionBlocker[]> {
+    const userId = user.id;
     const blockers: DeletionBlocker[] = [];
-
+    const finance = { label: 'View transactions', path: '/finance?tab=history' };
     if (user.role !== 'USER') {
-      blockers.push({
-        code: 'STAFF_ACCOUNT',
-        message: 'Staff accounts cannot be deleted here. Ask another administrator.',
-      });
+      blockers.push({ code: 'STAFF_ACCOUNT', message: 'Staff accounts cannot be deleted here. Ask another administrator.' });
     }
-
-    const [wallets, engineWallets, openEngineTrades, openTrades, withdrawals, deposits] =
-      await Promise.all([
-        db.wallet.findMany({ where: { userId: user.id } }),
-        db.engineWallet.findMany({ where: { userId: user.id, accountType: 'QT Real' } }),
-        db.engineTrade.count({ where: { userId: user.id, status: 'PENDING' } }),
-        db.trade.count({ where: { userId: user.id, status: 'OPEN' } }),
-        db.withdrawal.count({
-          where: { userId: user.id, status: { in: ['PENDING', 'PROCESSING'] } },
-        }),
-        db.deposit.count({
-          where: { userId: user.id, status: { in: ['PENDING', 'PROCESSING'] } },
-        }),
-      ]);
-
-    const available = wallets.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
-    const locked = wallets.reduce((sum, wallet) => sum + Number(wallet.locked), 0);
-    const engineBalance = engineWallets.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
-    const engineLocked = engineWallets.reduce((sum, wallet) => sum + Number(wallet.locked), 0);
-
-    const funds = available + engineBalance;
-    if (funds >= DUST) {
+    const [wallets, realAccounts, engineWallets, openTrades, engineTrades, copies,
+      withdrawals, deposits, payouts, commissions, transactions, engineTransactions, ledger] = await Promise.all([
+      db.wallet.findMany({ where: { userId } }),
+      db.tradingAccount.findMany({ where: { userId, type: 'REAL' } }),
+      db.engineWallet.findMany({ where: { userId, accountType: 'QT Real' } }),
+      db.trade.count({ where: { userId, status: 'OPEN' } }),
+      db.engineTrade.count({ where: { userId, status: 'PENDING' } }),
+      db.copyTrade.count({ where: { status: 'OPEN', OR: [{ masterUserId: userId }, { followerUserId: userId }] } }),
+      db.withdrawal.count({ where: { userId, status: { in: ['PENDING', 'PROCESSING'] } } }),
+      db.deposit.count({ where: { userId, status: { in: ['PENDING', 'PROCESSING'] } } }),
+      db.payout.count({ where: { userId, status: { in: ['PENDING', 'PROCESSING'] } } }),
+      db.affiliateCommission.count({ where: {
+        OR: [{ affiliateUserId: userId }, { affiliate: { userId } }], status: { in: ['PENDING', 'APPROVED'] },
+      } }),
+      db.transaction.count({ where: { userId, status: { in: ['PENDING', 'PROCESSING'] } } }),
+      db.engineTransaction.count({ where: { userId, accountType: 'QT Real', status: { in: ['PENDING', 'PROCESSING'] } } }),
+      db.ledgerEntry.groupBy({ by: ['accountId', 'side'], where: { account: { userId } }, _sum: { amount: true } }),
+    ]);
+    const balances = new Map<string, Prisma.Decimal>();
+    for (const entry of ledger) {
+      const balance = balances.get(entry.accountId) || new Prisma.Decimal(0);
+      const amount = entry._sum.amount || new Prisma.Decimal(0);
+      balances.set(entry.accountId, entry.side === 'CREDIT' ? balance.plus(amount) : balance.minus(amount));
+    }
+    if (wallets.some((wallet) => !wallet.balance.isZero()) ||
+      realAccounts.some((account) => !account.balance.isZero()) ||
+      engineWallets.some((wallet) => !wallet.balance.isZero() || !wallet.balanceUsd.isZero()) ||
+      [...balances.values()].some((balance) => !balance.isZero())) {
       blockers.push({
-        code: 'FUNDS',
-        message: `Your real account still holds ${kes(available)}${engineBalance >= DUST ? ' plus funds in trading' : ''}. Withdraw it first so nothing is lost.`,
+        code: 'FUNDS', message: 'Your real account still holds funds or an unsettled ledger balance. Withdraw available funds first, or contact Support for help settling the balance.',
         action: { label: 'Withdraw funds', path: '/finance?tab=withdraw' },
       });
     }
-    if (locked + engineLocked >= DUST) {
-      blockers.push({
-        code: 'LOCKED_FUNDS',
-        message: 'Some of your money is reserved for a withdrawal or an open position. Wait until it settles.',
-        action: { label: 'View transactions', path: '/finance?tab=history' },
-      });
+    if (wallets.some((wallet) => !wallet.locked.isZero()) ||
+      realAccounts.some((account) => !account.locked.isZero()) ||
+      engineWallets.some((wallet) => !wallet.locked.isZero() || !wallet.lockedUsd.isZero())) {
+      blockers.push({ code: 'LOCKED_FUNDS', message: 'Some funds are reserved. Wait until withdrawals and open positions settle.', action: finance });
     }
-    if (openEngineTrades + openTrades > 0) {
-      const count = openEngineTrades + openTrades;
-      blockers.push({
-        code: 'OPEN_TRADES',
-        message: `You have ${count} open trade${count === 1 ? '' : 's'}. Wait until ${count === 1 ? 'it expires' : 'they expire'}.`,
-        action: { label: 'View open trades', path: '/open-trades' },
-      });
+    if (openTrades || engineTrades || copies) {
+      blockers.push({ code: 'OPEN_TRADES', message: 'You have open trades or copy trades. Wait until they settle.', action: { label: 'View open trades', path: '/open-trades' } });
     }
-    if (withdrawals > 0) {
-      blockers.push({
-        code: 'PENDING_WITHDRAWAL',
-        message: 'A withdrawal is still being processed. Wait until it is paid or declined.',
-        action: { label: 'View transactions', path: '/finance?tab=history' },
-      });
-    }
-    if (deposits > 0) {
-      blockers.push({
-        code: 'PENDING_DEPOSIT',
-        message: 'A deposit is still being confirmed. Wait until it completes or fails.',
-        action: { label: 'View transactions', path: '/finance?tab=history' },
-      });
-    }
-
+    if (withdrawals) blockers.push({ code: 'PENDING_WITHDRAWAL', message: 'A withdrawal is still being processed. Wait until it is paid or declined.', action: finance });
+    if (deposits) blockers.push({ code: 'PENDING_DEPOSIT', message: 'A deposit is still being confirmed. Wait until it completes or fails.', action: finance });
+    if (payouts) blockers.push({ code: 'PENDING_PAYOUT', message: 'A payout is still being processed. Wait until it settles.', action: finance });
+    if (commissions) blockers.push({ code: 'UNPAID_COMMISSION', message: 'Affiliate commissions are unpaid. Contact Support to settle them before deleting the account.', action: { label: 'Contact Support', path: '/help' } });
+    if (transactions || engineTransactions) blockers.push({ code: 'PENDING_ACTIVITY', message: 'A payment transaction is still processing. Wait until it settles.', action: finance });
     return blockers;
   }
 }

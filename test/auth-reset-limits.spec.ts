@@ -1,71 +1,75 @@
 /// <reference types="jest" />
 import { BadRequestException } from '@nestjs/common';
 import { createHash } from 'crypto';
-
 import { AuthService } from '../src/auth/auth.service';
+import { PrismaService } from '../src/config/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import { EmailsService } from '../src/emails/emails.service';
+import { EmailOutboxService } from '../src/emails/email-outbox.service';
 
-function setup(overrides: { recentToken?: boolean; validCode?: string } = {}) {
-  const user = { id: 'u1', email: 'a@b.com', fullName: 'A', status: 'ACTIVE' };
-  const prisma: any = {
-    user: { findUnique: jest.fn(async () => user), update: jest.fn() },
-    passwordResetToken: {
-      findFirst: jest.fn(async (args: any) => {
-        if (args.where.userId) return overrides.recentToken ? { id: 'recent' } : null; // cooldown lookup
-        const hash = createHash('sha256').update(overrides.validCode ?? '').digest('hex');
-        return args.where.token === hash ? { id: 't1', userId: 'u1', user } : null;
-      }),
-      deleteMany: jest.fn(async () => ({ count: 1 })),
-      create: jest.fn(async () => ({})),
-      update: jest.fn(async () => ({})),
+function setup(options: { recentToken?: boolean; validCode?: string; deleted?: boolean } = {}) {
+  const user = { id: 'u1', email: 'owner@example.test', fullName: 'Tester', status: options.deleted ? 'DELETED' : 'ACTIVE', deletedAt: null, authTokenVersion: 0 };
+  const prisma = {
+    user: {
+      findUnique: jest.fn().mockResolvedValue(user),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      update: jest.fn().mockResolvedValue({ ...user, authTokenVersion: 1 }),
     },
+    passwordResetToken: {
+      findFirst: jest.fn(async (args: { where: { userId?: string; token?: string } }) => {
+        if (args.where.userId) return options.recentToken ? { id: 'recent' } : null;
+        const hash = createHash('sha256').update(options.validCode || '').digest('hex');
+        return args.where.token === hash ? { id: 'reset-1', userId: user.id, user } : null;
+      }),
+      create: jest.fn().mockResolvedValue({ id: 'reset-1' }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
+    $transaction: jest.fn(async (action: (tx: unknown) => Promise<unknown>) => action(prisma)),
   };
-  const emails = {
-    sendPasswordRecoveryCodeEmail: jest.fn(async () => true),
-    sendPasswordChangedEmail: jest.fn(async () => true),
-  };
-  const auth = new AuthService(prisma, { sign: () => 't' } as any, emails as any, {} as any);
-  return { auth, prisma, emails };
+  const outbox = { enqueue: jest.fn().mockResolvedValue({}), cancel: jest.fn().mockResolvedValue({ count: 1 }), kick: jest.fn() };
+  const auth = new AuthService(prisma as unknown as PrismaService, new JwtService(), new EmailsService(), outbox as unknown as EmailOutboxService);
+  return { auth, prisma, outbox };
 }
 
-describe('password reset limits', () => {
-  it('sends the code email for a normal request', async () => {
-    const { auth, emails } = setup();
-    await auth.forgotPassword({ email: 'A@B.com' });
-    expect(emails.sendPasswordRecoveryCodeEmail).toHaveBeenCalledWith('a@b.com', expect.stringMatching(/^\d{6}$/), 'A');
+describe('password reset limits with queued delivery', () => {
+  it('queues the recovery email for a normal request', async () => {
+    const { auth, outbox } = setup();
+    await auth.forgotPassword({ email: 'OWNER@EXAMPLE.TEST' });
+    expect(outbox.enqueue).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({
+      recipient: 'owner@example.test', kind: 'PASSWORD_RECOVERY',
+      template: expect.objectContaining({ body: expect.stringMatching(/verification code is: \d{6}/) }),
+    }));
   });
-
-  it('does not send a second code within a minute, and answers the same way', async () => {
-    const { auth, emails, prisma } = setup({ recentToken: true });
-    const result = await auth.forgotPassword({ email: 'a@b.com' });
-    expect(result.success).toBe(true);
-    expect(emails.sendPasswordRecoveryCodeEmail).not.toHaveBeenCalled();
-    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+  it('does not queue another code within a minute and returns the same response', async () => {
+    const normal = setup(), recent = setup({ recentToken: true });
+    expect(await recent.auth.forgotPassword({ email: 'owner@example.test' })).toEqual(
+      await normal.auth.forgotPassword({ email: 'owner@example.test' }),
+    );
+    expect(recent.outbox.enqueue).not.toHaveBeenCalled();
+    expect(recent.prisma.passwordResetToken.create).not.toHaveBeenCalled();
   });
-
-  it('cancels the code after five wrong guesses, so it cannot be brute-forced', async () => {
-    const { auth, prisma } = setup({ validCode: '123456' });
-    for (let i = 0; i < 5; i += 1) {
-      await expect(auth.resetPassword({ email: 'a@b.com', code: '000000', password: 'newpass1' })).rejects.toBeInstanceOf(BadRequestException);
+  it('cancels outstanding codes after five wrong guesses and refuses the later correct code', async () => {
+    const { auth, prisma, outbox } = setup({ validCode: '123456' });
+    for (let i = 0; i < 5; i++) {
+      await expect(auth.resetPassword({ email: 'owner@example.test', code: '000000', password: 'newpass1' }))
+        .rejects.toBeInstanceOf(BadRequestException);
     }
     expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
-
-    // Even the right code is refused until a new one is requested.
-    const late = auth.resetPassword({ email: 'a@b.com', code: '123456', password: 'newpass1' });
-    await expect(late).rejects.toThrow(/Too many incorrect codes/);
+    expect(outbox.cancel).toHaveBeenCalledWith(expect.any(Object), 'u1', 'PASSWORD_RECOVERY');
+    await expect(auth.resetPassword({ email: 'owner@example.test', code: '123456', password: 'newpass1' }))
+      .rejects.toThrow('Too many incorrect codes');
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
-
-  it('accepts the right code and sends the "password changed" email', async () => {
-    const { auth, prisma, emails } = setup({ validCode: '123456' });
-    await expect(auth.resetPassword({ email: 'a@b.com', code: '123456', password: 'newpass1' })).resolves.toMatchObject({ success: true });
-    expect(prisma.user.update).toHaveBeenCalled();
-    expect(emails.sendPasswordChangedEmail).toHaveBeenCalledWith('a@b.com', 'A');
+  it('accepts the correct code and queues a password-change email', async () => {
+    const { auth, outbox } = setup({ validCode: '123456' });
+    await expect(auth.resetPassword({ email: 'owner@example.test', code: '123456', password: 'newpass1' }))
+      .resolves.toMatchObject({ success: true, emailDelivery: 'queued' });
+    expect(outbox.enqueue).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ kind: 'PASSWORD_CHANGED', recipient: 'owner@example.test' }));
   });
-
-  it('ignores deleted accounts without revealing anything', async () => {
-    const { auth, prisma, emails } = setup();
-    prisma.user.findUnique.mockResolvedValueOnce({ id: 'u1', email: 'x', status: 'DELETED' });
-    await expect(auth.forgotPassword({ email: 'x@y.com' })).resolves.toMatchObject({ success: true });
-    expect(emails.sendPasswordRecoveryCodeEmail).not.toHaveBeenCalled();
+  it('ignores previously deleted accounts without revealing their status', async () => {
+    const { auth, outbox } = setup({ deleted: true });
+    expect(await auth.forgotPassword({ email: 'owner@example.test' })).toMatchObject({ success: true });
+    expect(outbox.enqueue).not.toHaveBeenCalled();
   });
 });

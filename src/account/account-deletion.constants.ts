@@ -17,5 +17,3 @@ export const DELETION_REASON_CODES: string[] = DELETION_REASONS.map((reason) => 
 /** The word the person must type to confirm. */
 export const DELETION_CONFIRMATION_WORD = 'DELETE';
 
-/** Smaller balances cannot be withdrawn and count as empty. */
-export const DUST = 0.01;

@@ -12,6 +12,8 @@ import {
   TransactionType,
 } from '@prisma/client';
 
+import { lockActiveUser } from '../common/lock-active-user';
+import { serializableTransaction } from '../common/serializable-transaction';
 import { PrismaService } from '../config/prisma.service';
 import { CreateAffiliateCommissionDto } from './dto/create-affiliate-commission.dto';
 import { CreateAffiliateDto } from './dto/create-affiliate.dto';
@@ -23,40 +25,43 @@ export class AffiliatesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createAffiliate(dto: CreateAffiliateDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: dto.userId },
-    });
+    return serializableTransaction(this.prisma, async (tx) => {
+      await lockActiveUser(tx, dto.userId);
+      const user = await tx.user.findUnique({
+        where: { id: dto.userId },
+      });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
 
-    const existingAffiliate = await this.prisma.affiliate.findUnique({
-      where: { userId: dto.userId },
-    });
+      const existingAffiliate = await tx.affiliate.findUnique({
+        where: { userId: dto.userId },
+      });
 
-    if (existingAffiliate) {
-      throw new ConflictException('User already has an affiliate profile');
-    }
+      if (existingAffiliate) {
+        throw new ConflictException('User already has an affiliate profile');
+      }
 
-    const existingCode = await this.prisma.affiliate.findUnique({
-      where: { code: dto.code },
-    });
+      const existingCode = await tx.affiliate.findUnique({
+        where: { code: dto.code },
+      });
 
-    if (existingCode) {
-      throw new ConflictException('Affiliate code already exists');
-    }
+      if (existingCode) {
+        throw new ConflictException('Affiliate code already exists');
+      }
 
-    const commissionRate = new Prisma.Decimal(dto.commissionPercentage ?? 10).div(100);
+      const commissionRate = new Prisma.Decimal(dto.commissionPercentage ?? 10).div(100);
 
-    return this.prisma.affiliate.create({
-      data: {
-        userId: dto.userId,
-        code: dto.code,
-        status: AffiliateStatus.ACTIVE,
-        commissionRate,
-      },
-      include: this.affiliateInclude(),
+      return tx.affiliate.create({
+        data: {
+          userId: dto.userId,
+          code: dto.code,
+          status: AffiliateStatus.ACTIVE,
+          commissionRate,
+        },
+        include: this.affiliateInclude(),
+      });
     });
   }
 
@@ -96,54 +101,39 @@ export class AffiliatesService {
   }
 
   async updateAffiliate(id: string, dto: UpdateAffiliateDto) {
-    await this.findAffiliateById(id);
-
-    const data: any = {};
-
-    if (dto.status !== undefined) {
-      data.status = dto.status;
-    }
-
-    if (dto.commissionPercentage !== undefined) {
-      data.commissionRate = new Prisma.Decimal(dto.commissionPercentage).div(100);
-    }
-
-    return this.prisma.affiliate.update({
-      where: { id },
-      data,
-      include: this.affiliateInclude(),
+    const owner = await this.findAffiliateById(id);
+    return serializableTransaction(this.prisma, async (tx) => {
+      await lockActiveUser(tx, owner.userId);
+      const data: Prisma.AffiliateUpdateInput = {};
+      if (dto.status !== undefined) data.status = dto.status;
+      if (dto.commissionPercentage !== undefined) {
+        data.commissionRate = new Prisma.Decimal(dto.commissionPercentage).div(100);
+      }
+      return tx.affiliate.update({ where: { id }, data, include: this.affiliateInclude() });
     });
   }
 
   async createCommission(dto: CreateAffiliateCommissionDto) {
-    const affiliate = await this.prisma.affiliate.findUnique({
-      where: { id: dto.affiliateId },
-    });
+    const owner = await this.prisma.affiliate.findUnique({ where: { id: dto.affiliateId } });
+    if (!owner) throw new NotFoundException('Affiliate not found');
+    if (owner.userId !== dto.affiliateUserId) throw new BadRequestException('Affiliate does not belong to this user');
 
-    if (!affiliate) {
-      throw new NotFoundException('Affiliate not found');
-    }
-
-    if (affiliate.status !== AffiliateStatus.ACTIVE) {
-      throw new BadRequestException('Affiliate is not active');
-    }
-
-    const amount = new Prisma.Decimal(dto.amount);
-    const rate = new Prisma.Decimal(dto.commissionPercentage).div(100);
-    const commissionAmount = amount.mul(rate);
-
-    return this.prisma.affiliateCommission.create({
-      data: {
-        affiliateId: dto.affiliateId,
-        affiliateUserId: dto.affiliateUserId,
-        referredUserId: dto.referredUserId,
-        transactionId: dto.transactionId,
-        amount: commissionAmount,
-        rate,
-        status: CommissionStatus.PENDING,
-        description: dto.description,
-      },
-      include: this.commissionInclude(),
+    return serializableTransaction(this.prisma, async (tx) => {
+      await lockActiveUser(tx, owner.userId);
+      const affiliate = await tx.affiliate.findUnique({ where: { id: owner.id } });
+      if (!affiliate || affiliate.status !== AffiliateStatus.ACTIVE) {
+        throw new BadRequestException('Affiliate is not active');
+      }
+      const rate = new Prisma.Decimal(dto.commissionPercentage).div(100);
+      return tx.affiliateCommission.create({
+        data: {
+          affiliateId: affiliate.id, affiliateUserId: affiliate.userId,
+          referredUserId: dto.referredUserId, transactionId: dto.transactionId,
+          amount: new Prisma.Decimal(dto.amount).mul(rate), rate,
+          status: CommissionStatus.PENDING, description: dto.description,
+        },
+        include: this.commissionInclude(),
+      });
     });
   }
 
@@ -166,85 +156,48 @@ export class AffiliatesService {
     });
   }
 
-  async updateCommissionStatus(
-    id: string,
-    dto: UpdateCommissionStatusDto,
-  ) {
-    const commission = await this.prisma.affiliateCommission.findUnique({
-      where: { id },
-    });
-
-    if (!commission) {
-      throw new NotFoundException('Affiliate commission not found');
-    }
-
-    return this.prisma.affiliateCommission.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        paidAt: dto.status === CommissionStatus.PAID ? new Date() : null,
-      },
-      include: this.commissionInclude(),
+  async updateCommissionStatus(id: string, dto: UpdateCommissionStatusDto) {
+    const commission = await this.prisma.affiliateCommission.findUnique({ where: { id } });
+    if (!commission) throw new NotFoundException('Affiliate commission not found');
+    return serializableTransaction(this.prisma, async (tx) => {
+      if (dto.status === CommissionStatus.PENDING || dto.status === CommissionStatus.APPROVED) {
+        await lockActiveUser(tx, commission.affiliateUserId);
+      }
+      return tx.affiliateCommission.update({
+        where: { id },
+        data: { status: dto.status, paidAt: dto.status === CommissionStatus.PAID ? new Date() : null },
+        include: this.commissionInclude(),
+      });
     });
   }
 
   async payCommission(id: string, walletId: string) {
-    const commission = await this.prisma.affiliateCommission.findUnique({
-      where: { id },
-      include: {
-        affiliateUser: true,
-      },
-    });
-
-    if (!commission) {
-      throw new NotFoundException('Affiliate commission not found');
-    }
-
-    if (commission.status === CommissionStatus.PAID) {
-      throw new BadRequestException('Commission already paid');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
+    const owner = await this.prisma.affiliateCommission.findUnique({ where: { id } });
+    if (!owner) throw new NotFoundException('Affiliate commission not found');
+    return serializableTransaction(this.prisma, async (tx) => {
+      await lockActiveUser(tx, owner.affiliateUserId);
+      const commission = await tx.affiliateCommission.findUnique({ where: { id } });
+      if (!commission) throw new NotFoundException('Affiliate commission not found');
+      if (commission.status === CommissionStatus.PAID) throw new BadRequestException('Commission already paid');
+      const wallet = await tx.wallet.findUnique({ where: { id: walletId } });
+      if (!wallet || wallet.userId !== commission.affiliateUserId) {
+        throw new BadRequestException('Wallet does not belong to the affiliate user');
+      }
       const transaction = await tx.transaction.create({
         data: {
-          userId: commission.affiliateUserId,
-          walletId,
-          type: TransactionType.AFFILIATE_COMMISSION,
-          status: TransactionStatus.COMPLETED,
-          amount: commission.amount,
-          reference: `AFF_COM_${commission.id}`,
-          description: `Affiliate commission paid`,
+          userId: commission.affiliateUserId, walletId, type: TransactionType.AFFILIATE_COMMISSION,
+          status: TransactionStatus.COMPLETED, amount: commission.amount,
+          reference: 'AFF_COM_' + commission.id, description: 'Affiliate commission paid',
         },
       });
-
-      await tx.wallet.update({
-        where: { id: walletId },
-        data: {
-          balance: {
-            increment: commission.amount,
-          },
-        },
-      });
-
+      await tx.wallet.update({ where: { id: walletId }, data: { balance: { increment: commission.amount } } });
       await tx.affiliate.update({
         where: { id: commission.affiliateId },
-        data: {
-          totalEarned: {
-            increment: commission.amount,
-          },
-          totalPaid: {
-            increment: commission.amount,
-          },
-        },
+        data: { totalEarned: { increment: commission.amount }, totalPaid: { increment: commission.amount } },
       });
-
       return tx.affiliateCommission.update({
         where: { id },
-        data: {
-          status: CommissionStatus.PAID,
-          transactionId: transaction.id,
-          paidAt: new Date(),
-        },
+        data: { status: CommissionStatus.PAID, transactionId: transaction.id, paidAt: new Date() },
         include: this.commissionInclude(),
       });
     });
@@ -255,7 +208,7 @@ export class AffiliatesService {
       user: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -270,7 +223,7 @@ export class AffiliatesService {
       affiliateUser: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -278,7 +231,7 @@ export class AffiliatesService {
       referredUser: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
