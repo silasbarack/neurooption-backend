@@ -74,7 +74,7 @@ describe('account deletion authorization', () => {
   });
   it('derives the account ID from the authenticated token', async () => {
     await request(app.getHttpServer()).post('/account/delete').set('Authorization', 'Bearer ' + bearer)
-      .send({ confirmation: DELETE_ACCOUNT_CONFIRMATION, password: 'password', userId: 'someone-else' }).expect(200);
+      .send({ confirmation: DELETE_ACCOUNT_CONFIRMATION, password: 'password', userId: 'someone-else' }).expect(201);
     expect(users.deleteMe).toHaveBeenCalledWith('owner', {
       confirmation: DELETE_ACCOUNT_CONFIRMATION, password: 'password',
     }, expect.any(Object));

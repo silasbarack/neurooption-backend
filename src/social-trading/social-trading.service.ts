@@ -10,6 +10,8 @@ import {
   SocialFollowStatus,
 } from '@prisma/client';
 
+import { lockActiveUser } from '../common/lock-active-user';
+import { serializableTransaction } from '../common/serializable-transaction';
 import { PrismaService } from '../config/prisma.service';
 import { CreateCopyTradeDto } from './dto/create-copy-trade.dto';
 import { CreateSocialFollowDto } from './dto/create-social-follow.dto';
@@ -21,55 +23,60 @@ export class SocialTradingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async followTrader(dto: CreateSocialFollowDto) {
-    if (dto.followerUserId === dto.traderUserId) {
-      throw new BadRequestException('User cannot follow themselves');
-    }
+    return serializableTransaction(this.prisma, async (tx) => {
+      for (const userId of [...new Set([dto.followerUserId, dto.traderUserId])].sort()) {
+        await lockActiveUser(tx, userId);
+      }
+      if (dto.followerUserId === dto.traderUserId) {
+        throw new BadRequestException('User cannot follow themselves');
+      }
 
-    const follower = await this.prisma.user.findUnique({
-      where: { id: dto.followerUserId },
-    });
+      const follower = await tx.user.findUnique({
+        where: { id: dto.followerUserId },
+      });
 
-    if (!follower) {
-      throw new NotFoundException('Follower user not found');
-    }
+      if (!follower) {
+        throw new NotFoundException('Follower user not found');
+      }
 
-    const trader = await this.prisma.user.findUnique({
-      where: { id: dto.traderUserId },
-    });
+      const trader = await tx.user.findUnique({
+        where: { id: dto.traderUserId },
+      });
 
-    if (!trader) {
-      throw new NotFoundException('Trader user not found');
-    }
+      if (!trader) {
+        throw new NotFoundException('Trader user not found');
+      }
 
-    const exists = await this.prisma.socialFollow.findUnique({
-      where: {
-        followerUserId_traderUserId: {
+      const exists = await tx.socialFollow.findUnique({
+        where: {
+          followerUserId_traderUserId: {
+            followerUserId: dto.followerUserId,
+            traderUserId: dto.traderUserId,
+          },
+        },
+      });
+
+      if (exists) {
+        throw new ConflictException('Follower already follows this trader');
+      }
+
+      return tx.socialFollow.create({
+        data: {
           followerUserId: dto.followerUserId,
           traderUserId: dto.traderUserId,
+          copyPercentage: new Prisma.Decimal(dto.copyPercentage).div(100),
+          maxStakeAmount:
+            dto.maxStakeAmount !== undefined
+              ? new Prisma.Decimal(dto.maxStakeAmount)
+              : undefined,
+          minStakeAmount:
+            dto.minStakeAmount !== undefined
+              ? new Prisma.Decimal(dto.minStakeAmount)
+              : undefined,
+          status: SocialFollowStatus.ACTIVE,
         },
-      },
-    });
-
-    if (exists) {
-      throw new ConflictException('Follower already follows this trader');
-    }
-
-    return this.prisma.socialFollow.create({
-      data: {
-        followerUserId: dto.followerUserId,
-        traderUserId: dto.traderUserId,
-        copyPercentage: new Prisma.Decimal(dto.copyPercentage).div(100),
-        maxStakeAmount:
-          dto.maxStakeAmount !== undefined
-            ? new Prisma.Decimal(dto.maxStakeAmount)
-            : undefined,
-        minStakeAmount:
-          dto.minStakeAmount !== undefined
-            ? new Prisma.Decimal(dto.minStakeAmount)
-            : undefined,
-        status: SocialFollowStatus.ACTIVE,
-      },
-      include: this.followInclude(),
+        include: this.followInclude(),
+      });
     });
   }
 
@@ -120,26 +127,31 @@ export class SocialTradingService {
   }
 
   async updateFollow(id: string, dto: UpdateSocialFollowDto) {
-    await this.findFollow(id);
+    const follow = await this.findFollow(id);
+    return serializableTransaction(this.prisma, async (tx) => {
+      for (const userId of [...new Set([follow.followerUserId, follow.traderUserId])].sort()) {
+        await lockActiveUser(tx, userId);
+      }
 
-    return this.prisma.socialFollow.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        copyPercentage:
-          dto.copyPercentage !== undefined
-            ? new Prisma.Decimal(dto.copyPercentage).div(100)
-            : undefined,
-        maxStakeAmount:
-          dto.maxStakeAmount !== undefined
-            ? new Prisma.Decimal(dto.maxStakeAmount)
-            : undefined,
-        minStakeAmount:
-          dto.minStakeAmount !== undefined
-            ? new Prisma.Decimal(dto.minStakeAmount)
-            : undefined,
-      },
-      include: this.followInclude(),
+      return tx.socialFollow.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          copyPercentage:
+            dto.copyPercentage !== undefined
+              ? new Prisma.Decimal(dto.copyPercentage).div(100)
+              : undefined,
+          maxStakeAmount:
+            dto.maxStakeAmount !== undefined
+              ? new Prisma.Decimal(dto.maxStakeAmount)
+              : undefined,
+          minStakeAmount:
+            dto.minStakeAmount !== undefined
+              ? new Prisma.Decimal(dto.minStakeAmount)
+              : undefined,
+        },
+        include: this.followInclude(),
+      });
     });
   }
 
@@ -162,46 +174,32 @@ export class SocialTradingService {
   }
 
   async createCopyTrade(dto: CreateCopyTradeDto) {
-    const follow = await this.prisma.socialFollow.findUnique({
-      where: { id: dto.socialFollowId },
-    });
-
-    if (!follow) {
-      throw new NotFoundException('Social follow record not found');
+    const owner = await this.prisma.socialFollow.findUnique({ where: { id: dto.socialFollowId } });
+    if (!owner) throw new NotFoundException('Social follow record not found');
+    if (owner.traderUserId !== dto.masterUserId || owner.followerUserId !== dto.followerUserId) {
+      throw new BadRequestException('Copy trade users do not match this follow');
     }
-
-    if (follow.status !== SocialFollowStatus.ACTIVE) {
-      throw new BadRequestException('Social follow is not active');
-    }
-
-    const masterTrade = await this.prisma.trade.findUnique({
-      where: { id: dto.masterTradeId },
-    });
-
-    if (!masterTrade) {
-      throw new NotFoundException('Master trade not found');
-    }
-
-    return this.prisma.socialFollow.update({
-      where: { id: dto.socialFollowId },
-      data: {
-        copiedTrades: {
-          increment: 1,
+    return serializableTransaction(this.prisma, async (tx) => {
+      for (const userId of [...new Set([owner.followerUserId, owner.traderUserId])].sort()) {
+        await lockActiveUser(tx, userId);
+      }
+      const follow = await tx.socialFollow.findUnique({ where: { id: dto.socialFollowId } });
+      if (!follow || follow.status !== SocialFollowStatus.ACTIVE) throw new BadRequestException('Social follow is not active');
+      const masterTrade = await tx.trade.findUnique({ where: { id: dto.masterTradeId } });
+      if (!masterTrade || masterTrade.userId !== dto.masterUserId) throw new BadRequestException('Master trade does not belong to this user');
+      return tx.socialFollow.update({
+        where: { id: follow.id },
+        data: {
+          copiedTrades: { increment: 1 },
+          copies: { create: {
+            masterUserId: follow.traderUserId, followerUserId: follow.followerUserId,
+            masterTradeId: masterTrade.id, followerTradeId: dto.followerTradeId,
+            stakeAmount: new Prisma.Decimal(dto.stakeAmount), payoutRate: new Prisma.Decimal(dto.payoutRate),
+            entryPrice: new Prisma.Decimal(dto.entryPrice), status: CopyTradeStatus.OPEN,
+          } },
         },
-        copies: {
-          create: {
-            masterUserId: dto.masterUserId,
-            followerUserId: dto.followerUserId,
-            masterTradeId: dto.masterTradeId,
-            followerTradeId: dto.followerTradeId,
-            stakeAmount: new Prisma.Decimal(dto.stakeAmount),
-            payoutRate: new Prisma.Decimal(dto.payoutRate),
-            entryPrice: new Prisma.Decimal(dto.entryPrice),
-            status: CopyTradeStatus.OPEN,
-          },
-        },
-      },
-      include: this.followInclude(),
+        include: this.followInclude(),
+      });
     });
   }
 
@@ -243,25 +241,32 @@ export class SocialTradingService {
       throw new NotFoundException('Copy trade not found');
     }
 
-    return this.prisma.copyTrade.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        exitPrice:
-          dto.exitPrice !== undefined
-            ? new Prisma.Decimal(dto.exitPrice)
-            : undefined,
-        profitAmount:
-          dto.profitAmount !== undefined
-            ? new Prisma.Decimal(dto.profitAmount)
-            : undefined,
-        closedAt:
-          dto.status &&
-          dto.status !== CopyTradeStatus.OPEN
-            ? new Date()
-            : undefined,
-      },
-      include: this.copyTradeInclude(),
+    return serializableTransaction(this.prisma, async (tx) => {
+      if (dto.status === CopyTradeStatus.OPEN) {
+        for (const userId of [...new Set([copyTrade.masterUserId, copyTrade.followerUserId])].sort()) {
+          await lockActiveUser(tx, userId);
+        }
+      }
+      return tx.copyTrade.update({
+        where: { id },
+        data: {
+          status: dto.status,
+          exitPrice:
+            dto.exitPrice !== undefined
+              ? new Prisma.Decimal(dto.exitPrice)
+              : undefined,
+          profitAmount:
+            dto.profitAmount !== undefined
+              ? new Prisma.Decimal(dto.profitAmount)
+              : undefined,
+          closedAt:
+            dto.status &&
+            dto.status !== CopyTradeStatus.OPEN
+              ? new Date()
+              : undefined,
+        },
+        include: this.copyTradeInclude(),
+      });
     });
   }
 

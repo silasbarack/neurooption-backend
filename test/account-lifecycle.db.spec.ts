@@ -267,6 +267,15 @@ describeDb('account lifecycle with PostgreSQL', () => {
     expect(await prisma.passwordResetToken.count({ where: { userId } })).toBe(1);
   });
 
+  it('closes concurrent duplicate requests once and queues one receipt', async () => {
+    const results = await Promise.allSettled([
+      closure.deleteAccount(userId, deletion), closure.deleteAccount(userId, deletion),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(await prisma.emailOutbox.count({ where: { userId, kind: 'ACCOUNT_DELETED' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { userId, action: 'ACCOUNT_DELETED' } })).toBe(1);
+  });
+
   it('blocks deletion when real money remains', async () => {
     await prisma.wallet.create({ data: { userId, balance: 1 } });
     await expect(closure.deleteAccount(userId, deletion)).rejects.toBeInstanceOf(ConflictException);

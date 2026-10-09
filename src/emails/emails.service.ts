@@ -656,7 +656,7 @@ ${this.signOff()}`,
     const registerUrl = `${this.getFrontendUrl()}/register`;
 
     const removed = [
-      'Your sign-in access. Every active session was signed out and can no longer be used.',
+      'Your sign-in access. Existing sessions were revoked and can no longer access the account.',
       'Your name, email address and phone number were removed from your profile.',
       'Any password-reset codes and your referral code were cleared.',
       'Copy-trading follows and any affiliate profile were switched off.',

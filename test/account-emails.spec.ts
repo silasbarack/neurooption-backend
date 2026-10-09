@@ -16,7 +16,7 @@ describe('account email contents and acceptance', () => {
     expect(receipt.body).toContain('Other: <script>feedback</script>');
     expect(receipt.html).toContain('&lt;script&gt;feedback&lt;/script&gt;');
     expect(receipt.html).not.toContain('<script>feedback</script>');
-    expect(receipt.body).toContain('Every active session was signed out');
+    expect(receipt.body).toContain('Existing sessions were revoked');
     expect(receipt.body).toContain('Support and security records');
     expect(receipt.body).toContain('not restored');
   });
