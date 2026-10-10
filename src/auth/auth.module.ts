@@ -6,13 +6,14 @@ import { EmailsModule } from '../emails/emails.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { getJwtSecret } from '../config/jwt.config';
 
 @Module({
   imports: [
     EmailsModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'dev_secret',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: '7d' },
     }),
   ],
