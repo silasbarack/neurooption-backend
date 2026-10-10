@@ -161,6 +161,11 @@ export class AuthService {
   }
 
 
+  private maskRecipient(email: string): string {
+    const [local, domain] = email.split('@');
+    return domain ? `${local.slice(0, 1)}***@${domain}` : '***';
+  }
+
   // A signed-in user can retry an undelivered welcome message without
   // registering a second account. Throttle accepted attempts per process.
   private readonly welcomeResends = new Map<string, number>();
@@ -191,9 +196,10 @@ export class AuthService {
     return {
       success: emailSent,
       emailSent,
+      emailHint: this.maskRecipient(user.email),
       message: emailSent
-        ? 'Your welcome email was accepted by the email provider. Check your inbox and spam folder.'
-        : 'The email provider could not send your welcome email. Please contact Support.',
+        ? 'Your welcome email was accepted for delivery. Check the registered inbox and spam folder.'
+        : 'The email provider could not accept your welcome email. Please contact Support.',
     };
   }
 
@@ -253,6 +259,7 @@ export class AuthService {
       success: true,
       message: 'Account created successfully.',
       welcomeEmailSent,
+      welcomeEmailHint: this.maskRecipient(user.email),
       token,
       accessToken: token,
       user: this.removeSensitiveFields(user),
@@ -362,7 +369,7 @@ export class AuthService {
       this.logger.error('Password recovery email failed', error as Error);
     }
     if (!sent) {
-      await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id, token: codeHash } });
       this.logger.error('Password reset email not accepted by configured provider.');
     }
 
