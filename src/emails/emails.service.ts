@@ -116,7 +116,7 @@ export class EmailsService implements OnModuleInit {
   private errorMessage(error: unknown): string {
     let value = error instanceof Error ? error.message : String(error);
     // The provider's error body may echo an email or a configured key.
-    value = value.replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}/gi, '[email]');
+    value = value.replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi, '[email]');
     for (const key of ['SMTP_PASS', 'BREVO_API_KEY', 'RESEND_API_KEY']) {
       const secret = this.env(key);
       if (secret && secret.length > 3) value = value.split(secret).join('[secret]');
