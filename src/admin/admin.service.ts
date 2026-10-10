@@ -7,6 +7,8 @@ import {
 
 import * as bcrypt from 'bcrypt';
 
+const ADMIN_SELECT = { id: true, fullName: true, email: true, phone: true, role: true, isActive: true, createdAt: true, updatedAt: true } as const;
+
 import { PrismaService } from '../config/prisma.service';
 
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -45,6 +47,7 @@ export class AdminService {
         role: dto.role,
         passwordHash,
       },
+      select: ADMIN_SELECT,
     });
   }
 
@@ -90,12 +93,14 @@ export class AdminService {
       orderBy: {
         createdAt: 'desc',
       },
+      select: ADMIN_SELECT,
     });
   }
 
   async findOne(id: string) {
     const admin = await this.prisma.admin.findUnique({
       where: { id },
+      select: ADMIN_SELECT,
     });
 
     if (!admin) {
@@ -116,6 +121,7 @@ export class AdminService {
     return this.prisma.admin.update({
       where: { id },
       data: dto,
+      select: ADMIN_SELECT,
     });
   }
 
@@ -125,6 +131,7 @@ export class AdminService {
       data: {
         isActive: false,
       },
+      select: ADMIN_SELECT,
     });
   }
 
@@ -134,12 +141,14 @@ export class AdminService {
       data: {
         isActive: true,
       },
+      select: ADMIN_SELECT,
     });
   }
 
   async delete(id: string) {
     return this.prisma.admin.delete({
       where: { id },
+      select: ADMIN_SELECT,
     });
   }
 }

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from './authenticated-request';
 import { WithdrawalRequestDto } from './dto/withdrawal-request.dto';
 import { FinanceService } from './finance.service';
+import { requireRealMoneyAuthorization } from '../common/real-money-mode';
 
 @Controller('finance/me')
 @UseGuards(JwtAuthGuard)
@@ -17,6 +18,6 @@ export class FinanceController {
 
   @Post('withdrawals')
   requestWithdrawal(@Req() req: AuthenticatedRequest, @Body() dto: WithdrawalRequestDto) {
-    return this.finance.requestWithdrawal(req.user.id, dto.phone, dto.amount);
+    requireRealMoneyAuthorization();
   }
 }
