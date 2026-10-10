@@ -25,3 +25,8 @@ jobs:
       - name: Build production bundle
         if: always()
         run: npm run build
+      - name: Validate transactional email templates and account deletion
+        if: always()
+        run: |
+          node scripts/email-template-check.js
+          npx jest --runInBand test/account-deletion.spec.ts

@@ -49,6 +49,8 @@ type EmailProvider = 'brevo' | 'resend' | 'smtp' | 'none';
 const LOGO_SRC_PLACEHOLDER = '__NEUROOPTION_LOGO_SRC__';
 
 const DEFAULT_FRONTEND_URL = 'https://neurooption-frontend.onrender.com';
+// Keep the NeuroOption transactional sender consistent across signup, recovery and deletion.
+const REQUIRED_SENDER_EMAIL = 'silasbarack5@gmail.com';
 
 // Light brand palette shared by every email (inline styles only).
 const BRAND = {
@@ -215,6 +217,7 @@ export class EmailsService implements OnModuleInit {
     if (provider === 'none') {
       throw new Error('No outbound email provider is configured.');
     }
+    this.assertRequiredSender();
     if (provider === 'smtp' && (force || Date.now() - this.smtpVerifiedAt > 60_000)) {
       await this.getTransporter().verify();
       this.smtpVerifiedAt = Date.now();
@@ -246,6 +249,13 @@ export class EmailsService implements OnModuleInit {
     }
 
     return { name: 'NeuroOption', email: from.trim() };
+  }
+
+  private assertRequiredSender(): void {
+    const sender = this.parseFromAddress().email.toLowerCase();
+    if (sender !== REQUIRED_SENDER_EMAIL) {
+      throw new Error('NeuroOption email sender must be configured as silasbarack5@gmail.com. Check EMAIL_FROM and SMTP_USER.');
+    }
   }
 
   private getFrontendUrl(): string {
@@ -596,6 +606,7 @@ ${content}
     }
 
     try {
+      this.assertRequiredSender();
       const text = `${body}\n\n${this.textFooter()}`;
       await this.deliver(provider, to, subject, text, html || this.toHtml(body));
       this.logger.log(`Provider accepted "${subject}"; recipient=${this.recipientTag(to)} via ${provider} (inbox delivery unverified).`);

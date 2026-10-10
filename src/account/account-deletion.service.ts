@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
@@ -39,9 +40,8 @@ export type DeletionBlocker = {
 const MAX_PASSWORD_FAILURES = 5;
 const PASSWORD_WINDOW_MS = 15 * 60_000;
 
-const kes = (value: number) =>
-  `KES ${value.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
+// Balances may exist in several currencies and account implementations.
+// Never add unlike currencies together or label the result as KES.
 /** "silas@gmail.com" -> "s***@gmail.com" */
 export function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
@@ -96,6 +96,18 @@ export class AccountDeletionService {
     }
 
     await this.verifyPassword(user.id, dto.password, user.passwordHash);
+
+    // A permanent closure must not proceed if the required confirmation
+    // channel is known to be unusable. SMTP verify checks connectivity,
+    // TLS and authentication; the final send is still checked separately.
+    try {
+      await this.emails.verifyDeliveryConfiguration();
+    } catch (error) {
+      this.logger.error('Account deletion mail preflight failed', error as Error);
+      throw new ServiceUnavailableException(
+        'The confirmation email service is unavailable. Your account has NOT been deleted. Please try again later or contact Support.',
+      );
+    }
 
     const reason = DELETION_REASONS.find((item) => item.code === dto.reason);
     const comment = dto.comment?.trim() || undefined;
@@ -236,10 +248,11 @@ export class AccountDeletionService {
       });
     }
 
-    const [wallets, engineWallets, openEngineTrades, openTrades, withdrawals, deposits] =
+    const [wallets, tradingAccounts, engineWallets, openEngineTrades, openTrades, withdrawals, deposits] =
       await Promise.all([
         db.wallet.findMany({ where: { userId: user.id } }),
-        db.engineWallet.findMany({ where: { userId: user.id, accountType: 'QT Real' } }),
+        db.tradingAccount.findMany({ where: { userId: user.id, type: 'REAL' } }),
+        db.engineWallet.findMany({ where: { userId: user.id, accountType: { in: ['QT Real', 'REAL', 'Real'] } } }),
         db.engineTrade.count({ where: { userId: user.id, status: 'PENDING' } }),
         db.trade.count({ where: { userId: user.id, status: 'OPEN' } }),
         db.withdrawal.count({
@@ -250,20 +263,24 @@ export class AccountDeletionService {
         }),
       ]);
 
-    const available = wallets.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
-    const locked = wallets.reduce((sum, wallet) => sum + Number(wallet.locked), 0);
-    const engineBalance = engineWallets.reduce((sum, wallet) => sum + Number(wallet.balance), 0);
-    const engineLocked = engineWallets.reduce((sum, wallet) => sum + Number(wallet.locked), 0);
+    const positive = (value: unknown) => Number(value) >= DUST;
+    const hasAvailableFunds =
+      wallets.some((wallet) => positive(wallet.balance)) ||
+      tradingAccounts.some((account) => positive(account.balance)) ||
+      engineWallets.some((wallet) => positive(wallet.balance) || positive(wallet.balanceUsd));
+    const hasLockedFunds =
+      wallets.some((wallet) => positive(wallet.locked)) ||
+      tradingAccounts.some((account) => positive(account.locked)) ||
+      engineWallets.some((wallet) => positive(wallet.locked) || positive(wallet.lockedUsd));
 
-    const funds = available + engineBalance;
-    if (funds >= DUST) {
+    if (hasAvailableFunds) {
       blockers.push({
         code: 'FUNDS',
-        message: `Your real account still holds ${kes(available)}${engineBalance >= DUST ? ' plus funds in trading' : ''}. Withdraw it first so nothing is lost.`,
+        message: 'One or more of your real accounts still contains funds. Withdraw or settle each currency balance before deleting the account.',
         action: { label: 'Withdraw funds', path: '/finance?tab=withdraw' },
       });
     }
-    if (locked + engineLocked >= DUST) {
+    if (hasLockedFunds) {
       blockers.push({
         code: 'LOCKED_FUNDS',
         message: 'Some of your money is reserved for a withdrawal or an open position. Wait until it settles.',

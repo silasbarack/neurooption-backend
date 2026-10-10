@@ -16,6 +16,7 @@ const PASSWORD = 'correct horse';
 type State = {
   user: any;
   wallets: any[];
+  tradingAccounts: any[];
   engineWallets: any[];
   engineTrades: number;
   trades: number;
@@ -36,6 +37,7 @@ function setup(overrides: Partial<State> = {}) {
       passwordHash: bcrypt.hashSync(PASSWORD, 4),
     },
     wallets: [{ balance: 0, locked: 0 }],
+    tradingAccounts: [],
     engineWallets: [{ balance: 0, locked: 0 }],
     engineTrades: 0,
     trades: 0,
@@ -56,6 +58,7 @@ function setup(overrides: Partial<State> = {}) {
       }),
     },
     wallet: { findMany: jest.fn(async () => state.wallets) },
+    tradingAccount: { findMany: jest.fn(async () => state.tradingAccounts) },
     engineWallet: { findMany: jest.fn(async () => state.engineWallets) },
     engineTrade: { count: jest.fn(async () => state.engineTrades) },
     trade: { count: jest.fn(async () => state.trades) },
@@ -77,7 +80,10 @@ function setup(overrides: Partial<State> = {}) {
     $transaction: jest.fn(async (fn: any) => fn(prisma)),
   };
 
-  const emails = { sendAccountDeletionEmail: jest.fn(async () => true) };
+  const emails = {
+    sendAccountDeletionEmail: jest.fn(async () => true),
+    verifyDeliveryConfiguration: jest.fn(async () => 'smtp'),
+  };
   const service = new AccountDeletionService(prisma, emails as unknown as EmailsService);
   return { service, prisma, emails, writes, state };
 }
@@ -102,6 +108,10 @@ describe('account deletion: what stands in the way', () => {
   it.each([
     ['funds in the real wallet', { wallets: [{ balance: 1500.5, locked: 0 }] }, 'FUNDS'],
     ['funds in real trading', { engineWallets: [{ balance: 20, locked: 0 }] }, 'FUNDS'],
+    ['funds in a REAL trading account', { tradingAccounts: [{ balance: 25, locked: 0 }] }, 'FUNDS'],
+    ['USD equivalent funds in trading engine', { engineWallets: [{ balance: 0, balanceUsd: 20, locked: 0, lockedUsd: 0 }] }, 'FUNDS'],
+    ['locked balance in a REAL trading account', { tradingAccounts: [{ balance: 0, locked: 12 }] }, 'LOCKED_FUNDS'],
+    ['locked USD equivalent in trading engine', { engineWallets: [{ balance: 0, balanceUsd: 0, locked: 0, lockedUsd: 5 }] }, 'LOCKED_FUNDS'],
     ['reserved funds', { wallets: [{ balance: 0, locked: 300 }] }, 'LOCKED_FUNDS'],
     ['an open trade', { engineTrades: 2 }, 'OPEN_TRADES'],
     ['an open legacy trade', { trades: 1 }, 'OPEN_TRADES'],
@@ -173,6 +183,14 @@ describe('account deletion: confirmation and security', () => {
     const { service, state } = setup();
     state.user.status = 'DELETED';
     await expect(service.deleteAccount('user-1', dto())).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('refuses deletion if the required confirmation email transport is unavailable', async () => {
+    const { service, emails, prisma } = setup();
+    emails.verifyDeliveryConfiguration.mockRejectedValueOnce(new Error('SMTP authentication unavailable'));
+    await expect(service.deleteAccount('user-1', dto())).rejects.toMatchObject({ status: 503 });
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    expect(emails.sendAccountDeletionEmail).not.toHaveBeenCalled();
   });
 
   it('a double submit closes the account once and sends one email', async () => {
