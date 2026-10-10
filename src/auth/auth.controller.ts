@@ -1,5 +1,6 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { RecaptchaService } from '../security/recaptcha.service';
 import type { AuthenticatedRequest } from '../payments/authenticated-request';
 
 import { AuthService } from './auth.service';
@@ -10,10 +11,14 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService, private readonly captcha: RecaptchaService) {}
+
+  @Get('recaptcha-config')
+  recaptchaConfig() { return this.captcha.getPublicConfig(); }
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
+  async register(@Body() dto: RegisterDto) {
+    await this.captcha.verify(dto.recaptchaToken, 'register');
     return this.authService.register(dto);
   }
 
@@ -24,17 +29,20 @@ export class AuthController {
   }
 
   @Post('login')
-  login(@Body() dto: LoginDto) {
+  async login(@Body() dto: LoginDto) {
+    await this.captcha.verify(dto.recaptchaToken, 'login');
     return this.authService.login(dto);
   }
 
   @Post('forgot-password')
-  forgotPassword(@Body() dto: ForgotPasswordDto) {
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.captcha.verify(dto.recaptchaToken, 'forgot_password');
     return this.authService.forgotPassword(dto);
   }
 
   @Post('reset-password')
-  resetPassword(@Body() dto: ResetPasswordDto) {
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.captcha.verify(dto.recaptchaToken, 'reset_password');
     return this.authService.resetPassword(dto);
   }
 }
