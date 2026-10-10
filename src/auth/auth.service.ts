@@ -160,6 +160,43 @@ export class AuthService {
     }
   }
 
+
+  // A signed-in user can retry an undelivered welcome message without
+  // registering a second account. Throttle accepted attempts per process.
+  private readonly welcomeResends = new Map<string, number>();
+
+  async resendWelcomeEmail(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status === 'DELETED') {
+      throw new UnauthorizedException('Account unavailable.');
+    }
+
+    const last = this.welcomeResends.get(userId);
+    if (last && Date.now() - last < 60_000) {
+      throw new BadRequestException('Please wait one minute before resending the welcome email.');
+    }
+    this.welcomeResends.set(userId, Date.now());
+
+    let emailSent = false;
+    try {
+      emailSent = await this.emailsService.sendAccountCreatedEmail(
+        user.email,
+        this.getUserDisplayName(user),
+      );
+    } catch (error) {
+      this.logger.error('Resend welcome email failed', error as Error);
+    }
+    if (!emailSent) this.welcomeResends.delete(userId);
+
+    return {
+      success: emailSent,
+      emailSent,
+      message: emailSent
+        ? 'Your welcome email was accepted by the email provider. Check your inbox and spam folder.'
+        : 'The email provider could not send your welcome email. Please contact Support.',
+    };
+  }
+
   async register(payload: RegisterPayload) {
     const email = this.normalizeEmail(payload.email || '');
     const fullName = (payload.fullName || payload.name || '').trim();
