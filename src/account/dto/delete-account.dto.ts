@@ -2,6 +2,10 @@ import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validat
 import { DELETION_REASON_CODES } from '../account-deletion.constants';
 
 export class DeleteAccountDto {
+  @IsOptional()
+  @IsString()
+  recaptchaToken?: string;
+
   /** Re-entered so a stolen session alone cannot close the account. */
   @IsString()
   @IsNotEmpty()
