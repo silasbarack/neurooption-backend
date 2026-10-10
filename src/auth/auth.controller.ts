@@ -1,4 +1,6 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import type { AuthenticatedRequest } from '../payments/authenticated-request';
 
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -13,6 +15,12 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Post('resend-welcome')
+  @UseGuards(JwtAuthGuard)
+  resendWelcome(@Req() req: AuthenticatedRequest) {
+    return this.authService.resendWelcomeEmail(req.user.id);
   }
 
   @Post('login')
