@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { timingSafeEqual } from 'crypto';
+import { requireRealMoneyAuthorization } from '../common/real-money-mode';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from './authenticated-request';
@@ -27,14 +28,14 @@ export class MpesaController {
   /** Public summary so the app can show whether M-Pesa is available. */
   @Get('config')
   config() {
-    const { configured, environment, minAmount, maxAmount } = this.mpesa.configSummary();
-    return { configured, environment, minAmount, maxAmount };
+    const { environment, minAmount, maxAmount } = this.mpesa.configSummary();
+    return { configured: false, environment, minAmount, maxAmount, demoOnly: true };
   }
 
   @Post('deposits')
   @UseGuards(JwtAuthGuard)
   startDeposit(@Req() req: AuthenticatedRequest, @Body() dto: StkPushDto) {
-    return this.mpesa.startDeposit(req.user.id, dto.phone, dto.amount);
+    requireRealMoneyAuthorization();
   }
 
   @Get('deposits/:id')
