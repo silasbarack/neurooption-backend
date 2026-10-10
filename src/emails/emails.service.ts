@@ -82,6 +82,7 @@ const HTTP_API_TIMEOUT_MS = 15_000;
 export class EmailsService implements OnModuleInit {
   private readonly logger = new Logger(EmailsService.name);
   private transporter: Transporter | null = null;
+  private smtpVerifiedAt = 0;
 
   onModuleInit() {
     const provider = this.getProvider();
@@ -98,9 +99,8 @@ export class EmailsService implements OnModuleInit {
     );
 
     if (provider === 'smtp') {
-      this.getTransporter()
-        .verify()
-        .then(() => this.logger.log('SMTP connection verified.'))
+      this.verifyDeliveryConfiguration(true)
+        .then(() => this.logger.log('SMTP connection and authentication verified.'))
         .catch((error) =>
           this.logger.error(
             `SMTP connection check failed: ${this.errorMessage(error)}. ` +
@@ -151,16 +151,21 @@ export class EmailsService implements OnModuleInit {
       },
     };
 
-    if (service) {
-      config.service = service;
-    } else {
+    // An explicit host takes precedence over a service preset. This permits
+    // providers that expose SMTP on port 2525 (including on Render Free).
+    if (host) {
       const port = Number(this.env('SMTP_PORT') || 587);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error('SMTP_PORT must be a valid TCP port.');
+      }
       const secureSetting = this.env('SMTP_SECURE').toLowerCase();
-
-      config.host = host || 'smtp.gmail.com';
+      config.host = host;
       config.port = port;
-      // Port 465 is implicit TLS; others upgrade with STARTTLS.
       config.secure = secureSetting ? secureSetting === 'true' : port === 465;
+      // Never silently send credentials over a plaintext SMTP connection.
+      if (!config.secure) config.requireTLS = true;
+    } else if (service) {
+      config.service = service;
     }
 
     return config;
@@ -174,6 +179,24 @@ export class EmailsService implements OnModuleInit {
     }
 
     return this.transporter;
+  }
+
+  /**
+   * Check configuration before security-sensitive account operations.
+   * SMTP verification tests connectivity, TLS and authentication, but does
+   * not guarantee final inbox delivery. API providers are checked by an
+   * actual send in scripts/email-smoke-test.js.
+   */
+  async verifyDeliveryConfiguration(force = false): Promise<Exclude<EmailProvider, 'none'>> {
+    const provider = this.getProvider();
+    if (provider === 'none') {
+      throw new Error('No outbound email provider is configured.');
+    }
+    if (provider === 'smtp' && (force || Date.now() - this.smtpVerifiedAt > 60_000)) {
+      await this.getTransporter().verify();
+      this.smtpVerifiedAt = Date.now();
+    }
+    return provider;
   }
 
   private getFromAddress(): string {
@@ -476,7 +499,7 @@ ${content}
     html: string,
   ): Promise<void> {
     if (provider === 'smtp') {
-      await this.getTransporter().sendMail({
+      const receipt = await this.getTransporter().sendMail({
         from: this.getFromAddress(),
         to,
         subject,
@@ -491,6 +514,9 @@ ${content}
           },
         ],
       });
+      if (!receipt.accepted?.some((address) => address.toLowerCase() === to.toLowerCase())) {
+        throw new Error('SMTP did not accept the recipient address.');
+      }
       return;
     }
 
@@ -545,6 +571,7 @@ ${content}
       this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
       return true;
     } catch (error) {
+      if (provider === 'smtp') this.smtpVerifiedAt = 0;
       this.logger.error(
         `Failed to send "${subject}" to ${to} via ${provider}: ${this.errorMessage(error)}`,
       );

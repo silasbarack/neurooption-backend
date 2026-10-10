@@ -160,6 +160,43 @@ export class AuthService {
     }
   }
 
+
+  // A signed-in user can retry an undelivered welcome message without
+  // registering a second account. Throttle accepted attempts per process.
+  private readonly welcomeResends = new Map<string, number>();
+
+  async resendWelcomeEmail(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status === 'DELETED') {
+      throw new UnauthorizedException('Account unavailable.');
+    }
+
+    const last = this.welcomeResends.get(userId);
+    if (last && Date.now() - last < 60_000) {
+      throw new BadRequestException('Please wait one minute before resending the welcome email.');
+    }
+    this.welcomeResends.set(userId, Date.now());
+
+    let emailSent = false;
+    try {
+      emailSent = await this.emailsService.sendAccountCreatedEmail(
+        user.email,
+        this.getUserDisplayName(user),
+      );
+    } catch (error) {
+      this.logger.error('Resend welcome email failed', error as Error);
+    }
+    if (!emailSent) this.welcomeResends.delete(userId);
+
+    return {
+      success: emailSent,
+      emailSent,
+      message: emailSent
+        ? 'Your welcome email was accepted by the email provider. Check your inbox and spam folder.'
+        : 'The email provider could not send your welcome email. Please contact Support.',
+    };
+  }
+
   async register(payload: RegisterPayload) {
     const email = this.normalizeEmail(payload.email || '');
     const fullName = (payload.fullName || payload.name || '').trim();
@@ -198,19 +235,24 @@ export class AuthService {
       data: userData as any,
     });
 
-    // Don't make the sign-up response wait on the mail provider.
-    void this.sendEmailSafely('sendAccountCreatedEmail', () =>
-      this.emailsService.sendAccountCreatedEmail(
+    // Await the provider response so callers can distinguish account creation
+    // from email acceptance. A mail failure must never erase the new account.
+    let welcomeEmailSent = false;
+    try {
+      welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(
         user.email,
         this.getUserDisplayName(user),
-      ),
-    );
+      );
+    } catch (error) {
+      this.logger.error('Welcome email send failed', error as Error);
+    }
 
     const token = this.signToken(user);
 
     return {
       success: true,
       message: 'Account created successfully.',
+      welcomeEmailSent,
       token,
       accessToken: token,
       user: this.removeSensitiveFields(user),
@@ -307,13 +349,22 @@ export class AuthService {
       },
     });
 
-    await this.sendEmailSafely('sendPasswordRecoveryCodeEmail', () =>
-      this.emailsService.sendPasswordRecoveryCodeEmail(
+    // A code that was never accepted by the provider must not block the
+    // customer from requesting another code for the next minute.
+    let sent = false;
+    try {
+      sent = await this.emailsService.sendPasswordRecoveryCodeEmail(
         user.email,
         code,
         this.getUserDisplayName(user),
-      ),
-    );
+      );
+    } catch (error) {
+      this.logger.error('Password recovery email failed', error as Error);
+    }
+    if (!sent) {
+      await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      this.logger.error('Password reset email not accepted by configured provider.');
+    }
 
     return {
       success: true,
