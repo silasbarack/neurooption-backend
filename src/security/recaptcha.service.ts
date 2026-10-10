@@ -4,27 +4,29 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
-/** Google reCAPTCHA v3, not Enterprise assessment or v2 checkbox keys. */
+/** Google reCAPTCHA v2 checkbox: token is validated by Google server-side. */
 type GoogleAssessment = {
   success?: boolean;
-  score?: number;
-  action?: string;
   hostname?: string;
   challenge_ts?: string;
 };
 
 @Injectable()
 export class RecaptchaService {
-  getPublicConfig(): { enabled: boolean; siteKey: string } {
-    const enabled = process.env.RECAPTCHA_ENABLED === 'true';
+  getPublicConfig(): { enabled: boolean; siteKey: string; version: 'v2' } {
+    const enabled = process.env.RECAPTCHA_ENABLED === 'true' && process.env.RECAPTCHA_VERSION === 'v2';
     return {
       enabled,
+      version: 'v2',
       siteKey: enabled ? (process.env.RECAPTCHA_SITE_KEY || '') : '',
     };
   }
 
-  async verify(token: string | undefined, expectedAction: string): Promise<void> {
+  async verify(token: string | undefined, _expectedAction: string): Promise<void> {
     if (process.env.RECAPTCHA_ENABLED !== 'true') return;
+    if (process.env.RECAPTCHA_VERSION !== 'v2') {
+      throw new ServiceUnavailableException('Captcha configuration requires reCAPTCHA v2 checkbox credentials.');
+    }
 
     const secret = process.env.RECAPTCHA_SECRET_KEY?.trim();
     const siteKey = process.env.RECAPTCHA_SITE_KEY?.trim();
@@ -51,12 +53,6 @@ export class RecaptchaService {
       );
     }
 
-    const thresholdValue = Number(process.env.RECAPTCHA_MIN_SCORE ?? '0.5');
-    const threshold =
-      Number.isFinite(thresholdValue) && thresholdValue >= 0 && thresholdValue <= 1
-        ? thresholdValue
-        : 0.5;
-
     const allowedHosts = (process.env.RECAPTCHA_ALLOWED_HOSTNAMES ||
       'neurooption.com,www.neurooption.com,neurooption-frontend.onrender.com')
       .split(',')
@@ -72,11 +68,8 @@ export class RecaptchaService {
     const fresh = Number.isFinite(issuedAt) && age >= -30_000 && age <= 120_000;
     const valid =
       assessment.success === true &&
-      assessment.action === expectedAction &&
       typeof assessment.hostname === 'string' &&
       allowedHosts.includes(assessment.hostname.toLowerCase()) &&
-      typeof assessment.score === 'number' &&
-      assessment.score >= threshold &&
       fresh;
 
     if (!valid) {
