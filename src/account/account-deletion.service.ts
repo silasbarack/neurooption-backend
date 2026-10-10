@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
@@ -95,6 +96,18 @@ export class AccountDeletionService {
     }
 
     await this.verifyPassword(user.id, dto.password, user.passwordHash);
+
+    // A permanent closure must not proceed if the required confirmation
+    // channel is known to be unusable. SMTP verify checks connectivity,
+    // TLS and authentication; the final send is still checked separately.
+    try {
+      await this.emails.verifyDeliveryConfiguration();
+    } catch (error) {
+      this.logger.error('Account deletion mail preflight failed', error as Error);
+      throw new ServiceUnavailableException(
+        'The confirmation email service is unavailable. Your account has NOT been deleted. Please try again later or contact Support.',
+      );
+    }
 
     const reason = DELETION_REASONS.find((item) => item.code === dto.reason);
     const comment = dto.comment?.trim() || undefined;
