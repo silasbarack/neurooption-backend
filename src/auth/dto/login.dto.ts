@@ -1,6 +1,10 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
+  @IsOptional()
+  @IsString()
+  recaptchaToken?: string;
+
   @IsEmail()
   email!: string;
 
