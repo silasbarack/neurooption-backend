@@ -13,6 +13,8 @@ import {
 
 import { PrismaService } from '../config/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
+import { EmailsService } from '../emails/emails.service';
+import { depositReceiptTemplate } from './deposit-receipt.template';
 import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { UpdateDepositStatusDto } from './dto/update-deposit-status.dto';
@@ -24,6 +26,7 @@ export class DepositsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
+    private readonly emailsService: EmailsService,
   ) {}
 
   async create(dto: CreateDepositDto) {
@@ -144,7 +147,7 @@ export class DepositsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const committed = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.deposit.update({
         where: { id },
         data: {
@@ -192,6 +195,35 @@ export class DepositsService {
 
       return updated;
     });
+
+    // Send only after BOTH the deposit and financial ledger commit. An email
+    // provider failure must not reverse an already-confirmed payment.
+    if (dto.status === TransactionStatus.COMPLETED) {
+      const recipient = await this.prisma.user.findUnique({
+        where: { id: deposit.userId },
+        select: { email: true, fullName: true },
+      });
+      if (recipient?.email) {
+        const receipt = depositReceiptTemplate({
+          fullName: recipient.fullName || 'Trader',
+          amount: Number(deposit.amount),
+          currency: deposit.currency,
+          method: deposit.gateway.name,
+          transactionId: deposit.transactionId,
+          depositId: deposit.id,
+          paymentReference: dto.externalRef || deposit.externalRef,
+          completedAt: new Date(),
+        });
+        try {
+          const accepted = await this.emailsService.sendTemplateEmail(recipient.email, receipt);
+          if (!accepted) console.warn('Deposit receipt was not accepted by the email provider; deposit ID:', deposit.id);
+        } catch (error) {
+          console.error('Deposit receipt delivery failed; deposit ID:', deposit.id);
+        }
+      }
+    }
+
+    return committed;
   }
 
   async markCompleted(id: string, externalRef?: string) {
