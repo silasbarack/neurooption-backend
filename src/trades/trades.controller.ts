@@ -1,55 +1,34 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
-
-import { CreateTradeDto } from './dto/create-trade.dto';
-import { SettleTradeDto } from './dto/settle-trade.dto';
+import { Controller, ForbiddenException, Get, NotFoundException, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminGuard } from '../auth/admin.guard';
 import { TradeQueryDto } from './dto/trade-query.dto';
 import { TradesService } from './trades.service';
 
 @Controller('trades')
+@UseGuards(JwtAuthGuard)
 export class TradesController {
   constructor(private readonly tradesService: TradesService) {}
 
-  @Post()
-  create(@Body() dto: CreateTradeDto) {
-    return this.tradesService.create(dto);
-  }
-
   @Get()
+  @UseGuards(AdminGuard)
   findAll(@Query() query: TradeQueryDto) {
     return this.tradesService.findAll(query);
   }
 
   @Get('user/:userId')
-  findByUser(@Param('userId') userId: string) {
+  findByUser(@Req() req: { user: { id: string; role: string } }, @Param('userId') userId: string) {
+    if (req.user.id !== userId && req.user.role !== 'ADMIN') {
+      throw new ForbiddenException('You can only view your own trades.');
+    }
     return this.tradesService.findByUser(userId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tradesService.findOne(id);
-  }
-
-  @Patch(':id/settle')
-  settle(
-    @Param('id') id: string,
-    @Body() dto: SettleTradeDto,
-  ) {
-    return this.tradesService.settle(id, dto);
-  }
-
-  @Patch(':id/cancel')
-  cancel(
-    @Param('id') id: string,
-    @Body('reason') reason?: string,
-  ) {
-    return this.tradesService.cancel(id, reason);
+  async findOne(@Req() req: { user: { id: string; role: string } }, @Param('id') id: string) {
+    const trade = await this.tradesService.findOne(id);
+    if (!trade || (trade.userId !== req.user.id && req.user.role !== 'ADMIN')) {
+      throw new NotFoundException('Trade not found.');
+    }
+    return trade;
   }
 }
