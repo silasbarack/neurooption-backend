@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
@@ -89,14 +90,12 @@ export class EmailsService implements OnModuleInit {
 
     if (provider === 'none') {
       this.logger.warn(
-        'Email is not configured. Set BREVO_API_KEY or RESEND_API_KEY (recommended on Render free plan), or SMTP_HOST/SMTP_SERVICE + SMTP_USER + SMTP_PASS.',
+        'Email is not configured. Check EMAIL_PROVIDER and required credentials for the chosen SMTP/Brevo/Resend provider.',
       );
       return;
     }
 
-    this.logger.log(
-      `Email provider: ${provider} (from ${this.getFromAddress()})`,
-    );
+    this.logger.log(`Email provider: ${provider}; sender configured; recipient addresses not logged.`);
 
     if (provider === 'smtp') {
       this.verifyDeliveryConfiguration(true)
@@ -115,17 +114,43 @@ export class EmailsService implements OnModuleInit {
   }
 
   private errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    let value = error instanceof Error ? error.message : String(error);
+    // The provider's error body may echo an email or a configured key.
+    value = value.replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}/gi, '[email]');
+    for (const key of ['SMTP_PASS', 'BREVO_API_KEY', 'RESEND_API_KEY']) {
+      const secret = this.env(key);
+      if (secret && secret.length > 3) value = value.split(secret).join('[secret]');
+    }
+    return value.slice(0, 260);
+  }
+
+  private recipientTag(email: string): string {
+    return createHash('sha256').update(email.trim().toLowerCase()).digest('hex').slice(0, 12);
   }
 
   private getProvider(): EmailProvider {
-    if (this.env('BREVO_API_KEY')) return 'brevo';
-    if (this.env('RESEND_API_KEY')) return 'resend';
+    const requested = this.env('EMAIL_PROVIDER').toLowerCase();
+    const smtpReady = !!this.env('SMTP_USER') && !!this.env('SMTP_PASS') &&
+      (!!this.env('SMTP_SERVICE') || !!this.env('SMTP_HOST'));
+    const available: Record<Exclude<EmailProvider, 'none'>, boolean> = {
+      smtp: smtpReady,
+      brevo: !!this.env('BREVO_API_KEY'),
+      resend: !!this.env('RESEND_API_KEY'),
+    };
 
-    const hasCredentials = !!this.env('SMTP_USER') && !!this.env('SMTP_PASS');
-    const hasServer = !!this.env('SMTP_SERVICE') || !!this.env('SMTP_HOST');
+    // An explicit choice prevents a forgotten API key silently overriding SMTP.
+    if (requested && requested !== 'auto') {
+      if (!Object.prototype.hasOwnProperty.call(available, requested)) {
+        this.logger.error('EMAIL_PROVIDER must be auto, smtp, brevo or resend.');
+        return 'none';
+      }
+      const provider = requested as Exclude<EmailProvider, 'none'>;
+      return available[provider] ? provider : 'none';
+    }
 
-    return hasCredentials && hasServer ? 'smtp' : 'none';
+    if (available.brevo) return 'brevo';
+    if (available.resend) return 'resend';
+    return available.smtp ? 'smtp' : 'none';
   }
 
   private getTransporterConfig() {
@@ -144,11 +169,9 @@ export class EmailsService implements OnModuleInit {
       connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
       greetingTimeout: SMTP_CONNECTION_TIMEOUT_MS,
       socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
-      tls: {
-        rejectUnauthorized:
-          (this.env('SMTP_REJECT_UNAUTHORIZED') || 'true').toLowerCase() ===
-          'true',
-      },
+      // Always validate provider TLS certificates. Disabling verification
+      // exposes SMTP credentials and account recovery codes.
+      tls: { rejectUnauthorized: true },
     };
 
     // An explicit host takes precedence over a service preset. This permits
@@ -200,11 +223,18 @@ export class EmailsService implements OnModuleInit {
   }
 
   private getFromAddress(): string {
-    return (
-      this.env('EMAIL_FROM') ||
-      this.env('SMTP_FROM') ||
-      `"NeuroOption" <${this.env('SMTP_USER') || 'no-reply@neurooption.com'}>`
-    );
+    const configured = this.env('EMAIL_FROM') || this.env('SMTP_FROM');
+    const smtpUser = this.env('SMTP_USER');
+    const gmail = /gmail/i.test(this.env('SMTP_SERVICE') || this.env('SMTP_HOST'));
+
+    // Gmail may silently rewrite an unverified From address. Use the
+    // authenticated mailbox unless the operator explicitly configured and
+    // verified a Gmail Send mail as alias.
+    if (this.getProvider() === 'smtp' && gmail && smtpUser &&
+        this.env('SMTP_ALLOW_VERIFIED_ALIAS').toLowerCase() !== 'true') {
+      return `"NeuroOption" <${smtpUser}>`;
+    }
+    return configured || `"NeuroOption" <${smtpUser || 'no-reply@neurooption.com'}>`;
   }
 
   private parseFromAddress(): { name: string; email: string } {
@@ -561,24 +591,20 @@ ${content}
     const provider = this.getProvider();
 
     if (provider === 'none') {
-      this.logger.warn(`Email is not configured. "${subject}" not sent to ${to}.`);
+      this.logger.warn(`Email provider unavailable; subject="${subject}", recipient=${this.recipientTag(to)}.`);
       return false;
     }
 
     try {
       const text = `${body}\n\n${this.textFooter()}`;
       await this.deliver(provider, to, subject, text, html || this.toHtml(body));
-      this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
+      this.logger.log(`Provider accepted "${subject}"; recipient=${this.recipientTag(to)} via ${provider} (inbox delivery unverified).`);
       return true;
     } catch (error) {
       if (provider === 'smtp') this.smtpVerifiedAt = 0;
       this.logger.error(
-        `Failed to send "${subject}" to ${to} via ${provider}: ${this.errorMessage(error)}`,
+        `Provider rejected "${subject}"; recipient=${this.recipientTag(to)} via ${provider}: ${this.errorMessage(error)}`,
       );
-
-      if (error instanceof Error && error.stack) {
-        this.logger.error(error.stack);
-      }
 
       return false;
     }
@@ -772,7 +798,7 @@ ${this.p(`Hi ${this.escapeHtml(name)}, use the verification code below to reset 
 ${this.codeBox(code)}
 ${this.p(`This code expires in ${this.strong('10 minutes')}. Never share it with anyone &mdash; NeuroOption staff will never ask for it.`)}
 ${this.p('If you did not request a password reset, you can ignore this email. Your password will stay the same.', true)}`,
-      `Your NeuroOption verification code is ${code}`,
+      'Your NeuroOption password reset code is ready. It expires in 10 minutes.',
     );
 
     return { subject: 'Your NeuroOption verification code', body, html };
@@ -799,6 +825,20 @@ ${this.button(this.getSupportUrl(), 'Contact Support')}`,
     );
 
     return { subject: 'Your NeuroOption password was changed', body, html };
+  }
+
+  /** Explicit operator-only CLI smoke test, never exposed as an HTTP endpoint. */
+  async sendDeliveryTestEmail(email: string): Promise<boolean> {
+    const now = new Date().toISOString();
+    const body = `NeuroOption outbound email test at ${now}. No user account was created, changed or deleted.`;
+    return this.sendTemplateEmail(email, {
+      subject: 'NeuroOption email connection test',
+      body,
+      html: this.brandedHtml(
+        `${this.h1('Email connection test')}${this.p(this.escapeHtml(body))}`,
+        'This is an SMTP/provider test, not an account notification.',
+      ),
+    });
   }
 
   async sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean> {
