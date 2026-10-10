@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 
 import { EmailsModule } from '../emails/emails.module';
+import { RecaptchaModule } from '../security/recaptcha.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -11,6 +12,7 @@ import { getJwtSecret } from '../config/jwt.config';
 @Module({
   imports: [
     EmailsModule,
+    RecaptchaModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: getJwtSecret(),

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Headers, Post, Req, UseGuards } from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RecaptchaService } from '../security/recaptcha.service';
 import type { AuthenticatedRequest } from '../payments/authenticated-request';
 import { AccountDeletionService } from './account-deletion.service';
 import { AccountService } from './account.service';
@@ -12,6 +13,7 @@ export class AccountController {
   constructor(
     private readonly account: AccountService,
     private readonly deletion: AccountDeletionService,
+    private readonly captcha: RecaptchaService,
   ) {}
 
   @Get('me')
@@ -27,11 +29,12 @@ export class AccountController {
 
   /** Closes the signed-in user's own account (password + typed confirmation). */
   @Post('delete')
-  deleteAccount(
+  async deleteAccount(
     @Req() req: AuthenticatedRequest,
     @Body() dto: DeleteAccountDto,
     @Headers('user-agent') userAgent?: string,
   ) {
+    await this.captcha.verify(dto.recaptchaToken, 'delete_account');
     return this.deletion.deleteAccount(req.user.id, dto, {
       ipAddress: req.ip,
       userAgent,
