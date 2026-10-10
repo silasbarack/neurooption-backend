@@ -1,27 +1,16 @@
 import {
-  Body,
   Controller,
   ForbiddenException,
   Get,
   Param,
-  Post,
   Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { AccountCurrency } from '@prisma/client';
 
-import { AdminGuard } from '../auth/admin.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ConfirmDepositDto } from './dto/confirm-deposit.dto';
-import { MarkWithdrawalPaidDto } from './dto/mark-withdrawal-paid.dto';
-import { PlaceTradeDto } from './dto/place-trade.dto';
-import { RejectWithdrawalDto } from './dto/reject-withdrawal.dto';
-import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
-import { SettleTradeLostDto } from './dto/settle-trade-lost.dto';
-import { SettleTradeWonDto } from './dto/settle-trade-won.dto';
 import { LedgerService } from './ledger.service';
-import { PROVIDER_CLEARING_ACCOUNT_CODE } from './ledger.types';
 
 /**
  * All ledger entries are created exclusively by backend services
@@ -82,65 +71,4 @@ export class LedgerController {
     }));
   }
 
-  // -------------------------------------------------------------------
-  // DEV / ADMIN-ONLY TEST ENDPOINTS
-  //
-  // These exist purely so the ledger can be exercised end-to-end before
-  // deposits.service.ts, withdrawals.service.ts, and trading-engine
-  // .service.ts are wired to call LedgerService directly. They are gated
-  // behind JwtAuthGuard + AdminGuard, but they are still a wider surface
-  // than production should expose long-term.
-  //
-  // TODO before going live: delete this block (or keep it but restrict it
-  // further, e.g. to a non-production environment check) once the real
-  // deposit/withdrawal/trading-engine flows post to the ledger themselves.
-  // -------------------------------------------------------------------
-
-  @UseGuards(AdminGuard)
-  @Post('dev/confirm-deposit')
-  confirmDeposit(@Body() dto: ConfirmDepositDto) {
-    return this.ledgerService.confirmDeposit({
-      ...dto,
-      clearingAccountCode: PROVIDER_CLEARING_ACCOUNT_CODE[dto.provider],
-    });
-  }
-
-  @UseGuards(AdminGuard)
-  @Post('dev/request-withdrawal')
-  requestWithdrawal(@Body() dto: RequestWithdrawalDto) {
-    return this.ledgerService.requestWithdrawal(dto);
-  }
-
-  @UseGuards(AdminGuard)
-  @Post('dev/mark-withdrawal-paid')
-  markWithdrawalPaid(@Body() dto: MarkWithdrawalPaidDto) {
-    return this.ledgerService.markWithdrawalPaid({
-      ...dto,
-      clearingAccountCode: PROVIDER_CLEARING_ACCOUNT_CODE[dto.provider],
-    });
-  }
-
-  @UseGuards(AdminGuard)
-  @Post('dev/reject-withdrawal')
-  rejectWithdrawal(@Body() dto: RejectWithdrawalDto) {
-    return this.ledgerService.rejectWithdrawal(dto);
-  }
-
-  @UseGuards(AdminGuard)
-  @Post('dev/place-trade')
-  placeTrade(@Body() dto: PlaceTradeDto) {
-    return this.ledgerService.placeTrade(dto);
-  }
-
-  @UseGuards(AdminGuard)
-  @Post('dev/settle-trade-won')
-  settleTradeWon(@Body() dto: SettleTradeWonDto) {
-    return this.ledgerService.settleTradeWon(dto);
-  }
-
-  @UseGuards(AdminGuard)
-  @Post('dev/settle-trade-lost')
-  settleTradeLost(@Body() dto: SettleTradeLostDto) {
-    return this.ledgerService.settleTradeLost(dto);
-  }
 }
