@@ -62,6 +62,44 @@ export class RecaptchaService {
     return { verified: false, code };
   }
 
+  /**
+   * Diagnostic verification uses the same configured secret as production,
+   * but does not toggle production auth enforcement or authenticate the user.
+   */
+  async verifyDiagnostic(token: string): Promise<{ success: boolean; reason: string }> {
+    const secret = process.env.RECAPTCHA_SECRET_KEY?.trim();
+    const key = process.env.RECAPTCHA_SITE_KEY?.trim();
+    if (!secret || !key || process.env.RECAPTCHA_VERSION !== 'v2') {
+      return { success: false, reason: 'server-not-configured' };
+    }
+    if (!token || token.length > 4096) {
+      return { success: false, reason: 'missing-or-invalid-token' };
+    }
+    try {
+      const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ secret, response: token }).toString(),
+        signal: AbortSignal.timeout(7000),
+      });
+      if (!response.ok) return { success: false, reason: 'google-service-unavailable' };
+      const result = await response.json() as GoogleAssessment;
+      const hosts = (process.env.RECAPTCHA_ALLOWED_HOSTNAMES ||
+        'neurooption.com,www.neurooption.com,neurooption-frontend.onrender.com')
+        .split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+      if (result.success !== true) {
+        const reason = result['error-codes']?.[0] || 'google-rejected';
+        return { success: false, reason };
+      }
+      if (!result.hostname || !hosts.includes(result.hostname.toLowerCase())) {
+        return { success: false, reason: 'hostname-mismatch' };
+      }
+      return { success: true, reason: 'verified' };
+    } catch {
+      return { success: false, reason: 'verification-unavailable' };
+    }
+  }
+
   async verify(token: string | undefined, _expectedAction: string): Promise<void> {
     if (process.env.RECAPTCHA_ENABLED !== 'true') return;
 
