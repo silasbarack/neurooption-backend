@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   HttpException,
   HttpStatus,
   ConflictException,
@@ -8,6 +9,7 @@ import {
 } from '@nestjs/common';
 
 import * as bcrypt from 'bcrypt';
+import { timingSafeEqual } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 
 const ADMIN_SELECT = { id: true, fullName: true, email: true, phone: true, role: true, isActive: true, createdAt: true, updatedAt: true } as const;
@@ -89,6 +91,62 @@ export class AdminService {
       role: admin.role,
       admin: { id: admin.id, fullName: admin.fullName, email: admin.email, role: admin.role },
     };
+  }
+
+
+  async bootstrapStatus(): Promise<{ available: boolean }> {
+    // Public response never includes the expected email or setup code.
+    const permitted = Boolean(
+      process.env.ADMIN_BOOTSTRAP_KEY?.trim() &&
+      process.env.ADMIN_BOOTSTRAP_EMAIL?.trim() &&
+      (process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '') &&
+      Number.isFinite(Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '')) &&
+      Date.now() < Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || ''),
+    );
+    if (!permitted) return { available: false };
+    const adminCount = await this.prisma.admin.count();
+    return { available: adminCount === 0 };
+  }
+
+  async bootstrapFirstAdmin(body: { fullName?: string; email?: string; password?: string; setupKey?: string }) {
+    const configuredCode = process.env.ADMIN_BOOTSTRAP_KEY?.trim() || '';
+    const permittedEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase() || '';
+    const expiresAt = Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '');
+    if (!configuredCode || configuredCode.length < 40 ||
+        !permittedEmail || !Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+      throw new UnauthorizedException('Administrator setup is unavailable or expired.');
+    }
+
+    const setupKey = String(body?.setupKey || '');
+    if (setupKey.length !== configuredCode.length ||
+        !timingSafeEqual(Buffer.from(setupKey), Buffer.from(configuredCode))) {
+      throw new UnauthorizedException('Invalid administrator setup authorization.');
+    }
+
+    const fullName = String(body?.fullName || '').trim();
+    const email = String(body?.email || '').trim().toLowerCase();
+    const password = String(body?.password || '');
+    if (email !== permittedEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      throw new UnauthorizedException('Administrator email is not authorized.');
+    }
+    if (fullName.length < 3 || fullName.length > 100) {
+      throw new BadRequestException('Enter a full name between 3 and 100 characters.');
+    }
+    if (password.length < 14 || password.length > 128 ||
+        !/[A-Z]/.test(password) || !/[a-z]/.test(password) ||
+        !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      throw new BadRequestException('Password must be 14–128 characters with uppercase, lowercase, a number and a symbol.');
+    }
+    if (await this.prisma.admin.count() !== 0) {
+      throw new ConflictException('An administrator is already provisioned. Initial setup is closed.');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const admin = await this.prisma.admin.create({
+      data: { fullName, email, passwordHash, role: 'SUPER_ADMIN', isActive: true },
+      select: ADMIN_SELECT,
+    });
+    return { success: true, message: 'First Super Administrator created. Sign in with your new credentials.', role: admin.role };
   }
 
   async findAll() {
