@@ -1,11 +1,13 @@
 import {
   Injectable,
+  TooManyRequestsException,
   ConflictException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 
 const ADMIN_SELECT = { id: true, fullName: true, email: true, phone: true, role: true, isActive: true, createdAt: true, updatedAt: true } as const;
 
@@ -19,6 +21,7 @@ import { AdminLoginDto } from './dto/admin-login.dto';
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
   ) {}
 
   async create(dto: CreateAdminDto) {
@@ -51,40 +54,39 @@ export class AdminService {
     });
   }
 
+  private readonly loginFailures = new Map<string, { count: number; since: number }>();
+
   async login(dto: AdminLoginDto) {
+    const email = dto.email.trim().toLowerCase();
+    const now = Date.now();
+    const failures = this.loginFailures.get(email);
+    if (failures && now - failures.since < 15 * 60_000 && failures.count >= 5) {
+      throw new TooManyRequestsException('Too many sign-in attempts. Please try again later.');
+    }
     const admin = await this.prisma.admin.findUnique({
       where: {
-        email: dto.email,
+        email,
       },
     });
 
-    if (!admin) {
-      throw new UnauthorizedException(
-        'Invalid credentials',
-      );
+    const valid = admin ? await bcrypt.compare(dto.password, admin.passwordHash) : false;
+    if (!valid || !admin?.isActive) {
+      const previous = failures && now - failures.since < 15 * 60_000 ? failures.count : 0;
+      this.loginFailures.set(email, { count: previous + 1, since: failures?.since && now - failures.since < 15 * 60_000 ? failures.since : now });
+      throw new UnauthorizedException('Invalid admin credentials.');
     }
 
-    const valid = await bcrypt.compare(
-      dto.password,
-      admin.passwordHash,
+    this.loginFailures.delete(email);
+    const token = await this.jwt.signAsync(
+      { sub: admin.id, purpose: 'admin-dashboard' },
+      { expiresIn: '8h', issuer: 'neurooption-admin', audience: 'neurooption-admin-dashboard' },
     );
-
-    if (!valid) {
-      throw new UnauthorizedException(
-        'Invalid credentials',
-      );
-    }
-
-    if (!admin.isActive) {
-      throw new UnauthorizedException(
-        'Admin disabled',
-      );
-    }
-
     return {
       message: 'Login successful',
+      token,
       adminId: admin.id,
       role: admin.role,
+      admin: { id: admin.id, fullName: admin.fullName, email: admin.email, role: admin.role },
     };
   }
 

@@ -1,17 +1,37 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Header, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { AdminService } from './admin.service';
+import { AdminSessionGuard, type AdminIdentity } from './admin-session.guard';
+import { TradingMonitorService } from './trading-monitor.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService, private readonly monitor: TradingMonitorService) {}
 
   @Post('login')
   login(@Body() dto: AdminLoginDto) { return this.adminService.login(dto); }
+
+  @Get('session')
+  @UseGuards(AdminSessionGuard)
+  @Header('Cache-Control', 'private, no-store')
+  session(@Req() req: { admin: AdminIdentity }) { return { admin: req.admin }; }
+
+  @Get('trading-monitor')
+  @UseGuards(AdminSessionGuard)
+  @Header('Cache-Control', 'private, no-store')
+  tradingMonitor(
+    @Req() req: { admin: AdminIdentity },
+    @Query() query: { account?: string; status?: string; search?: string; page?: string; limit?: string },
+  ) {
+    if (!['SUPER_ADMIN', 'RISK_ADMIN', 'COMPLIANCE_ADMIN', 'FINANCE_ADMIN'].includes(req.admin.role)) {
+      throw new ForbiddenException('Trading monitoring permission required.');
+    }
+    return this.monitor.overview(query);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, AdminGuard)
