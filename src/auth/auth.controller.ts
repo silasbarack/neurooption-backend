@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RecaptchaService } from '../security/recaptcha.service';
 import type { AuthenticatedRequest } from '../payments/authenticated-request';
@@ -11,10 +11,31 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
+  private readonly testAttempts = new Map<string, { count: number; since: number }>();
   constructor(private readonly authService: AuthService, private readonly captcha: RecaptchaService) {}
 
   @Get('recaptcha-config')
   recaptchaConfig() { return this.captcha.getPublicConfig(); }
+
+  @Get('recaptcha-test/config')
+  @UseGuards(JwtAuthGuard)
+  testConfig() { return this.captcha.getTestConfig(); }
+
+  @Post('recaptcha-test/verify')
+  @UseGuards(JwtAuthGuard)
+  async testCaptcha(@Req() req: AuthenticatedRequest, @Body() body: { token?: string }) {
+    const identity = req.user.id;
+    const now = Date.now();
+    const prior = this.testAttempts.get(identity);
+    const bucket = prior && now - prior.since < 60_000 ? prior : { count: 0, since: now };
+    if (bucket.count >= 5) throw new HttpException('Please wait a minute before another test.', HttpStatus.TOO_MANY_REQUESTS);
+    bucket.count += 1;
+    this.testAttempts.set(identity, bucket);
+    if (typeof body?.token !== 'string' || body.token.length > 4096) {
+      throw new BadRequestException('Complete a fresh Google checkbox.');
+    }
+    return this.captcha.verifyTest(body.token);
+  }
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
