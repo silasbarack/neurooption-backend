@@ -4,6 +4,7 @@ type GoogleAssessment = {
   success?: boolean;
   hostname?: string;
   challenge_ts?: string;
+  'error-codes'?: string[];
 };
 
 @Injectable()
@@ -43,11 +44,11 @@ export class RecaptchaService {
       'neurooption.com,www.neurooption.com,neurooption-frontend.onrender.com')
       .split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
     if (process.env.NODE_ENV !== 'production') hosts.push('localhost', '127.0.0.1');
-    const issued = Date.parse(assessment.challenge_ts || '');
-    const age = Date.now() - issued;
+    if (assessment.success !== true) {
+      console.warn('[RecaptchaService] Google verification rejected:', (assessment['error-codes'] || []).join(','));
+    }
     if (assessment.success !== true || !assessment.hostname ||
-        !hosts.includes(assessment.hostname.toLowerCase()) ||
-        !Number.isFinite(issued) || age < -30000 || age > 120000) {
+        !hosts.includes(assessment.hostname.toLowerCase())) {
       throw new ForbiddenException('Security verification failed or expired. Please retry.');
     }
   }
