@@ -19,7 +19,7 @@ export class AuthController {
 
   @Get('recaptcha-test/config')
   @UseGuards(JwtAuthGuard)
-  testConfig() { return this.captcha.getTestConfig(); }
+  testConfig() { return { siteKey: process.env.RECAPTCHA_VERSION === 'v2' ? (process.env.RECAPTCHA_SITE_KEY || '') : '', version: 'v2', loginEnforcementEnabled: process.env.RECAPTCHA_ENABLED === 'true' }; }
 
   @Post('recaptcha-test/verify')
   @UseGuards(JwtAuthGuard)
@@ -34,7 +34,7 @@ export class AuthController {
     if (typeof body?.token !== 'string' || body.token.length > 4096) {
       throw new BadRequestException('Complete a fresh Google checkbox.');
     }
-    return this.captcha.verifyTest(body.token);
+    return this.captcha.verifyDiagnostic(body.token);
   }
 
   @Post('register')
