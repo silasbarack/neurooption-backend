@@ -1,6 +1,7 @@
 import {
   Injectable,
-  TooManyRequestsException,
+  HttpException,
+  HttpStatus,
   ConflictException,
   NotFoundException,
   UnauthorizedException,
@@ -61,7 +62,7 @@ export class AdminService {
     const now = Date.now();
     const failures = this.loginFailures.get(email);
     if (failures && now - failures.since < 15 * 60_000 && failures.count >= 5) {
-      throw new TooManyRequestsException('Too many sign-in attempts. Please try again later.');
+      throw new HttpException('Too many sign-in attempts. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
     }
     const admin = await this.prisma.admin.findUnique({
       where: {
