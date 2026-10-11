@@ -14,6 +14,54 @@ export class RecaptchaService {
     return { enabled, siteKey: enabled ? (process.env.RECAPTCHA_SITE_KEY || '') : '', version: 'v2' };
   }
 
+  /** Test-only configuration; never includes Google's private verification key. */
+  getTestConfig(): { available: boolean; siteKey: string; version: 'v2' } {
+    const available = process.env.RECAPTCHA_TEST_ENABLED === 'true' &&
+      process.env.RECAPTCHA_VERSION === 'v2' &&
+      Boolean(process.env.RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY);
+    return { available, siteKey: available ? process.env.RECAPTCHA_SITE_KEY! : '', version: 'v2' };
+  }
+
+  /** Verifies a test token even when production enforcement is disabled. */
+  async verifyTest(token: string | undefined): Promise<{ verified: boolean; code: string }> {
+    if (process.env.RECAPTCHA_TEST_ENABLED !== 'true') {
+      throw new ServiceUnavailableException('Verification test is not enabled.');
+    }
+    if (process.env.RECAPTCHA_VERSION !== 'v2' ||
+        !process.env.RECAPTCHA_SITE_KEY || !process.env.RECAPTCHA_SECRET_KEY) {
+      throw new ServiceUnavailableException('Verification test keys are not configured.');
+    }
+    if (!token || token.length > 4096) {
+      return { verified: false, code: 'missing-or-invalid-token' };
+    }
+    let response: GoogleAssessment;
+    try {
+      const upstream = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ secret: process.env.RECAPTCHA_SECRET_KEY.trim(), response: token }).toString(),
+        signal: AbortSignal.timeout(7000),
+      });
+      if (!upstream.ok) throw new Error('Google siteverify error');
+      response = await upstream.json() as GoogleAssessment;
+    } catch {
+      throw new ServiceUnavailableException('Google verification service is unavailable.');
+    }
+    const hosts = (process.env.RECAPTCHA_ALLOWED_HOSTNAMES ||
+      'neurooption.com,www.neurooption.com,neurooption-frontend.onrender.com')
+      .split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+    if (response.success && response.hostname && hosts.includes(response.hostname.toLowerCase())) {
+      return { verified: true, code: 'verified' };
+    }
+    const allowedCodes = [
+      'missing-input-secret','invalid-input-secret','missing-input-response',
+      'invalid-input-response','bad-request','timeout-or-duplicate',
+    ];
+    const code = response.success ? 'hostname-mismatch' :
+      (response['error-codes'] || []).find(x => allowedCodes.includes(x)) || 'not-verified';
+    return { verified: false, code };
+  }
+
   async verify(token: string | undefined, _expectedAction: string): Promise<void> {
     if (process.env.RECAPTCHA_ENABLED !== 'true') return;
 
