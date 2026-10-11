@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards, BadRequestException, TooManyRequestsException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RecaptchaService } from '../security/recaptcha.service';
 import type { AuthenticatedRequest } from '../payments/authenticated-request';
@@ -28,7 +28,7 @@ export class AuthController {
     const now = Date.now();
     const prior = this.testAttempts.get(identity);
     const bucket = prior && now - prior.since < 60_000 ? prior : { count: 0, since: now };
-    if (bucket.count >= 5) throw new TooManyRequestsException('Please wait a minute before another test.');
+    if (bucket.count >= 5) throw new HttpException('Please wait a minute before another test.', HttpStatus.TOO_MANY_REQUESTS);
     bucket.count += 1;
     this.testAttempts.set(identity, bucket);
     if (typeof body?.token !== 'string' || body.token.length > 4096) {
