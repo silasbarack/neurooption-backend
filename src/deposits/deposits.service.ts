@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Logger,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
 
 import { PrismaService } from '../config/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
+import { EmailsService } from '../emails/emails.service';
 import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { UpdateDepositStatusDto } from './dto/update-deposit-status.dto';
@@ -21,9 +23,12 @@ const LEDGER_CURRENCIES = new Set(Object.values(AccountCurrency));
 
 @Injectable()
 export class DepositsService {
+  private readonly logger = new Logger(DepositsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
+    private readonly emailsService: EmailsService,
   ) {}
 
   async create(dto: CreateDepositDto) {
@@ -144,7 +149,7 @@ export class DepositsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.deposit.update({
         where: { id },
         data: {
@@ -192,6 +197,32 @@ export class DepositsService {
 
       return updated;
     });
+
+    // Notify only after the deposit and ledger transaction have committed.
+    // Failed mail delivery must never roll back or re-credit customer funds.
+    if (dto.status === TransactionStatus.COMPLETED) {
+      try {
+        const recipient = await this.prisma.user.findUnique({
+          where: { id: deposit.userId },
+          select: { email: true },
+        });
+        if (recipient?.email) {
+          const accepted = await this.emailsService.sendDepositSuccessfulEmail(recipient.email, {
+            amount: Number(deposit.amount),
+            currency: deposit.currency,
+            method: String(deposit.gateway.type),
+            transactionId: dto.externalRef || deposit.externalRef || deposit.transactionId,
+            dateTime: new Intl.DateTimeFormat('en-KE', {
+              dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi',
+            }).format(new Date()) + ' EAT',
+          });
+          if (!accepted) this.logger.warn('Confirmed deposit receipt was not accepted by the email provider.');
+        }
+      } catch (error) {
+        this.logger.error('Confirmed deposit receipt delivery failed', error as Error);
+      }
+    }
+    return updated;
   }
 
   async markCompleted(id: string, externalRef?: string) {
