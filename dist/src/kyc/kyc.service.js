@@ -36,7 +36,7 @@ let KycService = class KycService {
     async findAll() {
         return this.prisma.kycRecord.findMany({
             include: {
-                user: true,
+                user: { select: { id: true, fullName: true, email: true, status: true, kycStatus: true } },
             },
             orderBy: {
                 createdAt: 'desc',
@@ -47,7 +47,7 @@ let KycService = class KycService {
         const record = await this.prisma.kycRecord.findUnique({
             where: { id },
             include: {
-                user: true,
+                user: { select: { id: true, fullName: true, email: true, status: true, kycStatus: true } },
             },
         });
         if (!record) {
@@ -112,7 +112,7 @@ let KycService = class KycService {
                 status: 'PENDING',
             },
             include: {
-                user: true,
+                user: { select: { id: true, fullName: true, email: true, status: true, kycStatus: true } },
             },
         });
     }

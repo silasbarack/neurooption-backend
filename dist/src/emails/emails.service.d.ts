@@ -18,15 +18,19 @@ type EmailTemplate = {
     body: string;
     html?: string;
 };
+type EmailProvider = 'brevo' | 'resend' | 'smtp' | 'none';
 export declare class EmailsService implements OnModuleInit {
     private readonly logger;
     private transporter;
+    private smtpVerifiedAt;
     onModuleInit(): void;
     private env;
     private errorMessage;
+    private recipientTag;
     private getProvider;
     private getTransporterConfig;
     private getTransporter;
+    verifyDeliveryConfiguration(force?: boolean): Promise<Exclude<EmailProvider, 'none'>>;
     private getFromAddress;
     private parseFromAddress;
     private getFrontendUrl;
@@ -62,6 +66,7 @@ export declare class EmailsService implements OnModuleInit {
     accountDeletionConfirmed(data: AccountDeletionEmailData): EmailTemplate;
     passwordRecoveryCode(code: string, fullName?: string): EmailTemplate;
     passwordChanged(fullName: string): EmailTemplate;
+    sendDeliveryTestEmail(email: string): Promise<boolean>;
     sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean>;
     sendAccountDeletionEmail(data: AccountDeletionEmailData): Promise<boolean>;
     sendPasswordRecoveryCodeEmail(email: string, code: string, fullName?: string): Promise<boolean>;

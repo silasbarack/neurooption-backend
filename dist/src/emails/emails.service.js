@@ -9,6 +9,7 @@ var EmailsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailsService = void 0;
 const common_1 = require("@nestjs/common");
+const node_crypto_1 = require("node:crypto");
 const nodemailer = require("nodemailer");
 const email_logo_1 = require("./email-logo");
 const LOGO_SRC_PLACEHOLDER = '__NEUROOPTION_LOGO_SRC__';
@@ -38,18 +39,18 @@ let EmailsService = EmailsService_1 = class EmailsService {
     constructor() {
         this.logger = new common_1.Logger(EmailsService_1.name);
         this.transporter = null;
+        this.smtpVerifiedAt = 0;
     }
     onModuleInit() {
         const provider = this.getProvider();
         if (provider === 'none') {
-            this.logger.warn('Email is not configured. Set BREVO_API_KEY or RESEND_API_KEY (recommended on Render free plan), or SMTP_HOST/SMTP_SERVICE + SMTP_USER + SMTP_PASS.');
+            this.logger.warn('Email is not configured. Check EMAIL_PROVIDER and required credentials for the chosen SMTP/Brevo/Resend provider.');
             return;
         }
-        this.logger.log(`Email provider: ${provider} (from ${this.getFromAddress()})`);
+        this.logger.log(`Email provider: ${provider}; sender configured; recipient addresses not logged.`);
         if (provider === 'smtp') {
-            this.getTransporter()
-                .verify()
-                .then(() => this.logger.log('SMTP connection verified.'))
+            this.verifyDeliveryConfiguration(true)
+                .then(() => this.logger.log('SMTP connection and authentication verified.'))
                 .catch((error) => this.logger.error(`SMTP connection check failed: ${this.errorMessage(error)}. ` +
                 'If this runs on a Render free instance, SMTP ports are blocked; use BREVO_API_KEY or RESEND_API_KEY, or SMTP_PORT=2525 with a provider that supports it.'));
         }
@@ -58,16 +59,40 @@ let EmailsService = EmailsService_1 = class EmailsService {
         return (process.env[name] || '').trim();
     }
     errorMessage(error) {
-        return error instanceof Error ? error.message : String(error);
+        let value = error instanceof Error ? error.message : String(error);
+        value = value.replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi, '[email]');
+        for (const key of ['SMTP_PASS', 'BREVO_API_KEY', 'RESEND_API_KEY']) {
+            const secret = this.env(key);
+            if (secret && secret.length > 3)
+                value = value.split(secret).join('[secret]');
+        }
+        return value.slice(0, 260);
+    }
+    recipientTag(email) {
+        return (0, node_crypto_1.createHash)('sha256').update(email.trim().toLowerCase()).digest('hex').slice(0, 12);
     }
     getProvider() {
-        if (this.env('BREVO_API_KEY'))
+        const requested = this.env('EMAIL_PROVIDER').toLowerCase();
+        const smtpReady = !!this.env('SMTP_USER') && !!this.env('SMTP_PASS') &&
+            (!!this.env('SMTP_SERVICE') || !!this.env('SMTP_HOST'));
+        const available = {
+            smtp: smtpReady,
+            brevo: !!this.env('BREVO_API_KEY'),
+            resend: !!this.env('RESEND_API_KEY'),
+        };
+        if (requested && requested !== 'auto') {
+            if (!Object.prototype.hasOwnProperty.call(available, requested)) {
+                this.logger.error('EMAIL_PROVIDER must be auto, smtp, brevo or resend.');
+                return 'none';
+            }
+            const provider = requested;
+            return available[provider] ? provider : 'none';
+        }
+        if (available.brevo)
             return 'brevo';
-        if (this.env('RESEND_API_KEY'))
+        if (available.resend)
             return 'resend';
-        const hasCredentials = !!this.env('SMTP_USER') && !!this.env('SMTP_PASS');
-        const hasServer = !!this.env('SMTP_SERVICE') || !!this.env('SMTP_HOST');
-        return hasCredentials && hasServer ? 'smtp' : 'none';
+        return available.smtp ? 'smtp' : 'none';
     }
     getTransporterConfig() {
         const service = this.env('SMTP_SERVICE');
@@ -83,20 +108,22 @@ let EmailsService = EmailsService_1 = class EmailsService {
             connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
             greetingTimeout: SMTP_CONNECTION_TIMEOUT_MS,
             socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
-            tls: {
-                rejectUnauthorized: (this.env('SMTP_REJECT_UNAUTHORIZED') || 'true').toLowerCase() ===
-                    'true',
-            },
+            tls: { rejectUnauthorized: true },
         };
-        if (service) {
-            config.service = service;
-        }
-        else {
+        if (host) {
             const port = Number(this.env('SMTP_PORT') || 587);
+            if (!Number.isInteger(port) || port < 1 || port > 65535) {
+                throw new Error('SMTP_PORT must be a valid TCP port.');
+            }
             const secureSetting = this.env('SMTP_SECURE').toLowerCase();
-            config.host = host || 'smtp.gmail.com';
+            config.host = host;
             config.port = port;
             config.secure = secureSetting ? secureSetting === 'true' : port === 465;
+            if (!config.secure)
+                config.requireTLS = true;
+        }
+        else if (service) {
+            config.service = service;
         }
         return config;
     }
@@ -106,10 +133,26 @@ let EmailsService = EmailsService_1 = class EmailsService {
         }
         return this.transporter;
     }
+    async verifyDeliveryConfiguration(force = false) {
+        const provider = this.getProvider();
+        if (provider === 'none') {
+            throw new Error('No outbound email provider is configured.');
+        }
+        if (provider === 'smtp' && (force || Date.now() - this.smtpVerifiedAt > 60_000)) {
+            await this.getTransporter().verify();
+            this.smtpVerifiedAt = Date.now();
+        }
+        return provider;
+    }
     getFromAddress() {
-        return (this.env('EMAIL_FROM') ||
-            this.env('SMTP_FROM') ||
-            `"NeuroOption" <${this.env('SMTP_USER') || 'no-reply@neurooption.com'}>`);
+        const configured = this.env('EMAIL_FROM') || this.env('SMTP_FROM');
+        const smtpUser = this.env('SMTP_USER');
+        const gmail = /gmail/i.test(this.env('SMTP_SERVICE') || this.env('SMTP_HOST'));
+        if (this.getProvider() === 'smtp' && gmail && smtpUser &&
+            this.env('SMTP_ALLOW_VERIFIED_ALIAS').toLowerCase() !== 'true') {
+            return `"NeuroOption" <${smtpUser}>`;
+        }
+        return configured || `"NeuroOption" <${smtpUser || 'no-reply@neurooption.com'}>`;
     }
     parseFromAddress() {
         const from = this.getFromAddress();
@@ -333,7 +376,7 @@ ${content}
     }
     async deliver(provider, to, subject, text, html) {
         if (provider === 'smtp') {
-            await this.getTransporter().sendMail({
+            const receipt = await this.getTransporter().sendMail({
                 from: this.getFromAddress(),
                 to,
                 subject,
@@ -348,6 +391,9 @@ ${content}
                     },
                 ],
             });
+            if (!receipt.accepted?.some((address) => address.toLowerCase() === to.toLowerCase())) {
+                throw new Error('SMTP did not accept the recipient address.');
+            }
             return;
         }
         const hostedHtml = html
@@ -374,20 +420,19 @@ ${content}
     async sendEmail(to, subject, body, html) {
         const provider = this.getProvider();
         if (provider === 'none') {
-            this.logger.warn(`Email is not configured. "${subject}" not sent to ${to}.`);
+            this.logger.warn(`Email provider unavailable; subject="${subject}", recipient=${this.recipientTag(to)}.`);
             return false;
         }
         try {
             const text = `${body}\n\n${this.textFooter()}`;
             await this.deliver(provider, to, subject, text, html || this.toHtml(body));
-            this.logger.log(`Sent "${subject}" to ${to} via ${provider}.`);
+            this.logger.log(`Provider accepted "${subject}"; recipient=${this.recipientTag(to)} via ${provider} (inbox delivery unverified).`);
             return true;
         }
         catch (error) {
-            this.logger.error(`Failed to send "${subject}" to ${to} via ${provider}: ${this.errorMessage(error)}`);
-            if (error instanceof Error && error.stack) {
-                this.logger.error(error.stack);
-            }
+            if (provider === 'smtp')
+                this.smtpVerifiedAt = 0;
+            this.logger.error(`Provider rejected "${subject}"; recipient=${this.recipientTag(to)} via ${provider}: ${this.errorMessage(error)}`);
             return false;
         }
     }
@@ -545,7 +590,7 @@ ${this.h1('Password recovery')}
 ${this.p(`Hi ${this.escapeHtml(name)}, use the verification code below to reset your NeuroOption password.`)}
 ${this.codeBox(code)}
 ${this.p(`This code expires in ${this.strong('10 minutes')}. Never share it with anyone &mdash; NeuroOption staff will never ask for it.`)}
-${this.p('If you did not request a password reset, you can ignore this email. Your password will stay the same.', true)}`, `Your NeuroOption verification code is ${code}`);
+${this.p('If you did not request a password reset, you can ignore this email. Your password will stay the same.', true)}`, 'Your NeuroOption password reset code is ready. It expires in 10 minutes.');
         return { subject: 'Your NeuroOption verification code', body, html };
     }
     passwordChanged(fullName) {
@@ -563,6 +608,15 @@ ${this.p('Your NeuroOption password was just changed successfully. You can now s
 ${this.notice("Wasn't you?", 'If you did not make this change, please contact Support Service immediately so we can secure your account.', 'danger')}
 ${this.button(this.getSupportUrl(), 'Contact Support')}`, 'Your NeuroOption password was just changed.');
         return { subject: 'Your NeuroOption password was changed', body, html };
+    }
+    async sendDeliveryTestEmail(email) {
+        const now = new Date().toISOString();
+        const body = `NeuroOption outbound email test at ${now}. No user account was created, changed or deleted.`;
+        return this.sendTemplateEmail(email, {
+            subject: 'NeuroOption email connection test',
+            body,
+            html: this.brandedHtml(`${this.h1('Email connection test')}${this.p(this.escapeHtml(body))}`, 'This is an SMTP/provider test, not an account notification.'),
+        });
     }
     async sendAccountCreatedEmail(email, fullName) {
         return this.sendTemplateEmail(email, this.accountCreated(email, fullName));

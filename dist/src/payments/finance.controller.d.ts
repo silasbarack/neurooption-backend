@@ -12,7 +12,7 @@ export declare class FinanceController {
         };
         mpesa: {
             configured: boolean;
-            environment: "sandbox" | "production";
+            environment: "production" | "sandbox";
             shortcode: string;
             transactionType: string;
             minAmount: number;
@@ -30,11 +30,5 @@ export declare class FinanceController {
             createdAt: Date;
         }[];
     }>;
-    requestWithdrawal(req: AuthenticatedRequest, dto: WithdrawalRequestDto): Promise<{
-        id: string;
-        status: import(".prisma/client").$Enums.TransactionStatus;
-        amount: number;
-        currency: string;
-        message: string;
-    }>;
+    requestWithdrawal(req: AuthenticatedRequest, dto: WithdrawalRequestDto): void;
 }

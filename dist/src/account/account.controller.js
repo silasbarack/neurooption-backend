@@ -15,13 +15,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AccountController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const recaptcha_service_1 = require("../security/recaptcha.service");
 const account_deletion_service_1 = require("./account-deletion.service");
 const account_service_1 = require("./account.service");
 const delete_account_dto_1 = require("./dto/delete-account.dto");
 let AccountController = class AccountController {
-    constructor(account, deletion) {
+    constructor(account, deletion, captcha) {
         this.account = account;
         this.deletion = deletion;
+        this.captcha = captcha;
     }
     me(req) {
         return this.account.summary(req.user.id);
@@ -29,7 +31,8 @@ let AccountController = class AccountController {
     deletionCheck(req) {
         return this.deletion.check(req.user.id);
     }
-    deleteAccount(req, dto, userAgent) {
+    async deleteAccount(req, dto, userAgent) {
+        await this.captcha.verify(dto.recaptchaToken, 'delete_account');
         return this.deletion.deleteAccount(req.user.id, dto, {
             ipAddress: req.ip,
             userAgent,
@@ -58,12 +61,13 @@ __decorate([
     __param(2, (0, common_1.Headers)('user-agent')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, delete_account_dto_1.DeleteAccountDto, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AccountController.prototype, "deleteAccount", null);
 exports.AccountController = AccountController = __decorate([
     (0, common_1.Controller)('account'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [account_service_1.AccountService,
-        account_deletion_service_1.AccountDeletionService])
+        account_deletion_service_1.AccountDeletionService,
+        recaptcha_service_1.RecaptchaService])
 ], AccountController);
 //# sourceMappingURL=account.controller.js.map

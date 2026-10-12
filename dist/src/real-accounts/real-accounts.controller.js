@@ -15,48 +15,60 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RealAccountsController = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const switch_account_currency_dto_1 = require("../trading-accounts/dto/switch-account-currency.dto");
 const real_accounts_service_1 = require("./real-accounts.service");
 let RealAccountsController = class RealAccountsController {
     constructor(service) {
         this.service = service;
     }
-    create(userId, currency) {
+    assertOwner(req, userId) {
+        if (req.user.id !== userId)
+            throw new common_1.ForbiddenException('You can only access your own account.');
+    }
+    create(req, userId, currency) {
+        this.assertOwner(req, userId);
         return this.service.create(userId, currency);
     }
-    findByUser(userId) {
+    findByUser(req, userId) {
+        this.assertOwner(req, userId);
         return this.service.findByUser(userId);
     }
-    switchCurrency(userId, dto) {
+    switchCurrency(req, userId, dto) {
+        this.assertOwner(req, userId);
         return this.service.switchCurrency(userId, dto);
     }
 };
 exports.RealAccountsController = RealAccountsController;
 __decorate([
     (0, common_1.Post)(':userId'),
-    __param(0, (0, common_1.Param)('userId')),
-    __param(1, (0, common_1.Body)('currency')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
+    __param(2, (0, common_1.Body)('currency')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], RealAccountsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)('user/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], RealAccountsController.prototype, "findByUser", null);
 __decorate([
     (0, common_1.Patch)('user/:userId/switch-currency'),
-    __param(0, (0, common_1.Param)('userId')),
-    __param(1, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, switch_account_currency_dto_1.SwitchAccountCurrencyDto]),
+    __metadata("design:paramtypes", [Object, String, switch_account_currency_dto_1.SwitchAccountCurrencyDto]),
     __metadata("design:returntype", void 0)
 ], RealAccountsController.prototype, "switchCurrency", null);
 exports.RealAccountsController = RealAccountsController = __decorate([
     (0, common_1.Controller)('real-accounts'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [real_accounts_service_1.RealAccountsService])
 ], RealAccountsController);
 //# sourceMappingURL=real-accounts.controller.js.map

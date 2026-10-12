@@ -11,9 +11,11 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const passport_1 = require("@nestjs/passport");
 const emails_module_1 = require("../emails/emails.module");
+const recaptcha_module_1 = require("../security/recaptcha.module");
 const auth_controller_1 = require("./auth.controller");
 const auth_service_1 = require("./auth.service");
 const jwt_strategy_1 = require("./jwt.strategy");
+const jwt_config_1 = require("../config/jwt.config");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -21,9 +23,10 @@ exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             emails_module_1.EmailsModule,
+            recaptcha_module_1.RecaptchaModule,
             passport_1.PassportModule.register({ defaultStrategy: 'jwt' }),
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_SECRET ?? 'dev_secret',
+                secret: (0, jwt_config_1.getJwtSecret)(),
                 signOptions: { expiresIn: '7d' },
             }),
         ],

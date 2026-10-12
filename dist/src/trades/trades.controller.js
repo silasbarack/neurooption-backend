@@ -14,43 +14,35 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TradesController = void 0;
 const common_1 = require("@nestjs/common");
-const create_trade_dto_1 = require("./dto/create-trade.dto");
-const settle_trade_dto_1 = require("./dto/settle-trade.dto");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const admin_guard_1 = require("../auth/admin.guard");
 const trade_query_dto_1 = require("./dto/trade-query.dto");
 const trades_service_1 = require("./trades.service");
 let TradesController = class TradesController {
     constructor(tradesService) {
         this.tradesService = tradesService;
     }
-    create(dto) {
-        return this.tradesService.create(dto);
-    }
     findAll(query) {
         return this.tradesService.findAll(query);
     }
-    findByUser(userId) {
+    findByUser(req, userId) {
+        if (req.user.id !== userId && req.user.role !== 'ADMIN') {
+            throw new common_1.ForbiddenException('You can only view your own trades.');
+        }
         return this.tradesService.findByUser(userId);
     }
-    findOne(id) {
-        return this.tradesService.findOne(id);
-    }
-    settle(id, dto) {
-        return this.tradesService.settle(id, dto);
-    }
-    cancel(id, reason) {
-        return this.tradesService.cancel(id, reason);
+    async findOne(req, id) {
+        const trade = await this.tradesService.findOne(id);
+        if (!trade || (trade.userId !== req.user.id && req.user.role !== 'ADMIN')) {
+            throw new common_1.NotFoundException('Trade not found.');
+        }
+        return trade;
     }
 };
 exports.TradesController = TradesController;
 __decorate([
-    (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_trade_dto_1.CreateTradeDto]),
-    __metadata("design:returntype", void 0)
-], TradesController.prototype, "create", null);
-__decorate([
     (0, common_1.Get)(),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [trade_query_dto_1.TradeQueryDto]),
@@ -58,36 +50,23 @@ __decorate([
 ], TradesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('user/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], TradesController.prototype, "findByUser", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
 ], TradesController.prototype, "findOne", null);
-__decorate([
-    (0, common_1.Patch)(':id/settle'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, settle_trade_dto_1.SettleTradeDto]),
-    __metadata("design:returntype", void 0)
-], TradesController.prototype, "settle", null);
-__decorate([
-    (0, common_1.Patch)(':id/cancel'),
-    __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)('reason')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", void 0)
-], TradesController.prototype, "cancel", null);
 exports.TradesController = TradesController = __decorate([
     (0, common_1.Controller)('trades'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [trades_service_1.TradesService])
 ], TradesController);
 //# sourceMappingURL=trades.controller.js.map

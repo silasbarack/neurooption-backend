@@ -38,9 +38,19 @@ export declare class AuthService {
     private isResetLocked;
     private recordFailedResetAttempt;
     private sendEmailSafely;
+    private maskRecipient;
+    private readonly welcomeResends;
+    resendWelcomeEmail(userId: string): Promise<{
+        success: boolean;
+        emailSent: boolean;
+        emailHint: string;
+        message: string;
+    }>;
     register(payload: RegisterPayload): Promise<{
         success: boolean;
         message: string;
+        welcomeEmailSent: boolean;
+        welcomeEmailHint: string;
         token: string;
         accessToken: string;
         user: any;

@@ -7,18 +7,12 @@ export declare class MpesaController {
     constructor(mpesa: MpesaService);
     config(): {
         configured: boolean;
-        environment: "sandbox" | "production";
+        environment: "production" | "sandbox";
         minAmount: number;
         maxAmount: number;
+        demoOnly: boolean;
     };
-    startDeposit(req: AuthenticatedRequest, dto: StkPushDto): Promise<{
-        depositId: string;
-        status: "PENDING";
-        amount: number;
-        currency: string;
-        phone: string;
-        message: string;
-    }>;
+    startDeposit(req: AuthenticatedRequest, dto: StkPushDto): void;
     depositStatus(req: AuthenticatedRequest, id: string): Promise<{
         depositId: string;
         status: import(".prisma/client").$Enums.TransactionStatus;

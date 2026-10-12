@@ -25,6 +25,12 @@ export class AdminController {
     return this.adminService.bootstrapFirstAdmin(body);
   }
 
+  @Post('bootstrap/reset-password')
+  @Header('Cache-Control', 'no-store')
+  bootstrapResetPassword(@Body() body: { email?: string; password?: string; setupKey?: string }) {
+    return this.adminService.bootstrapResetPassword(body);
+  }
+
   @Get('session')
   @UseGuards(AdminSessionGuard)
   @Header('Cache-Control', 'private, no-store')

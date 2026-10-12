@@ -4,7 +4,11 @@ import { ReviewKycDto } from './dto/review-kyc.dto';
 export declare class KycController {
     private readonly kycService;
     constructor(kycService: KycService);
-    submit(dto: CreateKycDto): Promise<{
+    submit(req: {
+        user: {
+            id: string;
+        };
+    }, dto: CreateKycDto): Promise<{
         id: string;
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
@@ -24,16 +28,9 @@ export declare class KycController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
-            referralCode: string | null;
             fullName: string;
-            passwordHash: string;
-            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
-            referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
@@ -55,16 +52,9 @@ export declare class KycController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
-            referralCode: string | null;
             fullName: string;
-            passwordHash: string;
-            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
-            referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
@@ -86,16 +76,9 @@ export declare class KycController {
         user: {
             id: string;
             email: string;
-            phone: string | null;
-            referralCode: string | null;
             fullName: string;
-            passwordHash: string;
-            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
-            referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
