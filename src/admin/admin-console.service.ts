@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../config/prisma.service';
+import { EmailsService } from '../emails/emails.service';
 import type { AdminIdentity } from './admin-session.guard';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -65,7 +66,10 @@ function reasonText(value: unknown, required: boolean): string | null {
 
 @Injectable()
 export class AdminConsoleService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emails: EmailsService,
+  ) {}
 
   assertCan(admin: AdminIdentity, area: ConsoleArea): void {
     if (!(CONSOLE_PERMISSIONS[area] as readonly string[]).includes(admin.role)) {
@@ -96,7 +100,7 @@ export class AdminConsoleService {
     const [
       usersTotal, usersByStatus, newUsers24, newUsers7, kycPending, ticketsOpen,
       depositsPending, withdrawalsPending, deposits7, withdrawals7,
-      trades24, openTrades, volume24, wins24, losses24, signups, recentAudit,
+      trades24, openTrades, volume24, wins24, losses24, signups, recentAudit, newsletter,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.groupBy({ by: ['status'], _count: { _all: true } }),
@@ -119,6 +123,7 @@ export class AdminConsoleService {
         take: 8,
         include: { admin: { select: { fullName: true } } },
       }),
+      this.prisma.newsletterSubscriber.count({ where: { unsubscribedAt: null } }),
     ]);
 
     const days = Array.from({ length: 14 }, (_, i) => {
@@ -142,6 +147,7 @@ export class AdminConsoleService {
       queues: {
         kycPending,
         ticketsOpen,
+        newsletterSubscribers: newsletter,
         depositsPending: { count: depositsPending._count._all, amount: num(depositsPending._sum.amount) },
         withdrawalsPending: { count: withdrawalsPending._count._all, amount: num(withdrawalsPending._sum.amount) },
       },
@@ -381,7 +387,11 @@ export class AdminConsoleService {
       where: { id },
       include: {
         user: { select: { id: true, fullName: true, email: true } },
-        messages: { orderBy: { createdAt: 'asc' }, take: 200, select: { id: true, senderRole: true, message: true, createdAt: true } },
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 200,
+          select: { id: true, senderRole: true, message: true, createdAt: true, admin: { select: { fullName: true } } },
+        },
       },
     });
     if (!ticket) throw new NotFoundException('Ticket not found.');
@@ -398,6 +408,32 @@ export class AdminConsoleService {
       this.audit(admin, 'TICKET_STATUS_CHANGED', 'SUPPORT_TICKET', id, `${ticket.status} → ${status}`, { from: ticket.status, to: status }, ticket.userId),
     ]);
     return { success: true, status };
+  }
+
+  /**
+   * Posts an administrator reply, moves the ticket to "waiting on client" and
+   * emails the client. The reply is saved even if the email fails; the result
+   * says whether the email went out.
+   */
+  async replyToTicket(admin: AdminIdentity, id: string, body: { message?: string; close?: boolean }) {
+    const message = typeof body?.message === 'string' ? body.message.trim() : '';
+    if (message.length < 2) throw new BadRequestException('Write a reply first.');
+    if (message.length > 4000) throw new BadRequestException('Reply is too long (4000 characters max).');
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id },
+      select: { id: true, subject: true, status: true, userId: true, user: { select: { email: true, fullName: true, status: true } } },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found.');
+    const status = body?.close ? 'CLOSED' : 'PENDING_USER';
+    await this.prisma.$transaction([
+      this.prisma.supportMessage.create({ data: { ticketId: id, adminId: admin.id, senderRole: 'ADMIN', message } }),
+      this.prisma.supportTicket.update({ where: { id }, data: { status } }),
+      this.audit(admin, 'TICKET_REPLIED', 'SUPPORT_TICKET', id, `Replied to "${ticket.subject}"${status === 'CLOSED' ? ' and closed it' : ''}`, { status }, ticket.userId),
+    ]);
+    const emailSent = ticket.user.status === 'DELETED'
+      ? false
+      : await this.emails.sendSupportReplyEmail(ticket.user.email, ticket.user.fullName, ticket.subject, message, id);
+    return { success: true, status, emailSent };
   }
 
   async listAudit(query: PageQuery & { search?: string }) {

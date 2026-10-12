@@ -23,6 +23,7 @@ import { PayoutsModule } from './payouts/payouts.module';
 import { OtcMarketsModule } from './otc-markets/otc-markets.module';
 import { RealMarketsModule } from './real-markets/real-markets.module';
 import { SupportModule } from './support/support.module';
+import { NewsletterModule } from './newsletter/newsletter.module';
 import { TradingEngineModule } from './trading-engine/trading-engine.module';
 import { TradesModule } from './trades/trades.module';
 import { DepositsModule } from './deposits/deposits.module';
@@ -47,6 +48,7 @@ import { LedgerModule } from './ledger/ledger.module';
     TransactionsModule,
     KycModule,
     SupportModule,
+    NewsletterModule,
     EmailsModule,
     ProfileModule,
     AdminModule,

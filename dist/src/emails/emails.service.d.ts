@@ -70,6 +70,10 @@ export declare class EmailsService implements OnModuleInit {
     sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean>;
     sendAccountDeletionEmail(data: AccountDeletionEmailData): Promise<boolean>;
     sendPasswordRecoveryCodeEmail(email: string, code: string, fullName?: string): Promise<boolean>;
+    supportReply(fullName: string, subject: string, reply: string, ticketId: string): EmailTemplate;
+    sendSupportReplyEmail(email: string, fullName: string, subject: string, reply: string, ticketId: string): Promise<boolean>;
+    newsletterWelcome(unsubscribeToken: string): EmailTemplate;
+    sendNewsletterWelcomeEmail(email: string, unsubscribeToken: string): Promise<boolean>;
     sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean>;
     private money;
     private moneyEmail;

@@ -17,14 +17,14 @@ export declare class KycService {
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedAt: Date | null;
         reviewedByAdminId: string | null;
+        reviewedAt: Date | null;
     }>;
     findAll(): Promise<({
         user: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
         };
@@ -41,14 +41,14 @@ export declare class KycService {
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedAt: Date | null;
         reviewedByAdminId: string | null;
+        reviewedAt: Date | null;
     })[]>;
     findOne(id: string): Promise<{
         user: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
         };
@@ -65,8 +65,8 @@ export declare class KycService {
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedAt: Date | null;
         reviewedByAdminId: string | null;
+        reviewedAt: Date | null;
     }>;
     approve(id: string, dto: ReviewKycDto): Promise<{
         id: string;
@@ -81,8 +81,8 @@ export declare class KycService {
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedAt: Date | null;
         reviewedByAdminId: string | null;
+        reviewedAt: Date | null;
     }>;
     reject(id: string, dto: ReviewKycDto): Promise<{
         id: string;
@@ -97,14 +97,14 @@ export declare class KycService {
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedAt: Date | null;
         reviewedByAdminId: string | null;
+        reviewedAt: Date | null;
     }>;
     pending(): Promise<({
         user: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
         };
@@ -121,7 +121,7 @@ export declare class KycService {
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedAt: Date | null;
         reviewedByAdminId: string | null;
+        reviewedAt: Date | null;
     })[]>;
 }

@@ -135,6 +135,13 @@ export class AdminController {
     return this.console.setTicketStatus(req.admin, id, body);
   }
 
+  @Post('console/support/:id/reply')
+  @UseGuards(AdminSessionGuard)
+  replyTicket(@Req() req: AdminReq, @Param('id') id: string, @Body() body: { message?: string; close?: boolean }) {
+    this.console.assertCan(req.admin, 'support');
+    return this.console.replyToTicket(req.admin, id, body);
+  }
+
   @Get('console/audit')
   @UseGuards(AdminSessionGuard)
   @Header('Cache-Control', 'private, no-store')

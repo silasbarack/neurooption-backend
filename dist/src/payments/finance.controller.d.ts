@@ -12,7 +12,7 @@ export declare class FinanceController {
         };
         mpesa: {
             configured: boolean;
-            environment: "production" | "sandbox";
+            environment: "sandbox" | "production";
             shortcode: string;
             transactionType: string;
             minAmount: number;

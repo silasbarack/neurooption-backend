@@ -7,7 +7,7 @@ export declare class MpesaController {
     constructor(mpesa: MpesaService);
     config(): {
         configured: boolean;
-        environment: "production" | "sandbox";
+        environment: "sandbox" | "production";
         minAmount: number;
         maxAmount: number;
         demoOnly: boolean;

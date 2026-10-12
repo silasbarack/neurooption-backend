@@ -83,6 +83,10 @@ let AdminController = class AdminController {
         this.console.assertCan(req.admin, 'support');
         return this.console.setTicketStatus(req.admin, id, body);
     }
+    replyTicket(req, id, body) {
+        this.console.assertCan(req.admin, 'support');
+        return this.console.replyToTicket(req.admin, id, body);
+    }
     auditLog(req, query) {
         this.console.assertCan(req.admin, 'audit');
         return this.console.listAudit(query);
@@ -264,6 +268,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "ticketStatus", null);
+__decorate([
+    (0, common_1.Post)('console/support/:id/reply'),
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "replyTicket", null);
 __decorate([
     (0, common_1.Get)('console/audit'),
     (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard),

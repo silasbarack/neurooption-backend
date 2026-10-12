@@ -32,6 +32,7 @@ const payouts_module_1 = require("./payouts/payouts.module");
 const otc_markets_module_1 = require("./otc-markets/otc-markets.module");
 const real_markets_module_1 = require("./real-markets/real-markets.module");
 const support_module_1 = require("./support/support.module");
+const newsletter_module_1 = require("./newsletter/newsletter.module");
 const trading_engine_module_1 = require("./trading-engine/trading-engine.module");
 const trades_module_1 = require("./trades/trades.module");
 const deposits_module_1 = require("./deposits/deposits.module");
@@ -59,6 +60,7 @@ exports.AppModule = AppModule = __decorate([
             transactions_module_1.TransactionsModule,
             kyc_module_1.KycModule,
             support_module_1.SupportModule,
+            newsletter_module_1.NewsletterModule,
             emails_module_1.EmailsModule,
             profile_module_1.ProfileModule,
             admin_module_1.AdminModule,

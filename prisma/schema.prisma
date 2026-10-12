@@ -373,6 +373,7 @@ model Admin {
 
   reviewedKycRecords KycRecord[]
   logs               AuditLog[]
+  supportReplies     SupportMessage[]
 }
 
 model TradingAccount {
@@ -797,13 +798,30 @@ model OtcCandle {
 model SupportMessage {
   id         String            @id @default(uuid())
   ticketId   String
-  senderId   String
+  // The client who wrote it; null for replies written by an administrator.
+  senderId   String?
+  // The administrator who replied, when senderRole is ADMIN or SUPPORT.
+  adminId    String?
   senderRole SupportSenderRole
   message    String
   createdAt  DateTime          @default(now())
 
   ticket SupportTicket @relation(fields: [ticketId], references: [id])
-  sender User          @relation(fields: [senderId], references: [id])
+  sender User?         @relation(fields: [senderId], references: [id])
+  admin  Admin?        @relation(fields: [adminId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+/// Email updates sign-ups from the public site footer.
+model NewsletterSubscriber {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  source           String?
+  unsubscribeToken String    @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  unsubscribedAt   DateTime?
 }
 
 model Notification {
