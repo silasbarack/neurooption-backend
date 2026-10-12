@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MpesaController = void 0;
 const common_1 = require("@nestjs/common");
 const crypto_1 = require("crypto");
+const real_money_mode_1 = require("../common/real-money-mode");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const stk_push_dto_1 = require("./dto/stk-push.dto");
 const mpesa_service_1 = require("./mpesa.service");
@@ -25,11 +26,11 @@ let MpesaController = MpesaController_1 = class MpesaController {
         this.logger = new common_1.Logger(MpesaController_1.name);
     }
     config() {
-        const { configured, environment, minAmount, maxAmount } = this.mpesa.configSummary();
-        return { configured, environment, minAmount, maxAmount };
+        const { environment, minAmount, maxAmount } = this.mpesa.configSummary();
+        return { configured: false, environment, minAmount, maxAmount, demoOnly: true };
     }
     startDeposit(req, dto) {
-        return this.mpesa.startDeposit(req.user.id, dto.phone, dto.amount);
+        (0, real_money_mode_1.requireRealMoneyAuthorization)();
     }
     depositStatus(req, id) {
         return this.mpesa.getDepositStatus(req.user.id, id);

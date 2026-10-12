@@ -94,49 +94,56 @@ export class AdminService {
   }
 
 
-  async bootstrapStatus(): Promise<{ available: boolean }> {
-    // Public response never includes the expected email or setup code.
-    const permitted = Boolean(
-      process.env.ADMIN_BOOTSTRAP_KEY?.trim() &&
-      process.env.ADMIN_BOOTSTRAP_EMAIL?.trim() &&
-      (process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '') &&
-      Number.isFinite(Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '')) &&
-      Date.now() < Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || ''),
-    );
-    if (!permitted) return { available: false };
-    const adminCount = await this.prisma.admin.count();
-    return { available: adminCount === 0 };
+  /** The temporary owner authorization configured in Render, or null when absent or expired. */
+  private ownerAuthorization(): { code: string; email: string } | null {
+    const code = process.env.ADMIN_BOOTSTRAP_KEY?.trim() || '';
+    const email = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase() || '';
+    const expiresAt = Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '');
+    if (code.length < 40 || !email || !Number.isFinite(expiresAt) || Date.now() > expiresAt) return null;
+    return { code, email };
   }
 
-  async bootstrapFirstAdmin(body: { fullName?: string; email?: string; password?: string; setupKey?: string }) {
-    const configuredCode = process.env.ADMIN_BOOTSTRAP_KEY?.trim() || '';
-    const permittedEmail = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim().toLowerCase() || '';
-    const expiresAt = Date.parse(process.env.ADMIN_BOOTSTRAP_EXPIRES_AT || '');
-    if (!configuredCode || configuredCode.length < 40 ||
-        !permittedEmail || !Number.isFinite(expiresAt) || Date.now() > expiresAt) {
-      throw new UnauthorizedException('Administrator setup is unavailable or expired.');
-    }
-
-    const setupKey = String(body?.setupKey || '');
-    if (setupKey.length !== configuredCode.length ||
-        !timingSafeEqual(Buffer.from(setupKey), Buffer.from(configuredCode))) {
+  private requireOwner(setupKey: unknown, email: unknown): string {
+    const owner = this.ownerAuthorization();
+    if (!owner) throw new UnauthorizedException('Administrator setup is unavailable or expired.');
+    const key = String(setupKey || '');
+    if (key.length !== owner.code.length || !timingSafeEqual(Buffer.from(key), Buffer.from(owner.code))) {
       throw new UnauthorizedException('Invalid administrator setup authorization.');
     }
-
-    const fullName = String(body?.fullName || '').trim();
-    const email = String(body?.email || '').trim().toLowerCase();
-    const password = String(body?.password || '');
-    if (email !== permittedEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (normalized !== owner.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized)) {
       throw new UnauthorizedException('Administrator email is not authorized.');
     }
-    if (fullName.length < 3 || fullName.length > 100) {
-      throw new BadRequestException('Enter a full name between 3 and 100 characters.');
-    }
+    return normalized;
+  }
+
+  private assertStrongPassword(password: string): void {
     if (password.length < 14 || password.length > 128 ||
         !/[A-Z]/.test(password) || !/[a-z]/.test(password) ||
         !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
       throw new BadRequestException('Password must be 14–128 characters with uppercase, lowercase, a number and a symbol.');
     }
+  }
+
+  /**
+   * "create" while no administrator exists; "reset" once one does, so the owner
+   * can recover the Super Administrator password. Public response never includes
+   * the expected email or setup code.
+   */
+  async bootstrapStatus(): Promise<{ available: boolean; mode?: 'create' | 'reset' }> {
+    if (!this.ownerAuthorization()) return { available: false };
+    const adminCount = await this.prisma.admin.count();
+    return { available: true, mode: adminCount === 0 ? 'create' : 'reset' };
+  }
+
+  async bootstrapFirstAdmin(body: { fullName?: string; email?: string; password?: string; setupKey?: string }) {
+    const email = this.requireOwner(body?.setupKey, body?.email);
+    const fullName = String(body?.fullName || '').trim();
+    const password = String(body?.password || '');
+    if (fullName.length < 3 || fullName.length > 100) {
+      throw new BadRequestException('Enter a full name between 3 and 100 characters.');
+    }
+    this.assertStrongPassword(password);
     if (await this.prisma.admin.count() !== 0) {
       throw new ConflictException('An administrator is already provisioned. Initial setup is closed.');
     }
@@ -147,6 +154,24 @@ export class AdminService {
       select: ADMIN_SELECT,
     });
     return { success: true, message: 'First Super Administrator created. Sign in with your new credentials.', role: admin.role };
+  }
+
+  /** Owner recovery: sets a new password for the Super Administrator whose email is authorized in Render. */
+  async bootstrapResetPassword(body: { email?: string; password?: string; setupKey?: string }) {
+    const email = this.requireOwner(body?.setupKey, body?.email);
+    const password = String(body?.password || '');
+    this.assertStrongPassword(password);
+
+    const admin = await this.prisma.admin.findUnique({ where: { email }, select: { id: true, role: true } });
+    if (!admin || admin.role !== 'SUPER_ADMIN') {
+      throw new NotFoundException('No Super Administrator uses this email.');
+    }
+    await this.prisma.admin.update({
+      where: { id: admin.id },
+      data: { passwordHash: await bcrypt.hash(password, 12), isActive: true },
+    });
+    this.loginFailures.delete(email);
+    return { success: true, message: 'Super Administrator password reset. Sign in with your new password.' };
   }
 
   async findAll() {

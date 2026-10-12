@@ -1,3 +1,4 @@
+import { RecaptchaService } from '../security/recaptcha.service';
 import type { AuthenticatedRequest } from '../payments/authenticated-request';
 import { AccountDeletionService } from './account-deletion.service';
 import { AccountService } from './account.service';
@@ -5,7 +6,8 @@ import { DeleteAccountDto } from './dto/delete-account.dto';
 export declare class AccountController {
     private readonly account;
     private readonly deletion;
-    constructor(account: AccountService, deletion: AccountDeletionService);
+    private readonly captcha;
+    constructor(account: AccountService, deletion: AccountDeletionService, captcha: RecaptchaService);
     me(req: AuthenticatedRequest): Promise<{
         id: string;
         accountNumber: string;

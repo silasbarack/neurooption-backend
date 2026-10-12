@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TradingEngineService = void 0;
 const node_crypto_1 = require("node:crypto");
+const real_money_mode_1 = require("../common/real-money-mode");
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const market_data_service_1 = require("../market-data/market-data.service");
@@ -44,6 +45,7 @@ let TradingEngineService = class TradingEngineService {
         const timeframe = (dto.timeframe || 'M1').toUpperCase();
         const side = dto.side;
         const accountType = (dto.accountType || 'QT Demo');
+        (0, real_money_mode_1.assertDemoOnlyAccount)(accountType);
         const currency = (dto.currency || 'USD');
         const amount = Number(dto.amount);
         const expirySeconds = Number(dto.expirySeconds);

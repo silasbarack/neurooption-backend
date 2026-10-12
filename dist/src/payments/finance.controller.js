@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const withdrawal_request_dto_1 = require("./dto/withdrawal-request.dto");
 const finance_service_1 = require("./finance.service");
+const real_money_mode_1 = require("../common/real-money-mode");
 let FinanceController = class FinanceController {
     constructor(finance) {
         this.finance = finance;
@@ -25,7 +26,7 @@ let FinanceController = class FinanceController {
         return this.finance.overview(req.user.id);
     }
     requestWithdrawal(req, dto) {
-        return this.finance.requestWithdrawal(req.user.id, dto.phone, dto.amount);
+        (0, real_money_mode_1.requireRealMoneyAuthorization)();
     }
 };
 exports.FinanceController = FinanceController;

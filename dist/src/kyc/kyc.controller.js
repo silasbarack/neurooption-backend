@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KycController = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const admin_guard_1 = require("../auth/admin.guard");
 const kyc_service_1 = require("./kyc.service");
 const create_kyc_dto_1 = require("./dto/create-kyc.dto");
 const review_kyc_dto_1 = require("./dto/review-kyc.dto");
@@ -21,47 +23,44 @@ let KycController = class KycController {
     constructor(kycService) {
         this.kycService = kycService;
     }
-    submit(dto) {
-        return this.kycService.submit(dto);
+    submit(req, dto) {
+        if (dto.userId && dto.userId !== req.user.id) {
+            throw new common_1.ForbiddenException('KYC may only be submitted for your own account.');
+        }
+        return this.kycService.submit({ ...dto, userId: req.user.id });
     }
-    findAll() {
-        return this.kycService.findAll();
-    }
-    pending() {
-        return this.kycService.pending();
-    }
-    findOne(id) {
-        return this.kycService.findOne(id);
-    }
-    approve(id, dto) {
-        return this.kycService.approve(id, dto);
-    }
-    reject(id, dto) {
-        return this.kycService.reject(id, dto);
-    }
+    findAll() { return this.kycService.findAll(); }
+    pending() { return this.kycService.pending(); }
+    findOne(id) { return this.kycService.findOne(id); }
+    approve(id, dto) { return this.kycService.approve(id, dto); }
+    reject(id, dto) { return this.kycService.reject(id, dto); }
 };
 exports.KycController = KycController;
 __decorate([
     (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_kyc_dto_1.CreateKycDto]),
+    __metadata("design:paramtypes", [Object, create_kyc_dto_1.CreateKycDto]),
     __metadata("design:returntype", void 0)
 ], KycController.prototype, "submit", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], KycController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('pending'),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], KycController.prototype, "pending", null);
 __decorate([
     (0, common_1.Get)(':id'),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -69,6 +68,7 @@ __decorate([
 ], KycController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id/approve'),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -77,6 +77,7 @@ __decorate([
 ], KycController.prototype, "approve", null);
 __decorate([
     (0, common_1.Patch)(':id/reject'),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -85,6 +86,7 @@ __decorate([
 ], KycController.prototype, "reject", null);
 exports.KycController = KycController = __decorate([
     (0, common_1.Controller)('kyc'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [kyc_service_1.KycService])
 ], KycController);
 //# sourceMappingURL=kyc.controller.js.map

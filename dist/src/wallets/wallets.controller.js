@@ -14,79 +14,31 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletsController = void 0;
 const common_1 = require("@nestjs/common");
-const deposit_dto_1 = require("./dto/deposit.dto");
-const reject_withdrawal_dto_1 = require("./dto/reject-withdrawal.dto");
-const withdraw_dto_1 = require("./dto/withdraw.dto");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const wallets_service_1 = require("./wallets.service");
 let WalletsController = class WalletsController {
     constructor(walletsService) {
         this.walletsService = walletsService;
     }
-    getWallets(userId) {
+    getWallets(req, userId) {
+        if (req.user.id !== userId && req.user.role !== 'ADMIN') {
+            throw new common_1.ForbiddenException('You can only view your own wallets.');
+        }
         return this.walletsService.getUserWallets(userId);
-    }
-    deposit(dto) {
-        return this.walletsService.deposit(dto);
-    }
-    withdraw(dto) {
-        return this.walletsService.withdraw(dto);
-    }
-    markWithdrawalProcessing(transactionId) {
-        return this.walletsService.markWithdrawalProcessing(transactionId);
-    }
-    completeWithdrawal(transactionId) {
-        return this.walletsService.completeWithdrawal(transactionId);
-    }
-    rejectWithdrawal(transactionId, dto) {
-        return this.walletsService.rejectWithdrawal(transactionId, dto);
     }
 };
 exports.WalletsController = WalletsController;
 __decorate([
     (0, common_1.Get)('user/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], WalletsController.prototype, "getWallets", null);
-__decorate([
-    (0, common_1.Post)('deposit'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [deposit_dto_1.DepositDto]),
-    __metadata("design:returntype", void 0)
-], WalletsController.prototype, "deposit", null);
-__decorate([
-    (0, common_1.Post)('withdraw'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [withdraw_dto_1.WithdrawDto]),
-    __metadata("design:returntype", void 0)
-], WalletsController.prototype, "withdraw", null);
-__decorate([
-    (0, common_1.Post)('withdrawals/:transactionId/processing'),
-    __param(0, (0, common_1.Param)('transactionId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], WalletsController.prototype, "markWithdrawalProcessing", null);
-__decorate([
-    (0, common_1.Post)('withdrawals/:transactionId/complete'),
-    __param(0, (0, common_1.Param)('transactionId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], WalletsController.prototype, "completeWithdrawal", null);
-__decorate([
-    (0, common_1.Post)('withdrawals/:transactionId/reject'),
-    __param(0, (0, common_1.Param)('transactionId')),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, reject_withdrawal_dto_1.RejectWithdrawalDto]),
-    __metadata("design:returntype", void 0)
-], WalletsController.prototype, "rejectWithdrawal", null);
 exports.WalletsController = WalletsController = __decorate([
     (0, common_1.Controller)('wallets'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [wallets_service_1.WalletsService])
 ], WalletsController);
 //# sourceMappingURL=wallets.controller.js.map

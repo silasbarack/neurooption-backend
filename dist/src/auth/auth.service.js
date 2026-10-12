@@ -29,6 +29,7 @@ let AuthService = AuthService_1 = class AuthService {
         this.configService = configService;
         this.logger = new common_1.Logger(AuthService_1.name);
         this.resetAttempts = new Map();
+        this.welcomeResends = new Map();
     }
     normalizeEmail(email) {
         return email.trim().toLowerCase();
@@ -115,6 +116,38 @@ let AuthService = AuthService_1 = class AuthService {
             this.logger.error(`${label} failed`, error);
         }
     }
+    maskRecipient(email) {
+        const [local, domain] = email.split('@');
+        return domain ? `${local.slice(0, 1)}***@${domain}` : '***';
+    }
+    async resendWelcomeEmail(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.status === 'DELETED') {
+            throw new common_1.UnauthorizedException('Account unavailable.');
+        }
+        const last = this.welcomeResends.get(userId);
+        if (last && Date.now() - last < 60_000) {
+            throw new common_1.BadRequestException('Please wait one minute before resending the welcome email.');
+        }
+        this.welcomeResends.set(userId, Date.now());
+        let emailSent = false;
+        try {
+            emailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user));
+        }
+        catch (error) {
+            this.logger.error('Resend welcome email failed', error);
+        }
+        if (!emailSent)
+            this.welcomeResends.delete(userId);
+        return {
+            success: emailSent,
+            emailSent,
+            emailHint: this.maskRecipient(user.email),
+            message: emailSent
+                ? 'Your welcome email was accepted for delivery. Check the registered inbox and spam folder.'
+                : 'The email provider could not accept your welcome email. Please contact Support.',
+        };
+    }
     async register(payload) {
         const email = this.normalizeEmail(payload.email || '');
         const fullName = (payload.fullName || payload.name || '').trim();
@@ -143,11 +176,19 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.prisma.user.create({
             data: userData,
         });
-        void this.sendEmailSafely('sendAccountCreatedEmail', () => this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user)));
+        let welcomeEmailSent = false;
+        try {
+            welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user));
+        }
+        catch (error) {
+            this.logger.error('Welcome email send failed', error);
+        }
         const token = this.signToken(user);
         return {
             success: true,
             message: 'Account created successfully.',
+            welcomeEmailSent,
+            welcomeEmailHint: this.maskRecipient(user.email),
             token,
             accessToken: token,
             user: this.removeSensitiveFields(user),
@@ -221,7 +262,17 @@ let AuthService = AuthService_1 = class AuthService {
                 expiresAt,
             },
         });
-        await this.sendEmailSafely('sendPasswordRecoveryCodeEmail', () => this.emailsService.sendPasswordRecoveryCodeEmail(user.email, code, this.getUserDisplayName(user)));
+        let sent = false;
+        try {
+            sent = await this.emailsService.sendPasswordRecoveryCodeEmail(user.email, code, this.getUserDisplayName(user));
+        }
+        catch (error) {
+            this.logger.error('Password recovery email failed', error);
+        }
+        if (!sent) {
+            await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id, token: codeHash } });
+            this.logger.error('Password reset email not accepted by configured provider.');
+        }
         return {
             success: true,
             message: 'If this email exists, a six-digit verification code has been sent.',

@@ -24,16 +24,9 @@ export declare class KycService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
-            referralCode: string | null;
             fullName: string;
-            passwordHash: string;
-            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
-            referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
@@ -55,16 +48,9 @@ export declare class KycService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
-            referralCode: string | null;
             fullName: string;
-            passwordHash: string;
-            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
-            referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
@@ -118,16 +104,9 @@ export declare class KycService {
         user: {
             id: string;
             email: string;
-            phone: string | null;
-            referralCode: string | null;
             fullName: string;
-            passwordHash: string;
-            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
-            referredById: string | null;
-            createdAt: Date;
-            updatedAt: Date;
         };
     } & {
         id: string;
