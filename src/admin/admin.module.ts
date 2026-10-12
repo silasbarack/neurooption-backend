@@ -6,10 +6,11 @@ import { AdminService } from './admin.service';
 import { AdminSessionGuard } from './admin-session.guard';
 import { AdminSuperGuard } from './admin-super.guard';
 import { TradingMonitorService } from './trading-monitor.service';
+import { AdminConsoleService } from './admin-console.service';
 
 @Module({
   imports: [JwtModule.register({ secret: getJwtSecret() })],
   controllers: [AdminController],
-  providers: [AdminService, AdminSessionGuard, AdminSuperGuard, TradingMonitorService],
+  providers: [AdminService, AdminSessionGuard, AdminSuperGuard, TradingMonitorService, AdminConsoleService],
 })
 export class AdminModule {}

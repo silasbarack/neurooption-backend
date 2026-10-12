@@ -15,6 +15,7 @@ const admin_service_1 = require("./admin.service");
 const admin_session_guard_1 = require("./admin-session.guard");
 const admin_super_guard_1 = require("./admin-super.guard");
 const trading_monitor_service_1 = require("./trading-monitor.service");
+const admin_console_service_1 = require("./admin-console.service");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
@@ -22,7 +23,7 @@ exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
         imports: [jwt_1.JwtModule.register({ secret: (0, jwt_config_1.getJwtSecret)() })],
         controllers: [admin_controller_1.AdminController],
-        providers: [admin_service_1.AdminService, admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard, trading_monitor_service_1.TradingMonitorService],
+        providers: [admin_service_1.AdminService, admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard, trading_monitor_service_1.TradingMonitorService, admin_console_service_1.AdminConsoleService],
     })
 ], AdminModule);
 //# sourceMappingURL=admin.module.js.map
