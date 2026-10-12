@@ -28,6 +28,8 @@ export class AdminService {
   ) {}
 
   async create(dto: CreateAdminDto) {
+    this.assertStrongPassword(dto.password);
+    dto.email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.admin.findUnique({
       where: {
         email: dto.email,
@@ -198,43 +200,46 @@ export class AdminService {
     return admin;
   }
 
-  async update(
-    id: string,
-    dto: UpdateAdminDto,
-  ) {
-    await this.findOne(id);
-
-    return this.prisma.admin.update({
-      where: { id },
-      data: dto,
-      select: ADMIN_SELECT,
-    });
+  /**
+   * Keeps the console usable: an administrator cannot lock themselves out, and
+   * the last active Super Administrator cannot be disabled, demoted or removed.
+   */
+  private async guardTeamChange(actorId: string, targetId: string, change: { disable?: boolean; demote?: boolean; remove?: boolean }) {
+    const target = await this.findOne(targetId);
+    if (actorId === targetId && (change.disable || change.demote || change.remove)) {
+      throw new BadRequestException('You cannot disable, demote or remove your own administrator account.');
+    }
+    if (target.role === 'SUPER_ADMIN' && target.isActive && (change.disable || change.demote || change.remove)) {
+      const activeSupers = await this.prisma.admin.count({ where: { role: 'SUPER_ADMIN', isActive: true } });
+      if (activeSupers <= 1) throw new BadRequestException('Keep at least one active Super Administrator.');
+    }
+    return target;
   }
 
-  async disable(id: string) {
-    return this.prisma.admin.update({
-      where: { id },
-      data: {
-        isActive: false,
-      },
-      select: ADMIN_SELECT,
+  async update(actorId: string, id: string, dto: UpdateAdminDto) {
+    await this.guardTeamChange(actorId, id, {
+      disable: dto.isActive === false,
+      demote: dto.role !== undefined && dto.role !== 'SUPER_ADMIN',
     });
+    const data = { ...dto, ...(dto.email ? { email: dto.email.trim().toLowerCase() } : {}) };
+    return this.prisma.admin.update({ where: { id }, data, select: ADMIN_SELECT });
+  }
+
+  async disable(actorId: string, id: string) {
+    await this.guardTeamChange(actorId, id, { disable: true });
+    return this.prisma.admin.update({ where: { id }, data: { isActive: false }, select: ADMIN_SELECT });
   }
 
   async enable(id: string) {
-    return this.prisma.admin.update({
-      where: { id },
-      data: {
-        isActive: true,
-      },
-      select: ADMIN_SELECT,
-    });
+    await this.findOne(id);
+    return this.prisma.admin.update({ where: { id }, data: { isActive: true }, select: ADMIN_SELECT });
   }
 
-  async delete(id: string) {
-    return this.prisma.admin.delete({
-      where: { id },
-      select: ADMIN_SELECT,
-    });
+  async delete(actorId: string, id: string) {
+    await this.guardTeamChange(actorId, id, { remove: true });
+    // Keep audit history readable after removal.
+    await this.prisma.auditLog.updateMany({ where: { adminId: id }, data: { adminId: null } });
+    await this.prisma.kycRecord.updateMany({ where: { reviewedByAdminId: id }, data: { reviewedByAdminId: null } });
+    return this.prisma.admin.delete({ where: { id }, select: ADMIN_SELECT });
   }
 }

@@ -1,0 +1,334 @@
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../config/prisma.service';
+import type { AdminIdentity } from './admin-session.guard';
+export declare const CONSOLE_PERMISSIONS: {
+    readonly overview: readonly ["SUPER_ADMIN", "FINANCE_ADMIN", "SUPPORT_ADMIN", "KYC_ADMIN", "RISK_ADMIN", "COMPLIANCE_ADMIN"];
+    readonly users: readonly ["SUPER_ADMIN", "SUPPORT_ADMIN", "KYC_ADMIN", "RISK_ADMIN", "COMPLIANCE_ADMIN", "FINANCE_ADMIN"];
+    readonly userStatus: readonly ["SUPER_ADMIN", "RISK_ADMIN", "COMPLIANCE_ADMIN"];
+    readonly kyc: readonly ["SUPER_ADMIN", "KYC_ADMIN", "COMPLIANCE_ADMIN"];
+    readonly finance: readonly ["SUPER_ADMIN", "FINANCE_ADMIN", "COMPLIANCE_ADMIN"];
+    readonly trading: readonly ["SUPER_ADMIN", "RISK_ADMIN", "COMPLIANCE_ADMIN", "FINANCE_ADMIN"];
+    readonly support: readonly ["SUPER_ADMIN", "SUPPORT_ADMIN"];
+    readonly audit: readonly ["SUPER_ADMIN", "COMPLIANCE_ADMIN"];
+    readonly team: readonly ["SUPER_ADMIN"];
+};
+export type ConsoleArea = keyof typeof CONSOLE_PERMISSIONS;
+type PageQuery = {
+    page?: string;
+    limit?: string;
+};
+export declare class AdminConsoleService {
+    private readonly prisma;
+    constructor(prisma: PrismaService);
+    assertCan(admin: AdminIdentity, area: ConsoleArea): void;
+    permissionsFor(role: string): ConsoleArea[];
+    private audit;
+    overview(): Promise<{
+        generatedAt: string;
+        users: {
+            total: number;
+            new24h: number;
+            new7d: number;
+            byStatus: {
+                [k: string]: number;
+            };
+        };
+        queues: {
+            kycPending: number;
+            ticketsOpen: number;
+            depositsPending: {
+                count: number;
+                amount: number;
+            };
+            withdrawalsPending: {
+                count: number;
+                amount: number;
+            };
+        };
+        money7d: {
+            deposits: {
+                count: number;
+                amount: number;
+            };
+            withdrawals: {
+                count: number;
+                amount: number;
+            };
+            currency: string;
+        };
+        trading24h: {
+            trades: number;
+            openTrades: number;
+            volumeUsd: number;
+            winRate: number;
+        };
+        signups14d: {
+            day: string;
+            signups: number;
+        }[];
+        recentActivity: {
+            id: string;
+            action: string;
+            description: string;
+            adminName: string;
+            createdAt: string;
+        }[];
+    }>;
+    listUsers(query: PageQuery & {
+        search?: string;
+        status?: string;
+        kyc?: string;
+    }): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.UserRole;
+            phone: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            kycStatus: import(".prisma/client").$Enums.KycStatus;
+        }[];
+    }>;
+    userDetail(id: string): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.UserRole;
+            phone: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            kycStatus: import(".prisma/client").$Enums.KycStatus;
+            referralCode: string;
+        };
+        wallets: {
+            currency: string;
+            balance: number;
+            locked: number;
+        }[];
+        tradingWallets: {
+            accountType: string;
+            currency: string;
+            balance: number;
+            locked: number;
+        }[];
+        tradeTotals: {
+            trades: number;
+            volumeUsd: number;
+            profitUsd: number;
+            won: number;
+            lost: number;
+        };
+        trades: {
+            stakeUsd: number;
+            profitUsd: number;
+            payoutPercent: number;
+            id: string;
+            asset: string;
+            side: string;
+            status: string;
+            accountType: string;
+            entryTime: Date;
+        }[];
+        deposits: {
+            amount: number;
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            currency: string;
+            externalRef: string;
+        }[];
+        withdrawals: {
+            amount: number;
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            currency: string;
+            rejectionReason: string;
+        }[];
+        kyc: {
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.KycStatus;
+            rejectionReason: string;
+            documentType: string;
+            reviewedAt: Date;
+        }[];
+        tickets: {
+            id: string;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.SupportTicketStatus;
+            subject: string;
+        }[];
+        audit: {
+            id: string;
+            action: string;
+            description: string;
+            adminName: string;
+            createdAt: Date;
+        }[];
+    }>;
+    setUserStatus(admin: AdminIdentity, id: string, body: {
+        status?: string;
+        reason?: string;
+    }): Promise<{
+        success: boolean;
+        status: "ACTIVE" | "SUSPENDED" | "LOCKED";
+    }>;
+    listKyc(query: PageQuery & {
+        status?: string;
+    }): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            user: {
+                id: string;
+                fullName: string;
+                email: string;
+            };
+            documentType: string;
+            documentNumber: string;
+            images: {
+                front: string;
+                back: string;
+                selfie: string;
+                addressProof: string;
+            };
+            status: import(".prisma/client").$Enums.KycStatus;
+            rejectionReason: string;
+            reviewedBy: string;
+            reviewedAt: Date;
+            createdAt: Date;
+        }[];
+    }>;
+    reviewKyc(admin: AdminIdentity, id: string, body: {
+        decision?: string;
+        reason?: string;
+    }): Promise<{
+        success: boolean;
+        status: string;
+    }>;
+    listFinance(query: PageQuery & {
+        kind?: string;
+        status?: string;
+        search?: string;
+    }): Promise<{
+        kind: string;
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        sum: number;
+        items: {
+            id: string;
+            user: {
+                id: string;
+                fullName: string;
+                email: string;
+            };
+            gateway: string;
+            amount: number;
+            currency: string;
+            phone: string;
+            reference: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            note: string | null;
+            createdAt: Date;
+        }[];
+    }>;
+    listTickets(query: PageQuery & {
+        status?: string;
+        search?: string;
+    }): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            subject: string;
+            status: import(".prisma/client").$Enums.SupportTicketStatus;
+            user: {
+                id: string;
+                fullName: string;
+                email: string;
+            };
+            messages: number;
+            createdAt: Date;
+            updatedAt: Date;
+        }[];
+    }>;
+    ticketDetail(id: string): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+        };
+        messages: {
+            id: string;
+            createdAt: Date;
+            senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+            message: string;
+        }[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        subject: string;
+    }>;
+    setTicketStatus(admin: AdminIdentity, id: string, body: {
+        status?: string;
+    }): Promise<{
+        success: boolean;
+        status: "OPEN" | "PENDING_USER" | "PENDING_SUPPORT" | "CLOSED";
+    }>;
+    listAudit(query: PageQuery & {
+        search?: string;
+    }): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            action: string;
+            targetType: string;
+            targetId: string;
+            description: string;
+            admin: {
+                fullName: string;
+                role: import(".prisma/client").$Enums.AdminRole;
+            };
+            user: {
+                fullName: string;
+                email: string;
+            };
+            createdAt: Date;
+        }[];
+    }>;
+    logTeamChange(admin: AdminIdentity, action: string, targetId: string, description: string): Prisma.Prisma__AuditLogClient<{
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        metadata: Prisma.JsonValue | null;
+        description: string | null;
+        adminId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+    }, never, import("@prisma/client/runtime/library").DefaultArgs>;
+}
+export {};

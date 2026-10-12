@@ -1,13 +1,18 @@
 import { AdminService } from './admin.service';
 import { type AdminIdentity } from './admin-session.guard';
 import { TradingMonitorService } from './trading-monitor.service';
+import { AdminConsoleService } from './admin-console.service';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
+type AdminReq = {
+    admin: AdminIdentity;
+};
 export declare class AdminController {
     private readonly adminService;
     private readonly monitor;
-    constructor(adminService: AdminService, monitor: TradingMonitorService);
+    private readonly console;
+    constructor(adminService: AdminService, monitor: TradingMonitorService, console: AdminConsoleService);
     login(dto: AdminLoginDto): Promise<{
         message: string;
         token: string;
@@ -46,6 +51,7 @@ export declare class AdminController {
         admin: AdminIdentity;
     }): {
         admin: AdminIdentity;
+        permissions: ("overview" | "users" | "userStatus" | "kyc" | "finance" | "trading" | "support" | "audit" | "team")[];
     };
     tradingMonitor(req: {
         admin: AdminIdentity;
@@ -98,74 +104,354 @@ export declare class AdminController {
             }[];
         };
     }>;
-    create(dto: CreateAdminDto): Promise<{
+    overview(req: AdminReq): Promise<{
+        generatedAt: string;
+        users: {
+            total: number;
+            new24h: number;
+            new7d: number;
+            byStatus: {
+                [k: string]: number;
+            };
+        };
+        queues: {
+            kycPending: number;
+            ticketsOpen: number;
+            depositsPending: {
+                count: number;
+                amount: number;
+            };
+            withdrawalsPending: {
+                count: number;
+                amount: number;
+            };
+        };
+        money7d: {
+            deposits: {
+                count: number;
+                amount: number;
+            };
+            withdrawals: {
+                count: number;
+                amount: number;
+            };
+            currency: string;
+        };
+        trading24h: {
+            trades: number;
+            openTrades: number;
+            volumeUsd: number;
+            winRate: number;
+        };
+        signups14d: {
+            day: string;
+            signups: number;
+        }[];
+        recentActivity: {
+            id: string;
+            action: string;
+            description: string;
+            adminName: string;
+            createdAt: string;
+        }[];
+    }>;
+    users(req: AdminReq, query: Record<string, string>): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.UserRole;
+            phone: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            kycStatus: import(".prisma/client").$Enums.KycStatus;
+        }[];
+    }>;
+    user(req: AdminReq, id: string): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.UserRole;
+            phone: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.AccountStatus;
+            kycStatus: import(".prisma/client").$Enums.KycStatus;
+            referralCode: string;
+        };
+        wallets: {
+            currency: string;
+            balance: number;
+            locked: number;
+        }[];
+        tradingWallets: {
+            accountType: string;
+            currency: string;
+            balance: number;
+            locked: number;
+        }[];
+        tradeTotals: {
+            trades: number;
+            volumeUsd: number;
+            profitUsd: number;
+            won: number;
+            lost: number;
+        };
+        trades: {
+            stakeUsd: number;
+            profitUsd: number;
+            payoutPercent: number;
+            id: string;
+            asset: string;
+            side: string;
+            status: string;
+            accountType: string;
+            entryTime: Date;
+        }[];
+        deposits: {
+            amount: number;
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            currency: string;
+            externalRef: string;
+        }[];
+        withdrawals: {
+            amount: number;
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            currency: string;
+            rejectionReason: string;
+        }[];
+        kyc: {
+            id: string;
+            createdAt: Date;
+            status: import(".prisma/client").$Enums.KycStatus;
+            rejectionReason: string;
+            documentType: string;
+            reviewedAt: Date;
+        }[];
+        tickets: {
+            id: string;
+            updatedAt: Date;
+            status: import(".prisma/client").$Enums.SupportTicketStatus;
+            subject: string;
+        }[];
+        audit: {
+            id: string;
+            action: string;
+            description: string;
+            adminName: string;
+            createdAt: Date;
+        }[];
+    }>;
+    userStatus(req: AdminReq, id: string, body: {
+        status?: string;
+        reason?: string;
+    }): Promise<{
+        success: boolean;
+        status: "ACTIVE" | "SUSPENDED" | "LOCKED";
+    }>;
+    kyc(req: AdminReq, query: Record<string, string>): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            user: {
+                id: string;
+                fullName: string;
+                email: string;
+            };
+            documentType: string;
+            documentNumber: string;
+            images: {
+                front: string;
+                back: string;
+                selfie: string;
+                addressProof: string;
+            };
+            status: import(".prisma/client").$Enums.KycStatus;
+            rejectionReason: string;
+            reviewedBy: string;
+            reviewedAt: Date;
+            createdAt: Date;
+        }[];
+    }>;
+    reviewKyc(req: AdminReq, id: string, body: {
+        decision?: string;
+        reason?: string;
+    }): Promise<{
+        success: boolean;
+        status: string;
+    }>;
+    finance(req: AdminReq, query: Record<string, string>): Promise<{
+        kind: string;
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        sum: number;
+        items: {
+            id: string;
+            user: {
+                id: string;
+                fullName: string;
+                email: string;
+            };
+            gateway: string;
+            amount: number;
+            currency: string;
+            phone: string;
+            reference: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
+            note: string | null;
+            createdAt: Date;
+        }[];
+    }>;
+    tickets(req: AdminReq, query: Record<string, string>): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            subject: string;
+            status: import(".prisma/client").$Enums.SupportTicketStatus;
+            user: {
+                id: string;
+                fullName: string;
+                email: string;
+            };
+            messages: number;
+            createdAt: Date;
+            updatedAt: Date;
+        }[];
+    }>;
+    ticket(req: AdminReq, id: string): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+        };
+        messages: {
+            id: string;
+            createdAt: Date;
+            senderRole: import(".prisma/client").$Enums.SupportSenderRole;
+            message: string;
+        }[];
+    } & {
         id: string;
-        email: string;
-        phone: string;
-        fullName: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        userId: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
+        subject: string;
+    }>;
+    ticketStatus(req: AdminReq, id: string, body: {
+        status?: string;
+    }): Promise<{
+        success: boolean;
+        status: "OPEN" | "PENDING_USER" | "PENDING_SUPPORT" | "CLOSED";
+    }>;
+    auditLog(req: AdminReq, query: Record<string, string>): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            action: string;
+            targetType: string;
+            targetId: string;
+            description: string;
+            admin: {
+                fullName: string;
+                role: import(".prisma/client").$Enums.AdminRole;
+            };
+            user: {
+                fullName: string;
+                email: string;
+            };
+            createdAt: Date;
+        }[];
+    }>;
+    create(req: AdminReq, dto: CreateAdminDto): Promise<{
+        id: string;
+        fullName: string;
+        email: string;
+        role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
         isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     findAll(): Promise<{
         id: string;
-        email: string;
-        phone: string;
         fullName: string;
+        email: string;
         role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
-        email: string;
-        phone: string;
         fullName: string;
+        email: string;
         role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
     }>;
-    update(id: string, dto: UpdateAdminDto): Promise<{
+    update(req: AdminReq, id: string, dto: UpdateAdminDto): Promise<{
         id: string;
-        email: string;
-        phone: string;
         fullName: string;
+        email: string;
         role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
     }>;
-    disable(id: string): Promise<{
+    disable(req: AdminReq, id: string): Promise<{
         id: string;
-        email: string;
-        phone: string;
         fullName: string;
+        email: string;
         role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
     }>;
-    enable(id: string): Promise<{
+    enable(req: AdminReq, id: string): Promise<{
         id: string;
-        email: string;
-        phone: string;
         fullName: string;
+        email: string;
         role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
     }>;
-    delete(id: string): Promise<{
+    delete(req: AdminReq, id: string): Promise<{
         id: string;
-        email: string;
-        phone: string;
         fullName: string;
+        email: string;
         role: import(".prisma/client").$Enums.AdminRole;
+        phone: string;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
     }>;
 }
+export {};
