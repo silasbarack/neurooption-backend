@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminModule = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
+const emails_module_1 = require("../emails/emails.module");
 const jwt_config_1 = require("../config/jwt.config");
 const admin_controller_1 = require("./admin.controller");
 const admin_service_1 = require("./admin.service");
@@ -21,7 +22,7 @@ let AdminModule = class AdminModule {
 exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
-        imports: [jwt_1.JwtModule.register({ secret: (0, jwt_config_1.getJwtSecret)() })],
+        imports: [jwt_1.JwtModule.register({ secret: (0, jwt_config_1.getJwtSecret)() }), emails_module_1.EmailsModule],
         controllers: [admin_controller_1.AdminController],
         providers: [admin_service_1.AdminService, admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard, trading_monitor_service_1.TradingMonitorService, admin_console_service_1.AdminConsoleService],
     })

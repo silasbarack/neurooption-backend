@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { EmailsModule } from '../emails/emails.module';
 import { getJwtSecret } from '../config/jwt.config';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
@@ -9,7 +10,7 @@ import { TradingMonitorService } from './trading-monitor.service';
 import { AdminConsoleService } from './admin-console.service';
 
 @Module({
-  imports: [JwtModule.register({ secret: getJwtSecret() })],
+  imports: [JwtModule.register({ secret: getJwtSecret() }), EmailsModule],
   controllers: [AdminController],
   providers: [AdminService, AdminSessionGuard, AdminSuperGuard, TradingMonitorService, AdminConsoleService],
 })

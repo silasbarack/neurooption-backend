@@ -9,10 +9,10 @@ export declare class AssetsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
         name: string;
         category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
-        isActive: boolean;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
     }[]>;
     getSummary(): Promise<{
@@ -46,10 +46,10 @@ export declare class AssetsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
         name: string;
         category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
-        isActive: boolean;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
     }>;
     findById(id: string): Promise<{
@@ -57,10 +57,10 @@ export declare class AssetsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
         name: string;
         category: import(".prisma/client").$Enums.AssetCategory;
         marketType: import(".prisma/client").$Enums.MarketType;
-        isActive: boolean;
         payoutRate: import("@prisma/client/runtime/library").Decimal;
     }>;
 }

@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../config/prisma.service';
+import { EmailsService } from '../emails/emails.service';
 import type { AdminIdentity } from './admin-session.guard';
 export declare const CONSOLE_PERMISSIONS: {
     readonly overview: readonly ["SUPER_ADMIN", "FINANCE_ADMIN", "SUPPORT_ADMIN", "KYC_ADMIN", "RISK_ADMIN", "COMPLIANCE_ADMIN"];
@@ -19,7 +20,8 @@ type PageQuery = {
 };
 export declare class AdminConsoleService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly emails;
+    constructor(prisma: PrismaService, emails: EmailsService);
     assertCan(admin: AdminIdentity, area: ConsoleArea): void;
     permissionsFor(role: string): ConsoleArea[];
     private audit;
@@ -36,6 +38,7 @@ export declare class AdminConsoleService {
         queues: {
             kycPending: number;
             ticketsOpen: number;
+            newsletterSubscribers: number;
             depositsPending: {
                 count: number;
                 amount: number;
@@ -87,11 +90,11 @@ export declare class AdminConsoleService {
             id: string;
             fullName: string;
             email: string;
-            role: import(".prisma/client").$Enums.UserRole;
             phone: string;
-            createdAt: Date;
+            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
+            createdAt: Date;
         }[];
     }>;
     userDetail(id: string): Promise<{
@@ -99,13 +102,13 @@ export declare class AdminConsoleService {
             id: string;
             fullName: string;
             email: string;
-            role: import(".prisma/client").$Enums.UserRole;
             phone: string;
-            createdAt: Date;
-            updatedAt: Date;
+            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referralCode: string;
+            createdAt: Date;
+            updatedAt: Date;
         };
         wallets: {
             currency: string;
@@ -130,40 +133,40 @@ export declare class AdminConsoleService {
             profitUsd: number;
             payoutPercent: number;
             id: string;
-            asset: string;
-            side: string;
             status: string;
             accountType: string;
+            asset: string;
+            side: string;
             entryTime: Date;
         }[];
         deposits: {
             amount: number;
             id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
+            createdAt: Date;
             currency: string;
             externalRef: string;
         }[];
         withdrawals: {
             amount: number;
             id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
+            createdAt: Date;
             currency: string;
             rejectionReason: string;
         }[];
         kyc: {
             id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.KycStatus;
+            createdAt: Date;
             rejectionReason: string;
             documentType: string;
             reviewedAt: Date;
         }[];
         tickets: {
             id: string;
-            updatedAt: Date;
             status: import(".prisma/client").$Enums.SupportTicketStatus;
+            updatedAt: Date;
             subject: string;
         }[];
         audit: {
@@ -276,15 +279,18 @@ export declare class AdminConsoleService {
         messages: {
             id: string;
             createdAt: Date;
+            admin: {
+                fullName: string;
+            };
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
             message: string;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
     setTicketStatus(admin: AdminIdentity, id: string, body: {
@@ -292,6 +298,14 @@ export declare class AdminConsoleService {
     }): Promise<{
         success: boolean;
         status: "OPEN" | "PENDING_USER" | "PENDING_SUPPORT" | "CLOSED";
+    }>;
+    replyToTicket(admin: AdminIdentity, id: string, body: {
+        message?: string;
+        close?: boolean;
+    }): Promise<{
+        success: boolean;
+        status: string;
+        emailSent: boolean;
     }>;
     listAudit(query: PageQuery & {
         search?: string;
@@ -321,12 +335,12 @@ export declare class AdminConsoleService {
         id: string;
         createdAt: Date;
         userId: string | null;
-        metadata: Prisma.JsonValue | null;
-        description: string | null;
         adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
+        metadata: Prisma.JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;

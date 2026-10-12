@@ -627,6 +627,48 @@ ${this.button(this.getSupportUrl(), 'Contact Support')}`, 'Your NeuroOption pass
     async sendPasswordRecoveryCodeEmail(email, code, fullName = 'User') {
         return this.sendTemplateEmail(email, this.passwordRecoveryCode(code, fullName));
     }
+    supportReply(fullName, subject, reply, ticketId) {
+        const name = this.formatName(fullName);
+        const ticketUrl = `${this.getFrontendUrl()}/support?ticket=${encodeURIComponent(ticketId)}`;
+        const quoted = reply.length > 1500 ? `${reply.slice(0, 1500)}…` : reply;
+        const body = `
+Dear ${name},
+
+NeuroOption Support replied to your ticket "${subject}":
+
+${quoted}
+
+Read the conversation and reply here: ${ticketUrl}
+    `.trim();
+        const html = this.brandedHtml(`
+${this.h1('Support replied to your ticket')}
+${this.p(`Dear ${this.escapeHtml(name)},`)}
+${this.p(`Our support team replied to your ticket ${this.strong(subject)}:`)}
+${this.notice('Reply from NeuroOption Support', this.escapeHtml(quoted).replace(/\n/g, '<br>'))}
+${this.button(ticketUrl, 'Open the conversation')}
+${this.p('You can reply from the same page. Please do not reply to this email.', true)}`, `Support replied to "${subject}".`);
+        return { subject: `Re: ${subject} - NeuroOption Support`, body, html };
+    }
+    async sendSupportReplyEmail(email, fullName, subject, reply, ticketId) {
+        return this.sendTemplateEmail(email, this.supportReply(fullName, subject, reply, ticketId));
+    }
+    newsletterWelcome(unsubscribeToken) {
+        const unsubscribeUrl = `${this.getFrontendUrl()}/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+        const body = `
+You're subscribed to NeuroOption updates: platform news, new markets and product improvements.
+
+Didn't sign up, or changed your mind? Unsubscribe: ${unsubscribeUrl}
+    `.trim();
+        const html = this.brandedHtml(`
+${this.h1("You're subscribed")}
+${this.p('Thanks for subscribing to NeuroOption updates. We will email you about platform news, new markets and product improvements. No spam, and never more than a few emails a month.')}
+${this.button(this.getFrontendUrl(), 'Visit NeuroOption')}
+${this.p(`Didn't sign up, or changed your mind? ${this.link(unsubscribeUrl, 'Unsubscribe with one click')}.`, true)}`, 'You are subscribed to NeuroOption updates.');
+        return { subject: "You're subscribed to NeuroOption updates", body, html };
+    }
+    async sendNewsletterWelcomeEmail(email, unsubscribeToken) {
+        return this.sendTemplateEmail(email, this.newsletterWelcome(unsubscribeToken));
+    }
     async sendPasswordChangedEmail(email, fullName) {
         return this.sendTemplateEmail(email, this.passwordChanged(fullName));
     }

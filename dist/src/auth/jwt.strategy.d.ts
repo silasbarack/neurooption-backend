@@ -8,13 +8,13 @@ export declare class JwtStrategy extends JwtStrategy_base {
     constructor(prisma: PrismaService);
     validate(payload: any): Promise<{
         id: string;
+        fullName: string;
         email: string;
         phone: string | null;
-        referralCode: string | null;
-        fullName: string;
         role: import(".prisma/client").$Enums.UserRole;
         status: import(".prisma/client").$Enums.AccountStatus;
         kycStatus: import(".prisma/client").$Enums.KycStatus;
+        referralCode: string | null;
         referredById: string | null;
         createdAt: Date;
         updatedAt: Date;

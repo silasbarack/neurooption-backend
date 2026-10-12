@@ -117,6 +117,7 @@ export declare class AdminController {
         queues: {
             kycPending: number;
             ticketsOpen: number;
+            newsletterSubscribers: number;
             depositsPending: {
                 count: number;
                 amount: number;
@@ -164,11 +165,11 @@ export declare class AdminController {
             id: string;
             fullName: string;
             email: string;
-            role: import(".prisma/client").$Enums.UserRole;
             phone: string;
-            createdAt: Date;
+            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
+            createdAt: Date;
         }[];
     }>;
     user(req: AdminReq, id: string): Promise<{
@@ -176,13 +177,13 @@ export declare class AdminController {
             id: string;
             fullName: string;
             email: string;
-            role: import(".prisma/client").$Enums.UserRole;
             phone: string;
-            createdAt: Date;
-            updatedAt: Date;
+            role: import(".prisma/client").$Enums.UserRole;
             status: import(".prisma/client").$Enums.AccountStatus;
             kycStatus: import(".prisma/client").$Enums.KycStatus;
             referralCode: string;
+            createdAt: Date;
+            updatedAt: Date;
         };
         wallets: {
             currency: string;
@@ -207,40 +208,40 @@ export declare class AdminController {
             profitUsd: number;
             payoutPercent: number;
             id: string;
-            asset: string;
-            side: string;
             status: string;
             accountType: string;
+            asset: string;
+            side: string;
             entryTime: Date;
         }[];
         deposits: {
             amount: number;
             id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
+            createdAt: Date;
             currency: string;
             externalRef: string;
         }[];
         withdrawals: {
             amount: number;
             id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
+            createdAt: Date;
             currency: string;
             rejectionReason: string;
         }[];
         kyc: {
             id: string;
-            createdAt: Date;
             status: import(".prisma/client").$Enums.KycStatus;
+            createdAt: Date;
             rejectionReason: string;
             documentType: string;
             reviewedAt: Date;
         }[];
         tickets: {
             id: string;
-            updatedAt: Date;
             status: import(".prisma/client").$Enums.SupportTicketStatus;
+            updatedAt: Date;
             subject: string;
         }[];
         audit: {
@@ -344,15 +345,18 @@ export declare class AdminController {
         messages: {
             id: string;
             createdAt: Date;
+            admin: {
+                fullName: string;
+            };
             senderRole: import(".prisma/client").$Enums.SupportSenderRole;
             message: string;
         }[];
     } & {
         id: string;
+        status: import(".prisma/client").$Enums.SupportTicketStatus;
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        status: import(".prisma/client").$Enums.SupportTicketStatus;
         subject: string;
     }>;
     ticketStatus(req: AdminReq, id: string, body: {
@@ -360,6 +364,14 @@ export declare class AdminController {
     }): Promise<{
         success: boolean;
         status: "OPEN" | "PENDING_USER" | "PENDING_SUPPORT" | "CLOSED";
+    }>;
+    replyTicket(req: AdminReq, id: string, body: {
+        message?: string;
+        close?: boolean;
+    }): Promise<{
+        success: boolean;
+        status: string;
+        emailSent: boolean;
     }>;
     auditLog(req: AdminReq, query: Record<string, string>): Promise<{
         total: number;
@@ -387,71 +399,71 @@ export declare class AdminController {
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     findAll(): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     update(req: AdminReq, id: string, dto: UpdateAdminDto): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     disable(req: AdminReq, id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     enable(req: AdminReq, id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     delete(req: AdminReq, id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
 }
 export {};

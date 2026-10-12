@@ -1,92 +1,32 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../payments/authenticated-request';
 import { SupportService } from './support.service';
 
-import { CreateSupportTicketDto } from './dto/create-support-ticket.dto';
-import { CreateSupportMessageDto } from './dto/create-support-message.dto';
-import { UpdateSupportTicketStatusDto } from './dto/update-support-ticket-status.dto';
-
+/** The signed-in client's own support tickets. Staff work tickets from /admin/console/support. */
 @Controller('support')
+@UseGuards(JwtAuthGuard)
 export class SupportController {
-  constructor(
-    private readonly supportService: SupportService,
-  ) {}
-
-  @Post('ticket')
-  createTicket(
-    @Body()
-    dto: CreateSupportTicketDto,
-  ) {
-    return this.supportService.createTicket(
-      dto,
-    );
-  }
+  constructor(private readonly support: SupportService) {}
 
   @Get('tickets')
-  getTickets() {
-    return this.supportService.getTickets();
+  list(@Req() req: AuthenticatedRequest) {
+    return this.support.listMine(req.user.id);
   }
 
-  @Get('ticket/:id')
-  getTicket(
-    @Param('id') id: string,
-  ) {
-    return this.supportService.getTicket(id);
+  @Post('tickets')
+  create(@Req() req: AuthenticatedRequest, @Body() body: { subject?: string; message?: string }) {
+    return this.support.create(req.user.id, body);
   }
 
-  @Get('user/:userId')
-  getUserTickets(
-    @Param('userId') userId: string,
-  ) {
-    return this.supportService.getUserTickets(
-      userId,
-    );
+  @Get('tickets/:id')
+  get(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    return this.support.getMine(req.user.id, id);
   }
 
-  @Post('message')
-  sendMessage(
-    @Body()
-    dto: CreateSupportMessageDto,
-  ) {
-    return this.supportService.sendMessage(
-      dto,
-    );
-  }
-
-  @Patch(':id/status')
-  updateStatus(
-    @Param('id') id: string,
-    @Body()
-    dto: UpdateSupportTicketStatusDto,
-  ) {
-    return this.supportService.updateStatus(
-      id,
-      dto,
-    );
-  }
-
-  @Patch(':id/resolve')
-  resolve(
-    @Param('id') id: string,
-  ) {
-    return this.supportService.resolveTicket(
-      id,
-    );
-  }
-
-  @Patch(':id/close')
-  close(
-    @Param('id') id: string,
-  ) {
-    return this.supportService.closeTicket(
-      id,
-    );
+  @Post('tickets/:id/messages')
+  reply(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() body: { message?: string }) {
+    return this.support.reply(req.user.id, id, body);
   }
 }

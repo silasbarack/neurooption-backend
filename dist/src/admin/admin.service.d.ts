@@ -11,11 +11,11 @@ export declare class AdminService {
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     private readonly loginFailures;
     login(dto: AdminLoginDto): Promise<{
@@ -59,61 +59,61 @@ export declare class AdminService {
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     private guardTeamChange;
     update(actorId: string, id: string, dto: UpdateAdminDto): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     disable(actorId: string, id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     enable(id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
     delete(actorId: string, id: string): Promise<{
         id: string;
         fullName: string;
         email: string;
-        role: import(".prisma/client").$Enums.AdminRole;
         phone: string;
-        isActive: boolean;
+        role: import(".prisma/client").$Enums.AdminRole;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
     }>;
 }

@@ -12,8 +12,8 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
@@ -38,8 +38,8 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
@@ -64,8 +64,8 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
@@ -90,8 +90,8 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
@@ -116,8 +116,8 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {
@@ -142,8 +142,8 @@ export declare class AuditLogsController {
         };
         admin: {
             id: string;
-            email: string;
             fullName: string;
+            email: string;
             role: import(".prisma/client").$Enums.AdminRole;
         };
     } & {

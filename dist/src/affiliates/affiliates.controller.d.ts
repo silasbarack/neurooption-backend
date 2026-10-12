@@ -19,13 +19,13 @@ export declare class AffiliatesController {
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
+            transactionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             rate: import("@prisma/client/runtime/library").Decimal;
             paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            transactionId: string | null;
         }[];
     } & {
         id: string;
@@ -51,13 +51,13 @@ export declare class AffiliatesController {
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
+            transactionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             rate: import("@prisma/client/runtime/library").Decimal;
             paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            transactionId: string | null;
         }[];
     } & {
         id: string;
@@ -83,13 +83,13 @@ export declare class AffiliatesController {
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
+            transactionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             rate: import("@prisma/client/runtime/library").Decimal;
             paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            transactionId: string | null;
         }[];
     } & {
         id: string;
@@ -115,13 +115,13 @@ export declare class AffiliatesController {
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
+            transactionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             rate: import("@prisma/client/runtime/library").Decimal;
             paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            transactionId: string | null;
         }[];
     } & {
         id: string;
@@ -147,13 +147,13 @@ export declare class AffiliatesController {
             createdAt: Date;
             updatedAt: Date;
             description: string | null;
+            transactionId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
             rate: import("@prisma/client/runtime/library").Decimal;
             paidAt: Date | null;
             affiliateId: string;
             affiliateUserId: string;
             referredUserId: string;
-            transactionId: string | null;
         }[];
     } & {
         id: string;
@@ -174,10 +174,10 @@ export declare class AffiliatesController {
             updatedAt: Date;
             userId: string;
             description: string | null;
+            walletId: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
-            walletId: string;
         };
         affiliate: {
             id: string;
@@ -208,13 +208,13 @@ export declare class AffiliatesController {
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
+        transactionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        transactionId: string | null;
     }>;
     findAllCommissions(): Promise<({
         transaction: {
@@ -224,10 +224,10 @@ export declare class AffiliatesController {
             updatedAt: Date;
             userId: string;
             description: string | null;
+            walletId: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
-            walletId: string;
         };
         affiliate: {
             id: string;
@@ -258,13 +258,13 @@ export declare class AffiliatesController {
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
+        transactionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        transactionId: string | null;
     })[]>;
     findCommissionsByAffiliate(affiliateId: string): Promise<({
         transaction: {
@@ -274,10 +274,10 @@ export declare class AffiliatesController {
             updatedAt: Date;
             userId: string;
             description: string | null;
+            walletId: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
-            walletId: string;
         };
         affiliate: {
             id: string;
@@ -308,13 +308,13 @@ export declare class AffiliatesController {
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
+        transactionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        transactionId: string | null;
     })[]>;
     updateCommissionStatus(id: string, dto: UpdateCommissionStatusDto): Promise<{
         transaction: {
@@ -324,10 +324,10 @@ export declare class AffiliatesController {
             updatedAt: Date;
             userId: string;
             description: string | null;
+            walletId: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
-            walletId: string;
         };
         affiliate: {
             id: string;
@@ -358,13 +358,13 @@ export declare class AffiliatesController {
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
+        transactionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        transactionId: string | null;
     }>;
     payCommission(id: string, walletId: string): Promise<{
         transaction: {
@@ -374,10 +374,10 @@ export declare class AffiliatesController {
             updatedAt: Date;
             userId: string;
             description: string | null;
+            walletId: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             type: import(".prisma/client").$Enums.TransactionType;
             reference: string | null;
-            walletId: string;
         };
         affiliate: {
             id: string;
@@ -408,12 +408,12 @@ export declare class AffiliatesController {
         createdAt: Date;
         updatedAt: Date;
         description: string | null;
+        transactionId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         paidAt: Date | null;
         affiliateId: string;
         affiliateUserId: string;
         referredUserId: string;
-        transactionId: string | null;
     }>;
 }

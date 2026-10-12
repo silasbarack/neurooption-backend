@@ -14,98 +14,61 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SupportController = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const support_service_1 = require("./support.service");
-const create_support_ticket_dto_1 = require("./dto/create-support-ticket.dto");
-const create_support_message_dto_1 = require("./dto/create-support-message.dto");
-const update_support_ticket_status_dto_1 = require("./dto/update-support-ticket-status.dto");
 let SupportController = class SupportController {
-    constructor(supportService) {
-        this.supportService = supportService;
+    constructor(support) {
+        this.support = support;
     }
-    createTicket(dto) {
-        return this.supportService.createTicket(dto);
+    list(req) {
+        return this.support.listMine(req.user.id);
     }
-    getTickets() {
-        return this.supportService.getTickets();
+    create(req, body) {
+        return this.support.create(req.user.id, body);
     }
-    getTicket(id) {
-        return this.supportService.getTicket(id);
+    get(req, id) {
+        return this.support.getMine(req.user.id, id);
     }
-    getUserTickets(userId) {
-        return this.supportService.getUserTickets(userId);
-    }
-    sendMessage(dto) {
-        return this.supportService.sendMessage(dto);
-    }
-    updateStatus(id, dto) {
-        return this.supportService.updateStatus(id, dto);
-    }
-    resolve(id) {
-        return this.supportService.resolveTicket(id);
-    }
-    close(id) {
-        return this.supportService.closeTicket(id);
+    reply(req, id, body) {
+        return this.support.reply(req.user.id, id, body);
     }
 };
 exports.SupportController = SupportController;
 __decorate([
-    (0, common_1.Post)('ticket'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_support_ticket_dto_1.CreateSupportTicketDto]),
-    __metadata("design:returntype", void 0)
-], SupportController.prototype, "createTicket", null);
-__decorate([
     (0, common_1.Get)('tickets'),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
-], SupportController.prototype, "getTickets", null);
+], SupportController.prototype, "list", null);
 __decorate([
-    (0, common_1.Get)('ticket/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], SupportController.prototype, "getTicket", null);
-__decorate([
-    (0, common_1.Get)('user/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
-], SupportController.prototype, "getUserTickets", null);
-__decorate([
-    (0, common_1.Post)('message'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_support_message_dto_1.CreateSupportMessageDto]),
-    __metadata("design:returntype", void 0)
-], SupportController.prototype, "sendMessage", null);
-__decorate([
-    (0, common_1.Patch)(':id/status'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Post)('tickets'),
+    __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_support_ticket_status_dto_1.UpdateSupportTicketStatusDto]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
-], SupportController.prototype, "updateStatus", null);
+], SupportController.prototype, "create", null);
 __decorate([
-    (0, common_1.Patch)(':id/resolve'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Get)('tickets/:id'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], SupportController.prototype, "resolve", null);
+], SupportController.prototype, "get", null);
 __decorate([
-    (0, common_1.Patch)(':id/close'),
-    __param(0, (0, common_1.Param)('id')),
+    (0, common_1.Post)('tickets/:id/messages'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", void 0)
-], SupportController.prototype, "close", null);
+], SupportController.prototype, "reply", null);
 exports.SupportController = SupportController = __decorate([
     (0, common_1.Controller)('support'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [support_service_1.SupportService])
 ], SupportController);
 //# sourceMappingURL=support.controller.js.map
