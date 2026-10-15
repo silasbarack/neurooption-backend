@@ -12,7 +12,11 @@ const describeDb = process.env.DATABASE_URL ? describe : describe.skip;
 describeDb('admin console with PostgreSQL', () => {
   const prisma = new PrismaClient();
   const sentReplies: unknown[] = [];
-  const emails = { sendSupportReplyEmail: jest.fn(async (...args: unknown[]) => (sentReplies.push(args), true)) };
+  const emails = {
+    sendSupportReplyEmail: jest.fn(async (...args: unknown[]) => (sentReplies.push(args), true)),
+    sendKycApprovedEmail: jest.fn(async () => true),
+    sendKycRejectedEmail: jest.fn(async () => true),
+  };
   const consoleService = new AdminConsoleService(prisma as never, emails as never);
   const admins = new AdminService(prisma as never, {} as never);
   const tag = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;

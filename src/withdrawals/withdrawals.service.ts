@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -12,6 +13,7 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../config/prisma.service';
+import { EmailsService } from '../emails/emails.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
@@ -24,6 +26,7 @@ export class WithdrawalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
+    @Optional() private readonly emails?: EmailsService,
   ) {}
 
   async create(dto: CreateWithdrawalDto) {
@@ -65,7 +68,7 @@ export class WithdrawalsService {
       throw new BadRequestException('Payment gateway is inactive');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
         data: {
           userId: dto.userId,
@@ -124,6 +127,9 @@ export class WithdrawalsService {
 
       return withdrawal;
     });
+
+    await this.notifyClient(created, TransactionStatus.PENDING);
+    return created;
   }
 
   async findAll() {
@@ -168,7 +174,7 @@ export class WithdrawalsService {
       throw new BadRequestException('Withdrawal already completed');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.withdrawal.update({
         where: { id },
         data: {
@@ -245,6 +251,10 @@ export class WithdrawalsService {
 
       return updated;
     });
+
+    // Email after the change commits; it never blocks or undoes it.
+    await this.notifyClient(result, dto.status, dto.rejectionReason);
+    return result;
   }
 
   async approve(id: string, externalRef?: string) {
@@ -275,5 +285,34 @@ export class WithdrawalsService {
       gateway: true,
       transaction: true,
     };
+  }
+
+  private async notifyClient(
+    withdrawal: { id: string; amount: unknown; currency: string; externalRef: string | null; updatedAt: Date; user: { id: string; email: string; fullName: string } | null; gateway: { name: string } | null },
+    status: TransactionStatus,
+    reason?: string,
+  ) {
+    if (!this.emails || !withdrawal.user) return;
+    const owner = await this.prisma.user.findUnique({ where: { id: withdrawal.user.id }, select: { status: true } });
+    if (!owner || owner.status === 'DELETED') return;
+    const to = withdrawal.user.email;
+    const data = {
+      amount: Number(withdrawal.amount),
+      currency: withdrawal.currency,
+      method: withdrawal.gateway?.name || 'M-Pesa',
+      transactionId: withdrawal.externalRef || withdrawal.id,
+      dateTime: `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(withdrawal.updatedAt)} EAT`,
+    };
+    const options = (step: string) => ({ userId: withdrawal.user!.id, dedupeKey: `withdrawal-${step}:${withdrawal.id}` });
+    try {
+      if (status === TransactionStatus.PENDING) await this.emails.sendWithdrawalRequestedEmail(to, data, options('requested'));
+      else if (status === TransactionStatus.PROCESSING) await this.emails.sendWithdrawalProcessingEmail(to, data, options('processing'));
+      else if (status === TransactionStatus.COMPLETED) await this.emails.sendWithdrawalCompletedEmail(to, data, options('completed'));
+      else if (status === TransactionStatus.REJECTED || status === TransactionStatus.FAILED || status === TransactionStatus.CANCELLED) {
+        await this.emails.sendWithdrawalDeclinedEmail(to, { ...data, reason: (reason || `Withdrawal ${status.toLowerCase()}`).slice(0, 180) }, options('declined'));
+      }
+    } catch {
+      // Recorded by EmailsService; the withdrawal status stands.
+    }
   }
 }

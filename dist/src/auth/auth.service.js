@@ -19,6 +19,10 @@ const crypto_1 = require("crypto");
 const prisma_service_1 = require("../config/prisma.service");
 const emails_service_1 = require("../emails/emails.service");
 const RESET_REQUEST_COOLDOWN_MS = 60_000;
+const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60_000;
+const VERIFY_RESEND_COOLDOWN_MS = 60_000;
+const VERIFY_RESENDS_PER_HOUR = 5;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESET_ATTEMPT_WINDOW_MS = 15 * 60_000;
 const MAX_RESET_ATTEMPTS = 5;
 let AuthService = AuthService_1 = class AuthService {
@@ -132,7 +136,8 @@ let AuthService = AuthService_1 = class AuthService {
         this.welcomeResends.set(userId, Date.now());
         let emailSent = false;
         try {
-            emailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user));
+            const verifyUrl = user.emailVerifiedAt ? undefined : await this.issueVerificationLink(user.id);
+            emailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user), { userId: user.id, verifyUrl });
         }
         catch (error) {
             this.logger.error('Resend welcome email failed', error);
@@ -154,6 +159,9 @@ let AuthService = AuthService_1 = class AuthService {
         if (!email || !payload.password) {
             throw new common_1.BadRequestException('Email and password are required.');
         }
+        if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+            throw new common_1.BadRequestException('Enter a valid email address.');
+        }
         if (payload.password.length < 6) {
             throw new common_1.BadRequestException('Password must be at least 6 characters.');
         }
@@ -173,12 +181,22 @@ let AuthService = AuthService_1 = class AuthService {
         if (nameField) {
             userData[nameField] = fullName;
         }
-        const user = await this.prisma.user.create({
-            data: userData,
-        });
+        let user;
+        try {
+            user = await this.prisma.user.create({
+                data: userData,
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2002') {
+                throw new common_1.BadRequestException('An account with this email already exists.');
+            }
+            throw error;
+        }
         let welcomeEmailSent = false;
         try {
-            welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user));
+            const verifyUrl = await this.issueVerificationLink(user.id);
+            welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user), { userId: user.id, verifyUrl });
         }
         catch (error) {
             this.logger.error('Welcome email send failed', error);
@@ -324,10 +342,76 @@ let AuthService = AuthService_1 = class AuthService {
         await this.prisma.passwordResetToken.deleteMany({
             where: { userId: resetRecord.userId, id: { not: resetRecord.id } },
         });
-        await this.sendEmailSafely('sendPasswordChangedEmail', () => this.emailsService.sendPasswordChangedEmail(resetRecord.user.email, this.getUserDisplayName(resetRecord.user)));
+        await this.sendEmailSafely('sendPasswordChangedEmail', () => this.emailsService.sendPasswordChangedEmail(resetRecord.user.email, this.getUserDisplayName(resetRecord.user), { userId: resetRecord.userId, changedAt: new Date() }));
         return {
             success: true,
             message: 'Password reset successfully.',
+        };
+    }
+    async issueVerificationLink(userId) {
+        const token = (0, crypto_1.randomBytes)(32).toString('base64url');
+        const tokenHash = (0, crypto_1.createHash)('sha256').update(token).digest('hex');
+        await this.prisma.emailVerificationToken.deleteMany({ where: { userId, usedAt: null } });
+        await this.prisma.emailVerificationToken.create({
+            data: { userId, tokenHash, expiresAt: new Date(Date.now() + VERIFY_TOKEN_TTL_MS) },
+        });
+        return this.emailsService.appUrl(`/verify-email?token=${encodeURIComponent(token)}`);
+    }
+    async verifyEmail(payload) {
+        const token = String(payload?.token || '').trim();
+        if (token.length < 20 || token.length > 200) {
+            throw new common_1.BadRequestException('This verification link is not valid.');
+        }
+        const tokenHash = (0, crypto_1.createHash)('sha256').update(token).digest('hex');
+        const record = await this.prisma.emailVerificationToken.findUnique({
+            where: { tokenHash },
+            include: { user: { select: { id: true, status: true, emailVerifiedAt: true } } },
+        });
+        if (!record || record.user.status === 'DELETED') {
+            throw new common_1.BadRequestException('This verification link is not valid.');
+        }
+        if (record.usedAt) {
+            if (record.user.emailVerifiedAt)
+                return { success: true, alreadyVerified: true, message: 'Your email address is already verified.' };
+            throw new common_1.BadRequestException('This verification link has already been used.');
+        }
+        if (record.expiresAt.getTime() < Date.now()) {
+            throw new common_1.BadRequestException('This verification link has expired. Sign in and request a new one.');
+        }
+        const now = new Date();
+        const claimed = await this.prisma.emailVerificationToken.updateMany({ where: { id: record.id, usedAt: null }, data: { usedAt: now } });
+        if (claimed.count === 0)
+            throw new common_1.BadRequestException('This verification link has already been used.');
+        await this.prisma.user.update({ where: { id: record.userId }, data: { emailVerifiedAt: record.user.emailVerifiedAt ?? now } });
+        await this.prisma.emailVerificationToken.deleteMany({ where: { userId: record.userId, usedAt: null } });
+        return { success: true, alreadyVerified: false, message: 'Thank you. Your email address is verified.' };
+    }
+    async resendVerification(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.status === 'DELETED')
+            throw new common_1.UnauthorizedException('Account unavailable.');
+        if (user.emailVerifiedAt) {
+            return { success: true, emailSent: false, alreadyVerified: true, message: 'Your email address is already verified.' };
+        }
+        const now = Date.now();
+        const [lastMinute, lastHour] = await Promise.all([
+            this.prisma.emailVerificationToken.count({ where: { userId, createdAt: { gt: new Date(now - VERIFY_RESEND_COOLDOWN_MS) } } }),
+            this.prisma.emailMessage.count({ where: { userId, kind: 'email_verification', createdAt: { gt: new Date(now - 60 * 60_000) } } }),
+        ]);
+        if (lastMinute > 0)
+            throw new common_1.HttpException('Please wait a minute before requesting another link.', common_1.HttpStatus.TOO_MANY_REQUESTS);
+        if (lastHour >= VERIFY_RESENDS_PER_HOUR)
+            throw new common_1.HttpException('Too many verification emails this hour. Please try again later.', common_1.HttpStatus.TOO_MANY_REQUESTS);
+        const verifyUrl = await this.issueVerificationLink(userId);
+        const emailSent = await this.emailsService.sendEmailVerificationEmail(user.email, this.getUserDisplayName(user), verifyUrl, { userId });
+        return {
+            success: emailSent,
+            emailSent,
+            alreadyVerified: false,
+            emailHint: this.maskRecipient(user.email),
+            message: emailSent
+                ? 'Verification email accepted by our email provider. Check your inbox and spam folder; the link works for 24 hours.'
+                : 'We could not send the verification email right now. Please try again shortly.',
         };
     }
 };

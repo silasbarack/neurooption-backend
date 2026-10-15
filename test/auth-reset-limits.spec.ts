@@ -59,7 +59,7 @@ describe('password reset limits', () => {
     const { auth, prisma, emails } = setup({ validCode: '123456' });
     await expect(auth.resetPassword({ email: 'a@b.com', code: '123456', password: 'newpass1' })).resolves.toMatchObject({ success: true });
     expect(prisma.user.update).toHaveBeenCalled();
-    expect(emails.sendPasswordChangedEmail).toHaveBeenCalledWith('a@b.com', 'A');
+    expect(emails.sendPasswordChangedEmail).toHaveBeenCalledWith('a@b.com', 'A', { userId: 'u1', changedAt: expect.any(Date) });
   });
 
   it('ignores deleted accounts without revealing anything', async () => {

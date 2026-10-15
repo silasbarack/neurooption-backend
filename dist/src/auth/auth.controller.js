@@ -50,6 +50,12 @@ let AuthController = class AuthController {
     resendWelcome(req) {
         return this.authService.resendWelcomeEmail(req.user.id);
     }
+    verifyEmail(body) {
+        return this.authService.verifyEmail(body);
+    }
+    resendVerification(req) {
+        return this.authService.resendVerification(req.user.id);
+    }
     async login(dto) {
         await this.captcha.verify(dto.recaptchaToken, 'login');
         return this.authService.login(dto);
@@ -101,6 +107,23 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "resendWelcome", null);
+__decorate([
+    (0, common_1.Post)('verify-email'),
+    (0, common_1.HttpCode)(200),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('resend-verification'),
+    (0, common_1.HttpCode)(200),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "resendVerification", null);
 __decorate([
     (0, common_1.Post)('login'),
     __param(0, (0, common_1.Body)()),

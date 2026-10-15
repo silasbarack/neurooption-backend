@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../config/prisma.service';
+import { EmailsService } from '../emails/emails.service';
 
 export type UpdateUserPayload = {
+  /** Accepted only when unchanged: email changes go through Support. */
+  email?: string;
   fullName?: string;
   name?: string;
   phone?: string;
@@ -11,7 +15,10 @@ export type UpdateUserPayload = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly emails?: EmailsService,
+  ) {}
 
   private getUserModelFields(): string[] {
     const runtimeModel = (this.prisma as any)?._runtimeDataModel?.models?.User;
@@ -81,6 +88,12 @@ export class UsersService {
       throw new NotFoundException('User account not found.');
     }
 
+    // Changing the sign-in email would let a stolen session take over the
+    // account (via password reset), so it is not self-service.
+    if (payload.email !== undefined && payload.email.trim().toLowerCase() !== existingUser.email) {
+      throw new BadRequestException('To change your email address, please contact Support.');
+    }
+
     const data: Record<string, any> = {};
 
     if (this.hasUserField('fullName')) {
@@ -121,5 +134,25 @@ export class UsersService {
     });
 
     return this.removePassword(updatedUser);
+  }
+
+  /** Self-service password change: needs the current password; emails a security notice. */
+  async changePassword(userId: string, payload: { currentPassword?: string; newPassword?: string }) {
+    const current = String(payload?.currentPassword || '');
+    const next = String(payload?.newPassword || '');
+    if (!current || !next) throw new BadRequestException('Enter your current and new password.');
+    if (next.length < 8 || next.length > 128) throw new BadRequestException('The new password must be 8 to 128 characters.');
+    if (next === current) throw new BadRequestException('The new password must be different from the current one.');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status === 'DELETED') throw new NotFoundException('User account not found.');
+    if (!(await bcrypt.compare(current, user.passwordHash))) throw new UnauthorizedException('Current password is incorrect.');
+
+    const changedAt = new Date();
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(next, 12) } });
+    const emailSent = this.emails
+      ? await this.emails.sendPasswordChangedEmail(user.email, user.fullName, { userId, changedAt }).catch(() => false)
+      : false;
+    return { success: true, emailSent, message: 'Password changed successfully.' };
   }
 }

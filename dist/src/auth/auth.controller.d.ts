@@ -41,6 +41,26 @@ export declare class AuthController {
         emailHint: string;
         message: string;
     }>;
+    verifyEmail(body: {
+        token?: string;
+    }): Promise<{
+        success: boolean;
+        alreadyVerified: boolean;
+        message: string;
+    }>;
+    resendVerification(req: AuthenticatedRequest): Promise<{
+        success: boolean;
+        emailSent: boolean;
+        alreadyVerified: boolean;
+        message: string;
+        emailHint?: undefined;
+    } | {
+        success: boolean;
+        emailSent: boolean;
+        alreadyVerified: boolean;
+        emailHint: string;
+        message: string;
+    }>;
     login(dto: LoginDto): Promise<{
         success: boolean;
         message: string;

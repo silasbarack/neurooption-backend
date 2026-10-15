@@ -8,14 +8,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProfileService = void 0;
 const common_1 = require("@nestjs/common");
 const bcrypt = require("bcrypt");
 const prisma_service_1 = require("../config/prisma.service");
+const emails_service_1 = require("../emails/emails.service");
 let ProfileService = class ProfileService {
-    constructor(prisma) {
+    constructor(prisma, emails) {
         this.prisma = prisma;
+        this.emails = emails;
     }
     async getProfile(userId) {
         const user = await this.prisma.user.findUnique({
@@ -41,13 +46,8 @@ let ProfileService = class ProfileService {
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
-        if (dto.email && dto.email !== user.email) {
-            const emailExists = await this.prisma.user.findUnique({
-                where: { email: dto.email },
-            });
-            if (emailExists) {
-                throw new common_1.ConflictException('Email already exists');
-            }
+        if (dto.email && dto.email.trim().toLowerCase() !== user.email) {
+            throw new common_1.BadRequestException('To change your email address, please contact Support.');
         }
         if (dto.phone && dto.phone !== user.phone) {
             const phoneExists = await this.prisma.user.findUnique({
@@ -61,7 +61,6 @@ let ProfileService = class ProfileService {
             where: { id: userId },
             data: {
                 fullName: dto.fullName,
-                email: dto.email,
                 phone: dto.phone,
             },
             include: {
@@ -83,14 +82,19 @@ let ProfileService = class ProfileService {
             throw new common_1.UnauthorizedException('Current password is incorrect');
         }
         const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+        const changedAt = new Date();
         await this.prisma.user.update({
             where: { id: userId },
             data: {
                 passwordHash,
             },
         });
+        const emailSent = this.emails
+            ? await this.emails.sendPasswordChangedEmail(user.email, user.fullName, { userId, changedAt }).catch(() => false)
+            : false;
         return {
             message: 'Password changed successfully',
+            emailSent,
         };
     }
     sanitizeUser(user) {
@@ -101,6 +105,8 @@ let ProfileService = class ProfileService {
 exports.ProfileService = ProfileService;
 exports.ProfileService = ProfileService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __param(1, (0, common_1.Optional)()),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        emails_service_1.EmailsService])
 ], ProfileService);
 //# sourceMappingURL=profile.service.js.map

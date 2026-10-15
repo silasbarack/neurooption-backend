@@ -20,10 +20,10 @@ export declare class RealAccountsController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
@@ -38,11 +38,11 @@ export declare class RealAccountsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        isActive: boolean;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        type: import(".prisma/client").$Enums.AccountType;
+        isActive: boolean;
         balance: import("@prisma/client/runtime/library").Decimal;
         locked: import("@prisma/client/runtime/library").Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
     }>;
     findByUser(req: {
         user: {
@@ -59,10 +59,10 @@ export declare class RealAccountsController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
@@ -77,11 +77,11 @@ export declare class RealAccountsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        isActive: boolean;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        type: import(".prisma/client").$Enums.AccountType;
+        isActive: boolean;
         balance: import("@prisma/client/runtime/library").Decimal;
         locked: import("@prisma/client/runtime/library").Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
     })[]>;
     switchCurrency(req: {
         user: {
@@ -98,10 +98,10 @@ export declare class RealAccountsController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
@@ -116,10 +116,10 @@ export declare class RealAccountsController {
         createdAt: Date;
         updatedAt: Date;
         userId: string;
-        isActive: boolean;
         currency: import(".prisma/client").$Enums.AccountCurrency;
+        type: import(".prisma/client").$Enums.AccountType;
+        isActive: boolean;
         balance: import("@prisma/client/runtime/library").Decimal;
         locked: import("@prisma/client/runtime/library").Decimal;
-        type: import(".prisma/client").$Enums.AccountType;
     }>;
 }

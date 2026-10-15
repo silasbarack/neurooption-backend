@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import * as nodemailer from 'nodemailer';
+import { PrismaService } from '../config/prisma.service';
 import type { Transporter } from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 import {
@@ -44,6 +45,37 @@ type DetailRow = [label: string, value: string];
 
 type EmailProvider = 'brevo' | 'resend' | 'smtp' | 'none';
 
+/** How a message is tracked, de-duplicated and retried. */
+export type SendOptions = {
+  /** Short machine name, e.g. "password_code" or "deposit_completed". */
+  kind?: string;
+  userId?: string | null;
+  /** Same key = same event: a second send is skipped instead of emailing twice. */
+  dedupeKey?: string;
+  /**
+   * The message carries a code or one-time link. Its body is never stored,
+   * so it is only retried in-process; the user can request a new one.
+   */
+  sensitive?: boolean;
+};
+
+type DeliveryResult = { provider: Exclude<EmailProvider, 'none'>; messageId: string | null };
+
+/** A provider failure, marked permanent when retrying cannot help. */
+class DeliveryError extends Error {
+  constructor(message: string, readonly permanent: boolean) {
+    super(message);
+  }
+}
+
+// Retry schedule for temporary failures: quick in-process attempts, then the
+// background worker (non-sensitive emails only) with growing delays.
+const IN_PROCESS_RETRY_DELAYS_MS = [400, 1500];
+const WORKER_BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000, 3 * 60 * 60_000];
+const MAX_TOTAL_ATTEMPTS = IN_PROCESS_RETRY_DELAYS_MS.length + 1 + WORKER_BACKOFF_MS.length;
+const WORKER_INTERVAL_MS = 30_000;
+const STALE_SENDING_MS = 10 * 60_000;
+
 // Placeholder swapped for the real logo src per provider: an inline CID
 // attachment over SMTP, a hosted URL for the HTTPS APIs.
 const LOGO_SRC_PLACEHOLDER = '__NEUROOPTION_LOGO_SRC__';
@@ -65,7 +97,7 @@ const BRAND = {
 } as const;
 
 const FONT_STACK =
-  "'Segoe UI',Roboto,'Helvetica Neue',Arial,Helvetica,sans-serif";
+  "'Noto Sans',Arial,Helvetica,sans-serif";
 
 const TONES: Record<Tone, { bg: string; fg: string; border: string }> = {
   success: { bg: '#E8F6EF', fg: '#0B6E47', border: '#BEE5D1' },
@@ -80,10 +112,14 @@ const SMTP_SOCKET_TIMEOUT_MS = 20_000;
 const HTTP_API_TIMEOUT_MS = 15_000;
 
 @Injectable()
-export class EmailsService implements OnModuleInit {
+export class EmailsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EmailsService.name);
   private transporter: Transporter | null = null;
   private smtpVerifiedAt = 0;
+  private worker: NodeJS.Timeout | null = null;
+  private workerBusy = false;
+
+  constructor(@Optional() private readonly prisma?: PrismaService) {}
 
   onModuleInit() {
     const provider = this.getProvider();
@@ -95,7 +131,10 @@ export class EmailsService implements OnModuleInit {
       return;
     }
 
-    this.logger.log(`Email provider: ${provider}; sender configured; recipient addresses not logged.`);
+    for (const warning of this.configurationWarnings()) this.logger.warn(warning);
+    this.logger.log(
+      `Email provider: ${provider}; sender domain ${this.senderDomain() || 'unknown'}; links point to ${this.getFrontendUrl()}; recipient addresses not logged.`,
+    );
 
     if (provider === 'smtp') {
       this.verifyDeliveryConfiguration(true)
@@ -106,6 +145,75 @@ export class EmailsService implements OnModuleInit {
               'If this runs on a Render free instance, SMTP ports are blocked; use BREVO_API_KEY or RESEND_API_KEY, or SMTP_PORT=2525 with a provider that supports it.',
           ),
         );
+    }
+    if (provider === 'brevo') void this.checkBrevoAccount();
+
+    if (this.prisma && this.env('EMAIL_RETRY_WORKER').toLowerCase() !== 'off') {
+      this.worker = setInterval(() => void this.processRetryQueue(), WORKER_INTERVAL_MS);
+      this.worker.unref?.();
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.worker) clearInterval(this.worker);
+  }
+
+  /** Problems that hurt delivery without stopping it. Never includes secrets. */
+  configurationWarnings(): string[] {
+    const warnings: string[] = [];
+    const provider = this.getProvider();
+    const domain = this.senderDomain();
+    if (!this.env('FRONTEND_URL')) {
+      warnings.push(`FRONTEND_URL is not set; email links fall back to ${DEFAULT_FRONTEND_URL}.`);
+    } else if (!/^https:\/\//i.test(this.getFrontendUrl()) && process.env.NODE_ENV === 'production') {
+      warnings.push('FRONTEND_URL is not HTTPS; email links and the hosted logo should use https://.');
+    }
+    if (provider !== 'smtp' && /^(gmail|googlemail|yahoo|outlook|hotmail)\./i.test(domain)) {
+      warnings.push(`EMAIL_FROM uses ${domain}. Providers cannot sign mail for that domain, so it will often fail DMARC and land in spam. Send from a domain you control, e.g. no-reply@neurooption.com.`);
+    }
+    if (provider === 'smtp' && /gmail/i.test(this.env('SMTP_SERVICE') || this.env('SMTP_HOST'))) {
+      warnings.push('Sending through Gmail SMTP: the sender is a personal Gmail address and delivery is not tracked. Use Brevo with an authenticated domain for reliable delivery.');
+    }
+    return warnings;
+  }
+
+  /** The active provider, for diagnostics. */
+  currentProvider(): EmailProvider {
+    return this.getProvider();
+  }
+
+  /** The From address in use (never a secret). */
+  senderAddress(): string {
+    return this.getFromAddress();
+  }
+
+  private senderDomain(): string {
+    return (this.parseFromAddress().email.split('@')[1] || '').toLowerCase();
+  }
+
+  /**
+   * Confirms the Brevo API key works and the sender's domain is authenticated
+   * there (DKIM + Brevo code). Read-only calls; nothing is sent.
+   */
+  async checkBrevoAccount(): Promise<{ keyValid: boolean; domain: string; authenticated: boolean | null }> {
+    const domain = this.senderDomain();
+    const headers = { 'api-key': this.env('BREVO_API_KEY'), accept: 'application/json' };
+    try {
+      const account = await fetch('https://api.brevo.com/v3/account', { headers, signal: AbortSignal.timeout(HTTP_API_TIMEOUT_MS) });
+      if (!account.ok) {
+        this.logger.error(`Brevo API key check failed (HTTP ${account.status}). Emails will be rejected until BREVO_API_KEY is fixed.`);
+        return { keyValid: false, domain, authenticated: null };
+      }
+      const domains = await fetch('https://api.brevo.com/v3/senders/domains', { headers, signal: AbortSignal.timeout(HTTP_API_TIMEOUT_MS) });
+      const body = domains.ok ? (await domains.json().catch(() => null)) as { domains?: Array<{ domain_name?: string; authenticated?: boolean; verified?: boolean }> } | null : null;
+      const entry = body?.domains?.find((d) => (d.domain_name || '').toLowerCase() === domain);
+      const authenticated = entry ? Boolean(entry.authenticated) : false;
+      if (authenticated) this.logger.log(`Brevo API key valid; sender domain ${domain} is authenticated in Brevo.`);
+      else this.logger.warn(`Brevo API key valid, but sender domain ${domain} is ${entry ? 'not yet authenticated' : 'not added'} in Brevo. Add its DNS records (Brevo code, DKIM, SPF, DMARC) and verify it.`);
+      return { keyValid: true, domain, authenticated };
+    } catch (error) {
+      this.logger.warn(`Brevo account check could not run: ${this.errorMessage(error)}`);
+      return { keyValid: false, domain, authenticated: null };
     }
   }
 
@@ -246,6 +354,11 @@ export class EmailsService implements OnModuleInit {
     }
 
     return { name: 'NeuroOption', email: from.trim() };
+  }
+
+  /** Absolute URL on the public site, e.g. appUrl('/verify-email?token=…'). */
+  appUrl(path: string): string {
+    return `${this.getFrontendUrl()}${path.startsWith('/') ? path : `/${path}`}`;
   }
 
   private getFrontendUrl(): string {
@@ -507,18 +620,28 @@ ${content}
     url: string,
     headers: Record<string, string>,
     payload: unknown,
-  ): Promise<void> {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(HTTP_API_TIMEOUT_MS),
-    });
+  ): Promise<Record<string, unknown>> {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(HTTP_API_TIMEOUT_MS),
+      });
+    } catch (error) {
+      // Network errors and timeouts are worth retrying.
+      throw new DeliveryError(`Network error: ${error instanceof Error ? error.message : String(error)}`, false);
+    }
 
     if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new Error(`HTTP ${response.status} ${detail}`.trim());
+      const detail = (await response.text().catch(() => '')).slice(0, 300);
+      // 408 / 429 / 5xx are temporary; other 4xx (bad key, unverified sender,
+      // invalid address) will fail the same way every time.
+      const temporary = response.status === 408 || response.status === 429 || response.status >= 500;
+      throw new DeliveryError(`HTTP ${response.status} ${detail}`.trim(), !temporary);
     }
+    return ((await response.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
   }
 
   private async deliver(
@@ -527,9 +650,11 @@ ${content}
     subject: string,
     text: string,
     html: string,
-  ): Promise<void> {
+  ): Promise<string | null> {
     if (provider === 'smtp') {
-      const receipt = await this.getTransporter().sendMail({
+      let receipt: { accepted?: Array<string | { address: string }>; messageId?: string };
+      try {
+        receipt = await this.getTransporter().sendMail({
         from: this.getFromAddress(),
         to,
         subject,
@@ -543,11 +668,17 @@ ${content}
             cid: EMAIL_LOGO_CID,
           },
         ],
-      });
-      if (!receipt.accepted?.some((address) => address.toLowerCase() === to.toLowerCase())) {
-        throw new Error('SMTP did not accept the recipient address.');
+        });
+      } catch (error) {
+        // SMTP 5xx replies are permanent; 4xx and connection problems are not.
+        const code = Number((error as { responseCode?: number }).responseCode || 0);
+        throw new DeliveryError(error instanceof Error ? error.message : String(error), code >= 500 && code < 600);
       }
-      return;
+      const accepted = (receipt.accepted ?? []).map((a) => (typeof a === 'string' ? a : a.address).toLowerCase());
+      if (!accepted.includes(to.toLowerCase())) {
+        throw new DeliveryError('SMTP did not accept the recipient address.', true);
+      }
+      return receipt.messageId ?? null;
     }
 
     const hostedHtml = html
@@ -555,7 +686,7 @@ ${content}
       .join(this.getHostedLogoUrl());
 
     if (provider === 'brevo') {
-      await this.postJson(
+      const result = await this.postJson(
         'https://api.brevo.com/v3/smtp/email',
         { 'api-key': this.env('BREVO_API_KEY'), accept: 'application/json' },
         {
@@ -566,10 +697,10 @@ ${content}
           textContent: text,
         },
       );
-      return;
+      return typeof result.messageId === 'string' ? result.messageId : null;
     }
 
-    await this.postJson(
+    const result = await this.postJson(
       'https://api.resend.com/emails',
       { Authorization: `Bearer ${this.env('RESEND_API_KEY')}` },
       {
@@ -580,41 +711,207 @@ ${content}
         text,
       },
     );
+    return typeof result.id === 'string' ? result.id : null;
   }
 
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /** One send with quick in-process retries for temporary failures. */
+  private async attemptDelivery(to: string, subject: string, text: string, html: string): Promise<DeliveryResult & { attempts: number }> {
+    const provider = this.getProvider();
+    if (provider === 'none') throw new DeliveryError('No outbound email provider is configured.', true);
+    let attempts = 0;
+    for (;;) {
+      attempts += 1;
+      try {
+        const messageId = await this.deliver(provider, to, subject, text, html);
+        return { provider, messageId, attempts };
+      } catch (error) {
+        if (provider === 'smtp') this.smtpVerifiedAt = 0;
+        const permanent = error instanceof DeliveryError ? error.permanent : false;
+        const delay = IN_PROCESS_RETRY_DELAYS_MS[attempts - 1];
+        if (permanent || delay === undefined) {
+          const wrapped = error instanceof DeliveryError ? error : new DeliveryError(String(error), false);
+          (wrapped as DeliveryError & { attempts?: number }).attempts = attempts;
+          throw wrapped;
+        }
+        await this.sleep(delay);
+      }
+    }
+  }
+
+  /**
+   * Sends one email and records it. Resolves true only when the provider
+   * accepted it now (acceptance is not inbox delivery). Never throws: a
+   * failed email must not undo the account or payment operation that
+   * triggered it. Temporary failures of non-sensitive emails are retried
+   * in the background.
+   */
   private async sendEmail(
     to: string,
     subject: string,
     body: string,
     html?: string,
+    options: SendOptions = {},
   ): Promise<boolean> {
-    const provider = this.getProvider();
+    const kind = options.kind ?? 'generic';
+    const text = `${body}\n\n${this.textFooter()}`;
+    const fullHtml = html || this.toHtml(body);
 
-    if (provider === 'none') {
-      this.logger.warn(`Email provider unavailable; subject="${subject}", recipient=${this.recipientTag(to)}.`);
+    if (this.getProvider() === 'none') {
+      this.logger.warn(`Email provider unavailable; kind=${kind}, recipient=${this.recipientTag(to)}.`);
+      await this.track(() => this.prisma!.emailMessage.create({
+        data: { kind, dedupeKey: options.dedupeKey, userId: options.userId ?? null, recipient: to, subject, status: 'FAILED', lastError: 'No email provider configured.' },
+      }));
       return false;
+    }
+
+    // Duplicate protection: one email per event.
+    let recordId: string | null = null;
+    if (options.dedupeKey && this.prisma) {
+      const existing = await this.track(() => this.prisma!.emailMessage.findUnique({ where: { dedupeKey: options.dedupeKey } }));
+      if (existing && existing.status !== 'FAILED') {
+        this.logger.log(`Skipped duplicate ${kind}; dedupeKey already ${existing.status.toLowerCase()}.`);
+        return existing.status !== 'QUEUED';
+      }
+      recordId = existing?.id ?? null;
+    }
+
+    const record = await this.track(() => recordId
+      ? this.prisma!.emailMessage.update({ where: { id: recordId! }, data: { status: 'SENDING', attempts: 0, lastError: null, subject } })
+      : this.prisma!.emailMessage.create({
+        data: { kind, dedupeKey: options.dedupeKey, userId: options.userId ?? null, recipient: to, subject, status: 'SENDING', retryable: !options.sensitive },
+      }));
+
+    // Another request won the race for this dedupe key: it sends, we don't.
+    if (!record && options.dedupeKey && this.prisma) {
+      const winner = await this.track(() => this.prisma!.emailMessage.findUnique({ where: { dedupeKey: options.dedupeKey } }));
+      if (winner) return winner.status !== 'FAILED' && winner.status !== 'QUEUED';
     }
 
     try {
-      const text = `${body}\n\n${this.textFooter()}`;
-      await this.deliver(provider, to, subject, text, html || this.toHtml(body));
-      this.logger.log(`Provider accepted "${subject}"; recipient=${this.recipientTag(to)} via ${provider} (inbox delivery unverified).`);
+      const result = await this.attemptDelivery(to, subject, text, fullHtml);
+      this.logger.log(`Provider accepted ${kind} "${subject}"; recipient=${this.recipientTag(to)} via ${result.provider}${result.messageId ? ' (message id recorded)' : ''}; inbox delivery unverified.`);
+      if (record) {
+        await this.track(() => this.prisma!.emailMessage.update({
+          where: { id: record.id },
+          data: { status: 'ACCEPTED', provider: result.provider, providerMessageId: result.messageId, attempts: result.attempts, acceptedAt: new Date(), lastError: null, textBody: null, htmlBody: null, nextAttemptAt: null },
+        }));
+      }
       return true;
     } catch (error) {
-      if (provider === 'smtp') this.smtpVerifiedAt = 0;
+      const permanent = error instanceof DeliveryError && error.permanent;
+      const attempts = (error as { attempts?: number }).attempts ?? 1;
+      const reason = this.errorMessage(error);
+      const willRetry = !permanent && !options.sensitive && Boolean(record);
       this.logger.error(
-        `Provider rejected "${subject}"; recipient=${this.recipientTag(to)} via ${provider}: ${this.errorMessage(error)}`,
+        `Provider ${permanent ? 'rejected' : 'failed temporarily on'} ${kind} "${subject}"; recipient=${this.recipientTag(to)} via ${this.getProvider()}: ${reason}${willRetry ? ' (queued for retry)' : ''}`,
       );
-
+      if (record) {
+        await this.track(() => this.prisma!.emailMessage.update({
+          where: { id: record.id },
+          data: willRetry
+            ? { status: 'QUEUED', attempts, lastError: reason, textBody: text, htmlBody: fullHtml, nextAttemptAt: new Date(Date.now() + WORKER_BACKOFF_MS[0]) }
+            : { status: 'FAILED', attempts, lastError: reason, textBody: null, htmlBody: null, nextAttemptAt: null },
+        }));
+      }
       return false;
     }
+  }
+
+  /** Database bookkeeping must never break sending. */
+  private async track<T>(operation: () => Promise<T>): Promise<T | null> {
+    if (!this.prisma) return null;
+    try {
+      return await operation();
+    } catch (error) {
+      this.logger.warn(`Email tracking unavailable: ${this.errorMessage(error)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Retries queued emails whose wait is over. Rows are claimed with a
+   * conditional update, so several instances never send the same email.
+   */
+  async processRetryQueue(now = new Date()): Promise<number> {
+    if (!this.prisma || this.workerBusy || this.getProvider() === 'none') return 0;
+    this.workerBusy = true;
+    let sent = 0;
+    try {
+      // A crash mid-send leaves rows in SENDING; requeue the retryable ones.
+      await this.prisma.emailMessage.updateMany({
+        where: { status: 'SENDING', retryable: true, textBody: { not: null }, updatedAt: { lt: new Date(now.getTime() - STALE_SENDING_MS) } },
+        data: { status: 'QUEUED', nextAttemptAt: now },
+      });
+      const due = await this.prisma.emailMessage.findMany({
+        where: { status: 'QUEUED', nextAttemptAt: { lte: now } },
+        orderBy: { nextAttemptAt: 'asc' },
+        take: 20,
+      });
+      for (const row of due) {
+        const claim = await this.prisma.emailMessage.updateMany({ where: { id: row.id, status: 'QUEUED' }, data: { status: 'SENDING' } });
+        if (claim.count === 0 || !row.textBody || !row.htmlBody) continue;
+        try {
+          const result = await this.attemptDelivery(row.recipient, row.subject, row.textBody, row.htmlBody);
+          await this.prisma.emailMessage.update({
+            where: { id: row.id },
+            data: { status: 'ACCEPTED', provider: result.provider, providerMessageId: result.messageId, attempts: row.attempts + result.attempts, acceptedAt: new Date(), lastError: null, textBody: null, htmlBody: null, nextAttemptAt: null },
+          });
+          this.logger.log(`Retry accepted ${row.kind}; recipient=${this.recipientTag(row.recipient)} after ${row.attempts + result.attempts} attempts.`);
+          sent += 1;
+        } catch (error) {
+          const attempts = row.attempts + ((error as { attempts?: number }).attempts ?? 1);
+          const permanent = error instanceof DeliveryError && error.permanent;
+          const step = WORKER_BACKOFF_MS[Math.min(attempts - IN_PROCESS_RETRY_DELAYS_MS.length - 1, WORKER_BACKOFF_MS.length - 1)] ?? WORKER_BACKOFF_MS[WORKER_BACKOFF_MS.length - 1];
+          const giveUp = permanent || attempts >= MAX_TOTAL_ATTEMPTS;
+          await this.prisma.emailMessage.update({
+            where: { id: row.id },
+            data: giveUp
+              ? { status: 'FAILED', attempts, lastError: this.errorMessage(error), textBody: null, htmlBody: null, nextAttemptAt: null }
+              : { status: 'QUEUED', attempts, lastError: this.errorMessage(error), nextAttemptAt: new Date(Date.now() + step) },
+          });
+          this.logger.error(`Retry ${giveUp ? 'gave up on' : 'failed for'} ${row.kind}; recipient=${this.recipientTag(row.recipient)}: ${this.errorMessage(error)}`);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Email retry worker skipped a run: ${this.errorMessage(error)}`);
+    } finally {
+      this.workerBusy = false;
+    }
+    return sent;
+  }
+
+  /**
+   * Applies a delivery event from the provider's webhook (delivered, bounce,
+   * spam complaint) to the recorded message. Unknown ids are ignored.
+   */
+  async applyProviderEvent(event: string, messageId: string): Promise<boolean> {
+    if (!this.prisma || !messageId) return false;
+    const name = event.toLowerCase();
+    const status =
+      name === 'delivered' ? 'DELIVERED'
+        : ['hard_bounce', 'hardbounce', 'invalid_email', 'blocked', 'error'].includes(name) ? 'BOUNCED'
+          : ['spam', 'complaint'].includes(name) ? 'COMPLAINED'
+            : null;
+    const result = await this.prisma.emailMessage.updateMany({
+      where: { providerMessageId: messageId },
+      data: {
+        lastEvent: name.slice(0, 40),
+        ...(status ? { status } : {}),
+        ...(status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
+      },
+    });
+    return result.count > 0;
   }
 
   // ---------------------------------------------------------------------------
   // Account emails
   // ---------------------------------------------------------------------------
 
-  accountCreated(email: string, fullName: string): EmailTemplate {
+  accountCreated(email: string, fullName: string, verifyUrl?: string): EmailTemplate {
     const name = this.formatName(fullName);
     const loginUrl = `${this.getFrontendUrl()}/login`;
 
@@ -623,7 +920,7 @@ Dear ${name},
 
 Welcome to NeuroOption! Your account has been created successfully and is ready to use.
 Account email: ${email}
-
+${verifyUrl ? `\nPlease confirm this is your email address (link valid for 24 hours):\n${verifyUrl}\n` : ''}
 Here is how to get started:
 1. Sign in and practise risk-free on your demo account to get familiar with the platform.
 2. Fund your real account from the Finance section whenever you are ready to trade.
@@ -655,13 +952,14 @@ The NeuroOption Team
 ${this.h1(`Welcome to NeuroOption, ${name}!`)}
 ${this.p("Your account has been created successfully and is ready to use. We're glad to have you on board.", true)}
 ${this.highlight('Account email', email, '', 17)}
+${verifyUrl ? `${this.p('Please confirm this is your email address. The link is valid for 24 hours.')}${this.button(verifyUrl, 'Verify my email')}${this.p(`If the button does not work, paste this link into your browser:<br>${this.link(verifyUrl, verifyUrl)}`, true)}` : ''}
 ${this.h2('How to get started')}
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 4px;">
   ${step(1, 'Practise on your demo account', 'Sign in and explore OTC markets, charts and trade controls risk-free.')}
   ${step(2, 'Fund your real account', 'Make a deposit from the Finance section whenever you are ready to trade.')}
   ${step(3, 'Verify your identity', 'Complete KYC in your profile so withdrawals are processed without delays.')}
 </table>
-${this.button(loginUrl, 'Sign in to NeuroOption')}
+${verifyUrl ? '' : this.button(loginUrl, 'Sign in to NeuroOption')}
 ${this.divider()}
 ${this.p('For your security, never share your password or verification codes with anyone &mdash; NeuroOption staff will never ask for them. If you did not create this account, please contact Support Service immediately.', true)}
 ${this.signOff()}`,
@@ -804,22 +1102,28 @@ ${this.p('If you did not request a password reset, you can ignore this email. Yo
     return { subject: 'Your NeuroOption verification code', body, html };
   }
 
-  passwordChanged(fullName: string): EmailTemplate {
+  passwordChanged(fullName: string, changedAt: Date = new Date()): EmailTemplate {
     const name = this.formatName(fullName);
+    const when = this.formatEat(changedAt);
+    const resetUrl = `${this.getFrontendUrl()}/forgot-password`;
 
     const body = `
 Dear ${name},
 
-Your NeuroOption password was just changed successfully.
-If you did not make this change, please contact Support Service immediately: ${this.getSupportUrl()}
+Your NeuroOption password was changed on ${when}.
+
+If you made this change, no action is needed.
+If you did NOT make this change, reset your password straight away (${resetUrl}) and contact Support: ${this.getSupportUrl()}
     `.trim();
 
     const html = this.brandedHtml(
       `
 ${this.h1('Your password was changed')}
 ${this.p(`Dear ${this.escapeHtml(name)},`)}
-${this.p('Your NeuroOption password was just changed successfully. You can now sign in with your new password.')}
-${this.notice("Wasn't you?", 'If you did not make this change, please contact Support Service immediately so we can secure your account.', 'danger')}
+${this.p('The password for your NeuroOption account was just changed.')}
+${this.highlight('Changed on', when, '', 15)}
+${this.p('If you made this change, no action is needed.', true)}
+${this.notice("Wasn't you?", `Reset your password straight away and contact Support so we can secure your account. ${this.link(resetUrl, 'Reset password')}`, 'danger')}
 ${this.button(this.getSupportUrl(), 'Contact Support')}`,
       'Your NeuroOption password was just changed.',
     );
@@ -827,8 +1131,33 @@ ${this.button(this.getSupportUrl(), 'Contact Support')}`,
     return { subject: 'Your NeuroOption password was changed', body, html };
   }
 
+  /** Confirms the address belongs to the account holder. */
+  emailVerification(fullName: string, verifyUrl: string): EmailTemplate {
+    const name = this.formatName(fullName);
+    const body = `
+Dear ${name},
+
+Please confirm your email address for NeuroOption by opening this link (valid for 24 hours):
+${verifyUrl}
+
+If you did not create a NeuroOption account, you can ignore this email.
+    `.trim();
+    const html = this.brandedHtml(
+      `
+${this.h1('Confirm your email address')}
+${this.p(`Dear ${this.escapeHtml(name)},`)}
+${this.p('Please confirm this is your email address so we can reach you about your account and payments. The link is valid for 24 hours and works once.')}
+${this.button(verifyUrl, 'Verify my email')}
+${this.p(`If the button does not work, paste this link into your browser:<br>${this.link(verifyUrl, verifyUrl)}`, true)}
+${this.p('If you did not create a NeuroOption account, you can ignore this email.', true)}`,
+      'Confirm your email address for NeuroOption.',
+    );
+    return { subject: 'Confirm your email address - NeuroOption', body, html };
+  }
+
   /** Explicit operator-only CLI smoke test, never exposed as an HTTP endpoint. */
   async sendDeliveryTestEmail(email: string): Promise<boolean> {
+    // Recorded like any other email (kind "test") so the log shows the result.
     const now = new Date().toISOString();
     const body = `NeuroOption outbound email test at ${now}. No user account was created, changed or deleted.`;
     return this.sendTemplateEmail(email, {
@@ -838,16 +1167,20 @@ ${this.button(this.getSupportUrl(), 'Contact Support')}`,
         `${this.h1('Email connection test')}${this.p(this.escapeHtml(body))}`,
         'This is an SMTP/provider test, not an account notification.',
       ),
-    });
+    }, { kind: 'test' });
   }
 
-  async sendAccountCreatedEmail(email: string, fullName: string): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.accountCreated(email, fullName));
+  async sendAccountCreatedEmail(email: string, fullName: string, options: SendOptions & { verifyUrl?: string } = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.accountCreated(email, fullName, options.verifyUrl), { kind: 'welcome', ...options, sensitive: options.sensitive ?? Boolean(options.verifyUrl) });
+  }
+
+  async sendEmailVerificationEmail(email: string, fullName: string, verifyUrl: string, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.emailVerification(fullName, verifyUrl), { kind: 'email_verification', ...options, sensitive: true });
   }
 
   /** Resolves false (never throws) when the email could not be delivered. */
-  async sendAccountDeletionEmail(data: AccountDeletionEmailData): Promise<boolean> {
-    return this.sendTemplateEmail(data.email, this.accountDeletionConfirmed(data));
+  async sendAccountDeletionEmail(data: AccountDeletionEmailData, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(data.email, this.accountDeletionConfirmed(data), { kind: 'account_deleted', dedupeKey: `account-deleted:${data.reference}`, ...options });
   }
 
   async sendPasswordRecoveryCodeEmail(
@@ -855,7 +1188,7 @@ ${this.button(this.getSupportUrl(), 'Contact Support')}`,
     code: string,
     fullName = 'User',
   ): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.passwordRecoveryCode(code, fullName));
+    return this.sendTemplateEmail(email, this.passwordRecoveryCode(code, fullName), { kind: 'password_code', sensitive: true });
   }
 
   /** Sent to the client when an administrator replies to their support ticket. */
@@ -885,8 +1218,8 @@ ${this.p('You can reply from the same page. Please do not reply to this email.',
     return { subject: `Re: ${subject} - NeuroOption Support`, body, html };
   }
 
-  async sendSupportReplyEmail(email: string, fullName: string, subject: string, reply: string, ticketId: string): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.supportReply(fullName, subject, reply, ticketId));
+  async sendSupportReplyEmail(email: string, fullName: string, subject: string, reply: string, ticketId: string, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.supportReply(fullName, subject, reply, ticketId), { kind: 'support_reply', ...options });
   }
 
   /** Confirms a newsletter sign-up and carries the one-click unsubscribe link. */
@@ -909,11 +1242,11 @@ ${this.p(`Didn't sign up, or changed your mind? ${this.link(unsubscribeUrl, 'Uns
   }
 
   async sendNewsletterWelcomeEmail(email: string, unsubscribeToken: string): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.newsletterWelcome(unsubscribeToken));
+    return this.sendTemplateEmail(email, this.newsletterWelcome(unsubscribeToken), { kind: 'newsletter_welcome', sensitive: true });
   }
 
-  async sendPasswordChangedEmail(email: string, fullName: string): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.passwordChanged(fullName));
+  async sendPasswordChangedEmail(email: string, fullName: string, options: SendOptions & { changedAt?: Date } = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.passwordChanged(fullName, options.changedAt), { kind: 'password_changed', ...options });
   }
 
   // ---------------------------------------------------------------------------
@@ -983,6 +1316,35 @@ ${this.helpBlock(opts.help)}`,
         status: { label: 'Successful', tone: 'success' },
         help: 'Questions about this deposit?',
         preheader: `${amount} has been added to your NeuroOption trading account.`,
+      }),
+    };
+  }
+
+  /** Sent only after M-Pesa (or another gateway) reports the payment failed. */
+  depositFailed(data: MoneyEmailData & { reason: string }): EmailTemplate {
+    const amount = this.money(data);
+    const rows: DetailRow[] = [
+      ['Transaction', data.transactionId],
+      ['Date & Time', data.dateTime],
+      ['Payment Method', data.method],
+      ['Amount', amount],
+    ];
+    const intro = `Your ${data.method} deposit of ${amount} was not completed.`;
+    const explanation = `Reason given by the payment provider: ${data.reason}. No money was added to your trading account, and if anything was taken from your M-Pesa it will be reversed by the provider.`;
+    return {
+      subject: 'NeuroOption Deposit Not Completed',
+      body: [intro, explanation, this.textDetails('Your Deposit', rows), `Try again: ${this.getFrontendUrl()}/finance`].join('\n\n'),
+      html: this.moneyEmail({
+        heading: 'Deposit not completed',
+        intro,
+        amountLabel: 'Deposit amount',
+        data,
+        explanation,
+        detailsTitle: 'Your Deposit',
+        rows: rows.slice(0, 3),
+        status: { label: 'Not completed', tone: 'danger' },
+        help: 'Need help with this payment?',
+        preheader: `Your ${amount} deposit was not completed. No money was added.`,
       }),
     };
   }
@@ -1255,46 +1617,52 @@ ${this.p('Thank you for using NeuroOption.<br>' + this.strong('The NeuroOption T
     };
   }
 
-  async sendTemplateEmail(email: string, template: EmailTemplate): Promise<boolean> {
-    return this.sendEmail(email, template.subject, template.body, template.html);
+  async sendTemplateEmail(email: string, template: EmailTemplate, options: SendOptions = {}): Promise<boolean> {
+    return this.sendEmail(email, template.subject, template.body, template.html, options);
   }
 
-  async sendDepositSuccessfulEmail(email: string, data: MoneyEmailData): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.depositSuccessful(data));
+  async sendDepositSuccessfulEmail(email: string, data: MoneyEmailData, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.depositSuccessful(data), { kind: 'deposit_completed', dedupeKey: `deposit-completed:${data.transactionId}`, ...options });
   }
 
-  async sendWithdrawalRequestedEmail(email: string, data: MoneyEmailData): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.withdrawalRequested(data));
+  async sendDepositFailedEmail(email: string, data: MoneyEmailData & { reason: string }, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.depositFailed(data), { kind: 'deposit_failed', dedupeKey: `deposit-failed:${data.transactionId}`, ...options });
   }
 
-  async sendWithdrawalProcessingEmail(email: string, data: MoneyEmailData): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.withdrawalProcessing(data));
+  async sendWithdrawalRequestedEmail(email: string, data: MoneyEmailData, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.withdrawalRequested(data), { kind: 'withdrawal_requested', dedupeKey: `withdrawal-requested:${data.transactionId}`, ...options });
   }
 
-  async sendWithdrawalCompletedEmail(email: string, data: MoneyEmailData): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.withdrawalCompleted(data));
+  async sendWithdrawalProcessingEmail(email: string, data: MoneyEmailData, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.withdrawalProcessing(data), { kind: 'withdrawal_processing', dedupeKey: `withdrawal-processing:${data.transactionId}`, ...options });
+  }
+
+  async sendWithdrawalCompletedEmail(email: string, data: MoneyEmailData, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.withdrawalCompleted(data), { kind: 'withdrawal_completed', dedupeKey: `withdrawal-completed:${data.transactionId}`, ...options });
   }
 
   async sendWithdrawalDeclinedEmail(
     email: string,
     data: MoneyEmailData & { reason: string },
+    options: SendOptions = {},
   ): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.withdrawalDeclined(data));
+    return this.sendTemplateEmail(email, this.withdrawalDeclined(data), { kind: 'withdrawal_declined', dedupeKey: `withdrawal-declined:${data.transactionId}`, ...options });
   }
 
-  async sendKycSubmittedEmail(email: string, fullName: string): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.kycSubmitted(fullName));
+  async sendKycSubmittedEmail(email: string, fullName: string, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.kycSubmitted(fullName), { kind: 'kyc_submitted', ...options });
   }
 
-  async sendKycApprovedEmail(email: string, fullName: string): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.kycApproved(fullName));
+  async sendKycApprovedEmail(email: string, fullName: string, options: SendOptions = {}): Promise<boolean> {
+    return this.sendTemplateEmail(email, this.kycApproved(fullName), { kind: 'kyc_approved', ...options });
   }
 
   async sendKycRejectedEmail(
     email: string,
     fullName: string,
     reason: string,
+    options: SendOptions = {},
   ): Promise<boolean> {
-    return this.sendTemplateEmail(email, this.kycRejected(fullName, reason));
+    return this.sendTemplateEmail(email, this.kycRejected(fullName, reason), { kind: 'kyc_rejected', ...options });
   }
 }

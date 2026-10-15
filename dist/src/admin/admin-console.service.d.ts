@@ -11,6 +11,7 @@ export declare const CONSOLE_PERMISSIONS: {
     readonly trading: readonly ["SUPER_ADMIN", "RISK_ADMIN", "COMPLIANCE_ADMIN", "FINANCE_ADMIN"];
     readonly support: readonly ["SUPER_ADMIN", "SUPPORT_ADMIN"];
     readonly audit: readonly ["SUPER_ADMIN", "COMPLIANCE_ADMIN"];
+    readonly emails: readonly ["SUPER_ADMIN", "COMPLIANCE_ADMIN", "SUPPORT_ADMIN"];
     readonly team: readonly ["SUPER_ADMIN"];
 };
 export type ConsoleArea = keyof typeof CONSOLE_PERMISSIONS;
@@ -134,8 +135,8 @@ export declare class AdminConsoleService {
             payoutPercent: number;
             id: string;
             status: string;
-            accountType: string;
             asset: string;
+            accountType: string;
             side: string;
             entryTime: Date;
         }[];
@@ -152,15 +153,15 @@ export declare class AdminConsoleService {
             id: string;
             status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
-            currency: string;
             rejectionReason: string;
+            currency: string;
         }[];
         kyc: {
             id: string;
             status: import(".prisma/client").$Enums.KycStatus;
             createdAt: Date;
-            rejectionReason: string;
             documentType: string;
+            rejectionReason: string;
             reviewedAt: Date;
         }[];
         tickets: {
@@ -219,6 +220,7 @@ export declare class AdminConsoleService {
     }): Promise<{
         success: boolean;
         status: string;
+        emailSent: boolean;
     }>;
     listFinance(query: PageQuery & {
         kind?: string;
@@ -307,6 +309,52 @@ export declare class AdminConsoleService {
         status: string;
         emailSent: boolean;
     }>;
+    listEmails(query: PageQuery & {
+        status?: string;
+        kind?: string;
+        search?: string;
+    }): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            status: import(".prisma/client").$Enums.EmailStatus;
+            createdAt: Date;
+            subject: string;
+            kind: string;
+            recipient: string;
+            provider: string;
+            attempts: number;
+            nextAttemptAt: Date;
+            lastError: string;
+            lastEvent: string;
+            acceptedAt: Date;
+            deliveredAt: Date;
+        }[];
+        last24h: {
+            [k: string]: number;
+        };
+    }>;
+    emailHealth(): Promise<{
+        provider: "brevo" | "resend" | "smtp" | "none";
+        sender: string;
+        linksPointTo: string;
+        warnings: string[];
+        brevo: {
+            keyValid: boolean;
+            domain: string;
+            authenticated: boolean | null;
+        };
+        webhookConfigured: boolean;
+    }>;
+    sendTestEmail(admin: AdminIdentity, body: {
+        to?: string;
+    }): Promise<{
+        accepted: boolean;
+        message: string;
+    }>;
     listAudit(query: PageQuery & {
         search?: string;
     }): Promise<{
@@ -335,11 +383,11 @@ export declare class AdminConsoleService {
         id: string;
         createdAt: Date;
         userId: string | null;
+        description: string | null;
         adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
-        description: string | null;
         metadata: Prisma.JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;

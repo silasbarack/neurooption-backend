@@ -8,12 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailsModule = void 0;
 const common_1 = require("@nestjs/common");
+const email_webhooks_controller_1 = require("./email-webhooks.controller");
 const emails_service_1 = require("./emails.service");
 let EmailsModule = class EmailsModule {
 };
 exports.EmailsModule = EmailsModule;
 exports.EmailsModule = EmailsModule = __decorate([
     (0, common_1.Module)({
+        controllers: [email_webhooks_controller_1.EmailWebhooksController],
         providers: [emails_service_1.EmailsService],
         exports: [emails_service_1.EmailsService],
     })

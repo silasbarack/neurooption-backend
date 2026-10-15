@@ -142,6 +142,28 @@ export class AdminController {
     return this.console.replyToTicket(req.admin, id, body);
   }
 
+  @Get('console/emails')
+  @UseGuards(AdminSessionGuard)
+  @Header('Cache-Control', 'private, no-store')
+  emailLog(@Req() req: AdminReq, @Query() query: Record<string, string>) {
+    this.console.assertCan(req.admin, 'emails');
+    return this.console.listEmails(query);
+  }
+
+  @Get('console/emails/health')
+  @UseGuards(AdminSessionGuard)
+  @Header('Cache-Control', 'private, no-store')
+  emailHealth(@Req() req: AdminReq) {
+    this.console.assertCan(req.admin, 'emails');
+    return this.console.emailHealth();
+  }
+
+  @Post('console/emails/test')
+  @UseGuards(AdminSessionGuard, AdminSuperGuard)
+  emailTest(@Req() req: AdminReq, @Body() body: { to?: string }) {
+    return this.console.sendTestEmail(req.admin, body);
+  }
+
   @Get('console/audit')
   @UseGuards(AdminSessionGuard)
   @Header('Cache-Control', 'private, no-store')

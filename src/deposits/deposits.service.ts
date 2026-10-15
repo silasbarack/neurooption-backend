@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Optional,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../config/prisma.service';
+import { EmailsService } from '../emails/emails.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { paymentGatewayTypeToClearingAccountCode } from '../ledger/ledger.types';
 import { CreateDepositDto } from './dto/create-deposit.dto';
@@ -24,6 +26,7 @@ export class DepositsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledgerService: LedgerService,
+    @Optional() private readonly emails?: EmailsService,
   ) {}
 
   async create(dto: CreateDepositDto) {
@@ -144,7 +147,7 @@ export class DepositsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.deposit.update({
         where: { id },
         data: {
@@ -192,6 +195,11 @@ export class DepositsService {
 
       return updated;
     });
+
+    // Email only after the status change has committed: a completed deposit
+    // has been credited, a failed one has not. Never blocks the change.
+    await this.notifyClient(result, dto.status, dto.externalRef);
+    return result;
   }
 
   async markCompleted(id: string, externalRef?: string) {
@@ -222,5 +230,37 @@ export class DepositsService {
       gateway: true,
       transaction: true,
     };
+  }
+
+  private async notifyClient(
+    deposit: { id: string; amount: unknown; currency: string; externalRef: string | null; updatedAt: Date; user: { id: string; email: string; fullName: string } | null; gateway: { name: string } | null },
+    status: TransactionStatus,
+    detail?: string,
+  ) {
+    if (!this.emails || !deposit.user) return;
+    const finalFailure = status === TransactionStatus.FAILED || status === TransactionStatus.REJECTED || status === TransactionStatus.CANCELLED;
+    if (status !== TransactionStatus.COMPLETED && !finalFailure) return;
+    const owner = await this.prisma.user.findUnique({ where: { id: deposit.user.id }, select: { status: true } });
+    if (!owner || owner.status === 'DELETED') return;
+    const data = {
+      amount: Number(deposit.amount),
+      currency: deposit.currency,
+      method: deposit.gateway?.name || 'M-Pesa',
+      transactionId: status === TransactionStatus.COMPLETED ? deposit.externalRef || deposit.id : deposit.id,
+      dateTime: `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(deposit.updatedAt)} EAT`,
+    };
+    try {
+      if (status === TransactionStatus.COMPLETED) {
+        await this.emails.sendDepositSuccessfulEmail(deposit.user.email, data, { userId: deposit.user.id, dedupeKey: `deposit-completed:${deposit.id}` });
+      } else {
+        await this.emails.sendDepositFailedEmail(
+          deposit.user.email,
+          { ...data, reason: (detail || 'The payment was not completed').slice(0, 180) },
+          { userId: deposit.user.id, dedupeKey: `deposit-failed:${deposit.id}` },
+        );
+      }
+    } catch {
+      // Recorded by EmailsService; the deposit status stands.
+    }
   }
 }

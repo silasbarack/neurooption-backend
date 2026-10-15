@@ -35,7 +35,7 @@ export declare class MpesaService {
     isConfigured(): boolean;
     configSummary(): {
         configured: boolean;
-        environment: "sandbox" | "production";
+        environment: "production" | "sandbox";
         shortcode: string;
         transactionType: string;
         minAmount: number;

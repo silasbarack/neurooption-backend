@@ -32,6 +32,22 @@ export class UsersController {
     }
   }
 
+  /** The signed-in user's own profile (used by the Profile page). */
+  @Get('profile')
+  async profile(@Req() req: AuthenticatedRequest) {
+    return this.usersService.getMe(req.user.id);
+  }
+
+  @Patch('profile')
+  async updateProfile(@Req() req: AuthenticatedRequest, @Body() payload: UpdateUserPayload) {
+    return this.usersService.updateMe(req.user.id, payload);
+  }
+
+  @Patch('password')
+  async changePassword(@Req() req: AuthenticatedRequest, @Body() payload: { currentPassword?: string; newPassword?: string }) {
+    return this.usersService.changePassword(req.user.id, payload);
+  }
+
   @Get()
   @UseGuards(AdminGuard)
   async findAll() {
