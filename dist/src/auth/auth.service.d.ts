@@ -71,6 +71,7 @@ export declare class AuthService {
         message: string;
     }>;
     private issueVerificationLink;
+    private discardUnsentLink;
     verifyEmail(payload: {
         token?: string;
     }): Promise<{

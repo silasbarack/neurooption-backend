@@ -196,6 +196,7 @@ export class AuthService {
         this.getUserDisplayName(user),
         { userId: user.id, verifyUrl },
       );
+      if (!emailSent) await this.discardUnsentLink(verifyUrl);
     } catch (error) {
       this.logger.error('Resend welcome email failed', error as Error);
     }
@@ -272,6 +273,7 @@ export class AuthService {
         this.getUserDisplayName(user),
         { userId: user.id, verifyUrl },
       );
+      if (!welcomeEmailSent) await this.discardUnsentLink(verifyUrl);
     } catch (error) {
       this.logger.error('Welcome email send failed', error as Error);
     }
@@ -491,6 +493,14 @@ export class AuthService {
     return this.emailsService.appUrl(`/verify-email?token=${encodeURIComponent(token)}`);
   }
 
+  /** A link whose email was never accepted must not count against the resend limit. */
+  private async discardUnsentLink(verifyUrl?: string) {
+    const token = verifyUrl?.match(/[?&]token=([A-Za-z0-9_-]+)/)?.[1];
+    if (!token) return;
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await this.prisma.emailVerificationToken.deleteMany({ where: { tokenHash, usedAt: null } }).catch(() => undefined);
+  }
+
   async verifyEmail(payload: { token?: string }) {
     const token = String(payload?.token || '').trim();
     if (token.length < 20 || token.length > 200) {
@@ -536,6 +546,7 @@ export class AuthService {
 
     const verifyUrl = await this.issueVerificationLink(userId);
     const emailSent = await this.emailsService.sendEmailVerificationEmail(user.email, this.getUserDisplayName(user), verifyUrl, { userId });
+    if (!emailSent) await this.discardUnsentLink(verifyUrl);
     return {
       success: emailSent,
       emailSent,

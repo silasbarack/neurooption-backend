@@ -115,6 +115,17 @@ describeDb('email delivery pipeline (Brevo mocked)', () => {
     await expect(auth.verifyEmail({ token: `expired-token-${tag}` })).rejects.toThrow('expired');
   });
 
+  it('a link whose email failed does not block an immediate resend', async () => {
+    const auth = new AuthService(prisma as never, { sign: () => 'jwt' } as never, emails, {} as never);
+    responder = () => ({ status: 400, body: { message: 'invalid' } });
+    const email = `reg-fail-${tag}@test.example`;
+    expect((await auth.register({ email, password: 'pw-123456', fullName: 'Fail First' })).welcomeEmailSent).toBe(false);
+    const user = await prisma.user.findUnique({ where: { email } });
+    expect(await prisma.emailVerificationToken.count({ where: { userId: user!.id } })).toBe(0);
+    responder = () => ({ status: 201, body: { messageId: `<later-${tag}@smtp-relay.brevo.com>` } });
+    expect(await auth.resendVerification(user!.id)).toMatchObject({ emailSent: true });
+  });
+
   it('password reset: code email is sensitive (never stored); confirmation includes the time and no password', async () => {
     const auth = new AuthService(prisma as never, { sign: () => 'jwt' } as never, emails, {} as never);
     const user = await newUser('reset');

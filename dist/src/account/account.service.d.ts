@@ -15,6 +15,7 @@ export declare class AccountService {
         status: import(".prisma/client").$Enums.AccountStatus;
         kycStatus: import(".prisma/client").$Enums.KycStatus;
         verified: boolean;
+        emailVerified: boolean;
         memberSince: Date;
         profile: {
             completion: number;

@@ -138,6 +138,8 @@ let AuthService = AuthService_1 = class AuthService {
         try {
             const verifyUrl = user.emailVerifiedAt ? undefined : await this.issueVerificationLink(user.id);
             emailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user), { userId: user.id, verifyUrl });
+            if (!emailSent)
+                await this.discardUnsentLink(verifyUrl);
         }
         catch (error) {
             this.logger.error('Resend welcome email failed', error);
@@ -197,6 +199,8 @@ let AuthService = AuthService_1 = class AuthService {
         try {
             const verifyUrl = await this.issueVerificationLink(user.id);
             welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user), { userId: user.id, verifyUrl });
+            if (!welcomeEmailSent)
+                await this.discardUnsentLink(verifyUrl);
         }
         catch (error) {
             this.logger.error('Welcome email send failed', error);
@@ -357,6 +361,13 @@ let AuthService = AuthService_1 = class AuthService {
         });
         return this.emailsService.appUrl(`/verify-email?token=${encodeURIComponent(token)}`);
     }
+    async discardUnsentLink(verifyUrl) {
+        const token = verifyUrl?.match(/[?&]token=([A-Za-z0-9_-]+)/)?.[1];
+        if (!token)
+            return;
+        const tokenHash = (0, crypto_1.createHash)('sha256').update(token).digest('hex');
+        await this.prisma.emailVerificationToken.deleteMany({ where: { tokenHash, usedAt: null } }).catch(() => undefined);
+    }
     async verifyEmail(payload) {
         const token = String(payload?.token || '').trim();
         if (token.length < 20 || token.length > 200) {
@@ -404,6 +415,8 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.HttpException('Too many verification emails this hour. Please try again later.', common_1.HttpStatus.TOO_MANY_REQUESTS);
         const verifyUrl = await this.issueVerificationLink(userId);
         const emailSent = await this.emailsService.sendEmailVerificationEmail(user.email, this.getUserDisplayName(user), verifyUrl, { userId });
+        if (!emailSent)
+            await this.discardUnsentLink(verifyUrl);
         return {
             success: emailSent,
             emailSent,

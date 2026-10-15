@@ -51,6 +51,7 @@ export class AccountService {
       status: user.status,
       kycStatus: user.kycStatus,
       verified: user.kycStatus === 'APPROVED',
+      emailVerified: Boolean(user.emailVerifiedAt),
       memberSince: user.createdAt,
       profile: { completion, checklist },
       real: {
