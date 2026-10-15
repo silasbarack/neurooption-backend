@@ -467,10 +467,10 @@ export declare class SocialTradingController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
@@ -527,10 +527,10 @@ export declare class SocialTradingController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
@@ -587,10 +587,10 @@ export declare class SocialTradingController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;
@@ -647,10 +647,10 @@ export declare class SocialTradingController {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: import("@prisma/client/runtime/library").Decimal;
             entryPrice: import("@prisma/client/runtime/library").Decimal;
             profitAmount: import("@prisma/client/runtime/library").Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: import("@prisma/client/runtime/library").Decimal;
             exitPrice: import("@prisma/client/runtime/library").Decimal | null;

@@ -8,13 +8,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
+const bcrypt = require("bcrypt");
 const prisma_service_1 = require("../config/prisma.service");
+const emails_service_1 = require("../emails/emails.service");
 let UsersService = class UsersService {
-    constructor(prisma) {
+    constructor(prisma, emails) {
         this.prisma = prisma;
+        this.emails = emails;
     }
     getUserModelFields() {
         const runtimeModel = this.prisma?._runtimeDataModel?.models?.User;
@@ -63,6 +69,9 @@ let UsersService = class UsersService {
         if (!existingUser) {
             throw new common_1.NotFoundException('User account not found.');
         }
+        if (payload.email !== undefined && payload.email.trim().toLowerCase() !== existingUser.email) {
+            throw new common_1.BadRequestException('To change your email address, please contact Support.');
+        }
         const data = {};
         if (this.hasUserField('fullName')) {
             data.fullName =
@@ -96,10 +105,33 @@ let UsersService = class UsersService {
         });
         return this.removePassword(updatedUser);
     }
+    async changePassword(userId, payload) {
+        const current = String(payload?.currentPassword || '');
+        const next = String(payload?.newPassword || '');
+        if (!current || !next)
+            throw new common_1.BadRequestException('Enter your current and new password.');
+        if (next.length < 8 || next.length > 128)
+            throw new common_1.BadRequestException('The new password must be 8 to 128 characters.');
+        if (next === current)
+            throw new common_1.BadRequestException('The new password must be different from the current one.');
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.status === 'DELETED')
+            throw new common_1.NotFoundException('User account not found.');
+        if (!(await bcrypt.compare(current, user.passwordHash)))
+            throw new common_1.UnauthorizedException('Current password is incorrect.');
+        const changedAt = new Date();
+        await this.prisma.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(next, 12) } });
+        const emailSent = this.emails
+            ? await this.emails.sendPasswordChangedEmail(user.email, user.fullName, { userId, changedAt }).catch(() => false)
+            : false;
+        return { success: true, emailSent, message: 'Password changed successfully.' };
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __param(1, (0, common_1.Optional)()),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        emails_service_1.EmailsService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

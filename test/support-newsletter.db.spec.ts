@@ -47,7 +47,7 @@ describeDb('support tickets and newsletter with PostgreSQL', () => {
     await expect(consoleService.replyToTicket(admin, ticket.id, { message: ' ' })).rejects.toThrow('Write a reply');
     const result = await consoleService.replyToTicket(admin, ticket.id, { message: 'Your deposit is now credited.' });
     expect(result).toEqual({ success: true, status: 'PENDING_USER', emailSent: true });
-    expect(emails.sendSupportReplyEmail).toHaveBeenCalledWith(`alice-${tag}@test.example`, 'Alice Client', `Help ${tag}`, 'Your deposit is now credited.', ticket.id);
+    expect(emails.sendSupportReplyEmail).toHaveBeenCalledWith(`alice-${tag}@test.example`, 'Alice Client', `Help ${tag}`, 'Your deposit is now credited.', ticket.id, { userId: expect.any(String) });
 
     const seen = await support.getMine(alice, ticket.id);
     expect(seen.status).toBe('PENDING_USER');

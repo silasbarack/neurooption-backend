@@ -1,18 +1,24 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  Optional,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from '../config/prisma.service';
+import { EmailsService } from '../emails/emails.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class ProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly emails?: EmailsService,
+  ) {}
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -43,14 +49,10 @@ export class ProfileService {
       throw new NotFoundException('User not found');
     }
 
-    if (dto.email && dto.email !== user.email) {
-      const emailExists = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
-
-      if (emailExists) {
-        throw new ConflictException('Email already exists');
-      }
+    // Email changes are not self-service: a stolen session could otherwise
+    // redirect password resets to an attacker's address.
+    if (dto.email && dto.email.trim().toLowerCase() !== user.email) {
+      throw new BadRequestException('To change your email address, please contact Support.');
     }
 
     if (dto.phone && dto.phone !== user.phone) {
@@ -67,7 +69,6 @@ export class ProfileService {
       where: { id: userId },
       data: {
         fullName: dto.fullName,
-        email: dto.email,
         phone: dto.phone,
       },
       include: {
@@ -99,15 +100,20 @@ export class ProfileService {
 
     const passwordHash = await bcrypt.hash(dto.newPassword, 12);
 
+    const changedAt = new Date();
     await this.prisma.user.update({
       where: { id: userId },
       data: {
         passwordHash,
       },
     });
+    const emailSent = this.emails
+      ? await this.emails.sendPasswordChangedEmail(user.email, user.fullName, { userId, changedAt }).catch(() => false)
+      : false;
 
     return {
       message: 'Password changed successfully',
+      emailSent,
     };
   }
 

@@ -51,7 +51,7 @@ export declare class AdminController {
         admin: AdminIdentity;
     }): {
         admin: AdminIdentity;
-        permissions: ("overview" | "users" | "userStatus" | "kyc" | "finance" | "trading" | "support" | "audit" | "team")[];
+        permissions: ("overview" | "users" | "userStatus" | "kyc" | "finance" | "trading" | "support" | "audit" | "emails" | "team")[];
     };
     tradingMonitor(req: {
         admin: AdminIdentity;
@@ -209,8 +209,8 @@ export declare class AdminController {
             payoutPercent: number;
             id: string;
             status: string;
-            accountType: string;
             asset: string;
+            accountType: string;
             side: string;
             entryTime: Date;
         }[];
@@ -227,15 +227,15 @@ export declare class AdminController {
             id: string;
             status: import(".prisma/client").$Enums.TransactionStatus;
             createdAt: Date;
-            currency: string;
             rejectionReason: string;
+            currency: string;
         }[];
         kyc: {
             id: string;
             status: import(".prisma/client").$Enums.KycStatus;
             createdAt: Date;
-            rejectionReason: string;
             documentType: string;
+            rejectionReason: string;
             reviewedAt: Date;
         }[];
         tickets: {
@@ -292,6 +292,7 @@ export declare class AdminController {
     }): Promise<{
         success: boolean;
         status: string;
+        emailSent: boolean;
     }>;
     finance(req: AdminReq, query: Record<string, string>): Promise<{
         kind: string;
@@ -372,6 +373,48 @@ export declare class AdminController {
         success: boolean;
         status: string;
         emailSent: boolean;
+    }>;
+    emailLog(req: AdminReq, query: Record<string, string>): Promise<{
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+        items: {
+            id: string;
+            status: import(".prisma/client").$Enums.EmailStatus;
+            createdAt: Date;
+            subject: string;
+            kind: string;
+            recipient: string;
+            provider: string;
+            attempts: number;
+            nextAttemptAt: Date;
+            lastError: string;
+            lastEvent: string;
+            acceptedAt: Date;
+            deliveredAt: Date;
+        }[];
+        last24h: {
+            [k: string]: number;
+        };
+    }>;
+    emailHealth(req: AdminReq): Promise<{
+        provider: "brevo" | "resend" | "smtp" | "none";
+        sender: string;
+        linksPointTo: string;
+        warnings: string[];
+        brevo: {
+            keyValid: boolean;
+            domain: string;
+            authenticated: boolean | null;
+        };
+        webhookConfigured: boolean;
+    }>;
+    emailTest(req: AdminReq, body: {
+        to?: string;
+    }): Promise<{
+        accepted: boolean;
+        message: string;
     }>;
     auditLog(req: AdminReq, query: Record<string, string>): Promise<{
         total: number;

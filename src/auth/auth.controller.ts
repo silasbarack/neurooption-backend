@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RecaptchaService } from '../security/recaptcha.service';
 import type { AuthenticatedRequest } from '../payments/authenticated-request';
@@ -47,6 +47,19 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   resendWelcome(@Req() req: AuthenticatedRequest) {
     return this.authService.resendWelcomeEmail(req.user.id);
+  }
+
+  @Post('verify-email')
+  @HttpCode(200)
+  verifyEmail(@Body() body: { token?: string }) {
+    return this.authService.verifyEmail(body);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  resendVerification(@Req() req: AuthenticatedRequest) {
+    return this.authService.resendVerification(req.user.id);
   }
 
   @Post('login')

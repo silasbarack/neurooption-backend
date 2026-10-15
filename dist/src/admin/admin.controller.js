@@ -87,6 +87,17 @@ let AdminController = class AdminController {
         this.console.assertCan(req.admin, 'support');
         return this.console.replyToTicket(req.admin, id, body);
     }
+    emailLog(req, query) {
+        this.console.assertCan(req.admin, 'emails');
+        return this.console.listEmails(query);
+    }
+    emailHealth(req) {
+        this.console.assertCan(req.admin, 'emails');
+        return this.console.emailHealth();
+    }
+    emailTest(req, body) {
+        return this.console.sendTestEmail(req.admin, body);
+    }
     auditLog(req, query) {
         this.console.assertCan(req.admin, 'audit');
         return this.console.listAudit(query);
@@ -278,6 +289,34 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "replyTicket", null);
+__decorate([
+    (0, common_1.Get)('console/emails'),
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard),
+    (0, common_1.Header)('Cache-Control', 'private, no-store'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "emailLog", null);
+__decorate([
+    (0, common_1.Get)('console/emails/health'),
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard),
+    (0, common_1.Header)('Cache-Control', 'private, no-store'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "emailHealth", null);
+__decorate([
+    (0, common_1.Post)('console/emails/test'),
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "emailTest", null);
 __decorate([
     (0, common_1.Get)('console/audit'),
     (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard),

@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -7,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomInt } from 'crypto';
+import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
 
@@ -28,6 +30,10 @@ type ForgotPasswordPayload = {
 };
 
 const RESET_REQUEST_COOLDOWN_MS = 60_000;
+const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60_000;
+const VERIFY_RESEND_COOLDOWN_MS = 60_000;
+const VERIFY_RESENDS_PER_HOUR = 5;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESET_ATTEMPT_WINDOW_MS = 15 * 60_000;
 const MAX_RESET_ATTEMPTS = 5;
 
@@ -184,10 +190,13 @@ export class AuthService {
 
     let emailSent = false;
     try {
+      const verifyUrl = user.emailVerifiedAt ? undefined : await this.issueVerificationLink(user.id);
       emailSent = await this.emailsService.sendAccountCreatedEmail(
         user.email,
         this.getUserDisplayName(user),
+        { userId: user.id, verifyUrl },
       );
+      if (!emailSent) await this.discardUnsentLink(verifyUrl);
     } catch (error) {
       this.logger.error('Resend welcome email failed', error as Error);
     }
@@ -209,6 +218,10 @@ export class AuthService {
 
     if (!email || !payload.password) {
       throw new BadRequestException('Email and password are required.');
+    }
+
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+      throw new BadRequestException('Enter a valid email address.');
     }
 
     if (payload.password.length < 6) {
@@ -237,18 +250,30 @@ export class AuthService {
       userData[nameField] = fullName;
     }
 
-    const user = await this.prisma.user.create({
-      data: userData as any,
-    });
+    let user;
+    try {
+      user = await this.prisma.user.create({
+        data: userData as any,
+      });
+    } catch (error) {
+      // Two sign-ups racing for one address: the unique index decides.
+      if ((error as { code?: string }).code === 'P2002') {
+        throw new BadRequestException('An account with this email already exists.');
+      }
+      throw error;
+    }
 
     // Await the provider response so callers can distinguish account creation
     // from email acceptance. A mail failure must never erase the new account.
     let welcomeEmailSent = false;
     try {
+      const verifyUrl = await this.issueVerificationLink(user.id);
       welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(
         user.email,
         this.getUserDisplayName(user),
+        { userId: user.id, verifyUrl },
       );
+      if (!welcomeEmailSent) await this.discardUnsentLink(verifyUrl);
     } catch (error) {
       this.logger.error('Welcome email send failed', error as Error);
     }
@@ -443,12 +468,93 @@ export class AuthService {
       this.emailsService.sendPasswordChangedEmail(
         resetRecord.user.email,
         this.getUserDisplayName(resetRecord.user),
+        { userId: resetRecord.userId, changedAt: new Date() },
       ),
     );
 
     return {
       success: true,
       message: 'Password reset successfully.',
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Email address verification
+  // ---------------------------------------------------------------------------
+
+  /** Creates a one-time link (24 h); only its SHA-256 hash is stored. Older unused links stop working. */
+  private async issueVerificationLink(userId: string): Promise<string> {
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await this.prisma.emailVerificationToken.deleteMany({ where: { userId, usedAt: null } });
+    await this.prisma.emailVerificationToken.create({
+      data: { userId, tokenHash, expiresAt: new Date(Date.now() + VERIFY_TOKEN_TTL_MS) },
+    });
+    return this.emailsService.appUrl(`/verify-email?token=${encodeURIComponent(token)}`);
+  }
+
+  /** A link whose email was never accepted must not count against the resend limit. */
+  private async discardUnsentLink(verifyUrl?: string) {
+    const token = verifyUrl?.match(/[?&]token=([A-Za-z0-9_-]+)/)?.[1];
+    if (!token) return;
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await this.prisma.emailVerificationToken.deleteMany({ where: { tokenHash, usedAt: null } }).catch(() => undefined);
+  }
+
+  async verifyEmail(payload: { token?: string }) {
+    const token = String(payload?.token || '').trim();
+    if (token.length < 20 || token.length > 200) {
+      throw new BadRequestException('This verification link is not valid.');
+    }
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const record = await this.prisma.emailVerificationToken.findUnique({
+      where: { tokenHash },
+      include: { user: { select: { id: true, status: true, emailVerifiedAt: true } } },
+    });
+    if (!record || record.user.status === 'DELETED') {
+      throw new BadRequestException('This verification link is not valid.');
+    }
+    if (record.usedAt) {
+      if (record.user.emailVerifiedAt) return { success: true, alreadyVerified: true, message: 'Your email address is already verified.' };
+      throw new BadRequestException('This verification link has already been used.');
+    }
+    if (record.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('This verification link has expired. Sign in and request a new one.');
+    }
+    const now = new Date();
+    // Mark used only if still unused, so a link works exactly once.
+    const claimed = await this.prisma.emailVerificationToken.updateMany({ where: { id: record.id, usedAt: null }, data: { usedAt: now } });
+    if (claimed.count === 0) throw new BadRequestException('This verification link has already been used.');
+    await this.prisma.user.update({ where: { id: record.userId }, data: { emailVerifiedAt: record.user.emailVerifiedAt ?? now } });
+    await this.prisma.emailVerificationToken.deleteMany({ where: { userId: record.userId, usedAt: null } });
+    return { success: true, alreadyVerified: false, message: 'Thank you. Your email address is verified.' };
+  }
+
+  async resendVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status === 'DELETED') throw new UnauthorizedException('Account unavailable.');
+    if (user.emailVerifiedAt) {
+      return { success: true, emailSent: false, alreadyVerified: true, message: 'Your email address is already verified.' };
+    }
+    const now = Date.now();
+    const [lastMinute, lastHour] = await Promise.all([
+      this.prisma.emailVerificationToken.count({ where: { userId, createdAt: { gt: new Date(now - VERIFY_RESEND_COOLDOWN_MS) } } }),
+      this.prisma.emailMessage.count({ where: { userId, kind: 'email_verification', createdAt: { gt: new Date(now - 60 * 60_000) } } }),
+    ]);
+    if (lastMinute > 0) throw new HttpException('Please wait a minute before requesting another link.', HttpStatus.TOO_MANY_REQUESTS);
+    if (lastHour >= VERIFY_RESENDS_PER_HOUR) throw new HttpException('Too many verification emails this hour. Please try again later.', HttpStatus.TOO_MANY_REQUESTS);
+
+    const verifyUrl = await this.issueVerificationLink(userId);
+    const emailSent = await this.emailsService.sendEmailVerificationEmail(user.email, this.getUserDisplayName(user), verifyUrl, { userId });
+    if (!emailSent) await this.discardUnsentLink(verifyUrl);
+    return {
+      success: emailSent,
+      emailSent,
+      alreadyVerified: false,
+      emailHint: this.maskRecipient(user.email),
+      message: emailSent
+        ? 'Verification email accepted by our email provider. Check your inbox and spam folder; the link works for 24 hours.'
+        : 'We could not send the verification email right now. Please try again shortly.',
     };
   }
 }

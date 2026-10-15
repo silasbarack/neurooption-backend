@@ -8,18 +8,23 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DepositsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../config/prisma.service");
+const emails_service_1 = require("../emails/emails.service");
 const ledger_service_1 = require("../ledger/ledger.service");
 const ledger_types_1 = require("../ledger/ledger.types");
 const LEDGER_CURRENCIES = new Set(Object.values(client_1.AccountCurrency));
 let DepositsService = class DepositsService {
-    constructor(prisma, ledgerService) {
+    constructor(prisma, ledgerService, emails) {
         this.prisma = prisma;
         this.ledgerService = ledgerService;
+        this.emails = emails;
     }
     async create(dto) {
         const user = await this.prisma.user.findUnique({
@@ -116,7 +121,7 @@ let DepositsService = class DepositsService {
             !LEDGER_CURRENCIES.has(deposit.currency)) {
             throw new common_1.BadRequestException(`Currency ${deposit.currency} is not supported by the real-money ledger yet`);
         }
-        return this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
             const updated = await tx.deposit.update({
                 where: { id },
                 data: {
@@ -154,6 +159,8 @@ let DepositsService = class DepositsService {
             }
             return updated;
         });
+        await this.notifyClient(result, dto.status, dto.externalRef);
+        return result;
     }
     async markCompleted(id, externalRef) {
         return this.updateStatus(id, {
@@ -182,11 +189,40 @@ let DepositsService = class DepositsService {
             transaction: true,
         };
     }
+    async notifyClient(deposit, status, detail) {
+        if (!this.emails || !deposit.user)
+            return;
+        const finalFailure = status === client_1.TransactionStatus.FAILED || status === client_1.TransactionStatus.REJECTED || status === client_1.TransactionStatus.CANCELLED;
+        if (status !== client_1.TransactionStatus.COMPLETED && !finalFailure)
+            return;
+        const owner = await this.prisma.user.findUnique({ where: { id: deposit.user.id }, select: { status: true } });
+        if (!owner || owner.status === 'DELETED')
+            return;
+        const data = {
+            amount: Number(deposit.amount),
+            currency: deposit.currency,
+            method: deposit.gateway?.name || 'M-Pesa',
+            transactionId: status === client_1.TransactionStatus.COMPLETED ? deposit.externalRef || deposit.id : deposit.id,
+            dateTime: `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(deposit.updatedAt)} EAT`,
+        };
+        try {
+            if (status === client_1.TransactionStatus.COMPLETED) {
+                await this.emails.sendDepositSuccessfulEmail(deposit.user.email, data, { userId: deposit.user.id, dedupeKey: `deposit-completed:${deposit.id}` });
+            }
+            else {
+                await this.emails.sendDepositFailedEmail(deposit.user.email, { ...data, reason: (detail || 'The payment was not completed').slice(0, 180) }, { userId: deposit.user.id, dedupeKey: `deposit-failed:${deposit.id}` });
+            }
+        }
+        catch {
+        }
+    }
 };
 exports.DepositsService = DepositsService;
 exports.DepositsService = DepositsService = __decorate([
     (0, common_1.Injectable)(),
+    __param(2, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        ledger_service_1.LedgerService])
+        ledger_service_1.LedgerService,
+        emails_service_1.EmailsService])
 ], DepositsService);
 //# sourceMappingURL=deposits.service.js.map

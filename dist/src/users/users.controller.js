@@ -26,6 +26,15 @@ let UsersController = class UsersController {
             throw new common_1.ForbiddenException('You can only access your own account.');
         }
     }
+    async profile(req) {
+        return this.usersService.getMe(req.user.id);
+    }
+    async updateProfile(req, payload) {
+        return this.usersService.updateMe(req.user.id, payload);
+    }
+    async changePassword(req, payload) {
+        return this.usersService.changePassword(req.user.id, payload);
+    }
     async findAll() {
         return this.usersService.findAll();
     }
@@ -45,6 +54,29 @@ let UsersController = class UsersController {
     }
 };
 exports.UsersController = UsersController;
+__decorate([
+    (0, common_1.Get)('profile'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "profile", null);
+__decorate([
+    (0, common_1.Patch)('profile'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateProfile", null);
+__decorate([
+    (0, common_1.Patch)('password'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "changePassword", null);
 __decorate([
     (0, common_1.Get)(),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),

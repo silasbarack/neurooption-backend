@@ -323,6 +323,8 @@ model User {
   email        String  @unique
   phone        String? @unique
   passwordHash String
+  // Set when the owner opens the link in the verification email.
+  emailVerifiedAt DateTime?
 
   role      UserRole      @default(USER)
   status    AccountStatus @default(PENDING_KYC)
@@ -358,6 +360,8 @@ model User {
   masterCopyTrades     CopyTrade[]           @relation("MasterTradeUser")
   followerCopyTrades   CopyTrade[]           @relation("FollowerTradeUser")
   PasswordResetToken   PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  emailMessages        EmailMessage[]
 }
 
 model Admin {
@@ -1201,5 +1205,67 @@ model AssetPayoutHistory {
 
   @@unique([assetSymbol, version])
   @@index([assetSymbol, createdAt])
+  @@index([createdAt])
+}
+
+/// One-time email verification links. Only a SHA-256 hash of the token is stored.
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+enum EmailStatus {
+  /// Waiting for a retry after a temporary provider failure.
+  QUEUED
+  SENDING
+  /// The provider accepted it. Not proof of inbox delivery.
+  ACCEPTED
+  /// The provider reported delivery to the recipient's mail server (webhook).
+  DELIVERED
+  FAILED
+  BOUNCED
+  /// The recipient marked it as spam (webhook).
+  COMPLAINED
+}
+
+/// Every transactional email: delivery status, provider message id and
+/// retry state. Message bodies are kept only while a retry is pending and
+/// never for emails carrying codes or one-time links.
+model EmailMessage {
+  id                String      @id @default(uuid())
+  kind              String
+  /// Stops the same event (e.g. one deposit) from emailing twice.
+  dedupeKey         String?     @unique
+  userId            String?
+  recipient         String
+  subject           String
+  textBody          String?
+  htmlBody          String?
+  retryable         Boolean     @default(false)
+  status            EmailStatus @default(SENDING)
+  provider          String?
+  providerMessageId String?
+  attempts          Int         @default(0)
+  nextAttemptAt     DateTime?
+  lastError         String?
+  lastEvent         String?
+  acceptedAt        DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextAttemptAt])
+  @@index([providerMessageId])
+  @@index([userId])
   @@index([createdAt])
 }

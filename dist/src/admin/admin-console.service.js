@@ -23,6 +23,7 @@ exports.CONSOLE_PERMISSIONS = {
     trading: ['SUPER_ADMIN', 'RISK_ADMIN', 'COMPLIANCE_ADMIN', 'FINANCE_ADMIN'],
     support: ['SUPER_ADMIN', 'SUPPORT_ADMIN'],
     audit: ['SUPER_ADMIN', 'COMPLIANCE_ADMIN'],
+    emails: ['SUPER_ADMIN', 'COMPLIANCE_ADMIN', 'SUPPORT_ADMIN'],
     team: ['SUPER_ADMIN'],
 };
 const USER_STATUSES = ['ACTIVE', 'PENDING_KYC', 'SUSPENDED', 'LOCKED', 'DELETED'];
@@ -301,7 +302,15 @@ let AdminConsoleService = class AdminConsoleService {
             this.prisma.user.update({ where: { id: record.userId }, data: { kycStatus: status } }),
             this.audit(admin, decision === 'APPROVE' ? 'KYC_APPROVED' : 'KYC_REJECTED', 'KYC', id, reason ?? 'Documents approved', { reason }, record.userId),
         ]);
-        return { success: true, status };
+        const user = await this.prisma.user.findUnique({ where: { id: record.userId }, select: { email: true, fullName: true, status: true } });
+        let emailSent = false;
+        if (user && user.status !== 'DELETED') {
+            const options = { userId: record.userId, dedupeKey: `kyc-${status.toLowerCase()}:${id}` };
+            emailSent = status === 'APPROVED'
+                ? await this.emails.sendKycApprovedEmail(user.email, user.fullName, options)
+                : await this.emails.sendKycRejectedEmail(user.email, user.fullName, reason ?? '', options);
+        }
+        return { success: true, status, emailSent };
     }
     async listFinance(query) {
         const { page, limit, skip } = pageOf(query);
@@ -412,8 +421,62 @@ let AdminConsoleService = class AdminConsoleService {
         ]);
         const emailSent = ticket.user.status === 'DELETED'
             ? false
-            : await this.emails.sendSupportReplyEmail(ticket.user.email, ticket.user.fullName, ticket.subject, message, id);
+            : await this.emails.sendSupportReplyEmail(ticket.user.email, ticket.user.fullName, ticket.subject, message, id, { userId: ticket.userId });
         return { success: true, status, emailSent };
+    }
+    async listEmails(query) {
+        const { page, limit, skip } = pageOf(query);
+        const status = oneOf(query.status, ['QUEUED', 'SENDING', 'ACCEPTED', 'DELIVERED', 'FAILED', 'BOUNCED', 'COMPLAINED'], 'email status');
+        const search = searchText(query.search);
+        const kind = (query.kind || '').trim();
+        if (kind.length > 40)
+            throw new common_1.BadRequestException('Invalid email type.');
+        const where = {
+            ...(status ? { status } : {}),
+            ...(kind && kind !== 'all' ? { kind } : {}),
+            ...(search ? { OR: [{ recipient: { contains: search, mode: 'insensitive' } }, { subject: { contains: search, mode: 'insensitive' } }] } : {}),
+        };
+        const since = new Date(Date.now() - DAY);
+        const [total, rows, last24] = await Promise.all([
+            this.prisma.emailMessage.count({ where }),
+            this.prisma.emailMessage.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+                select: { id: true, kind: true, recipient: true, subject: true, status: true, provider: true, attempts: true, lastError: true, lastEvent: true, acceptedAt: true, deliveredAt: true, nextAttemptAt: true, createdAt: true },
+            }),
+            this.prisma.emailMessage.groupBy({ by: ['status'], where: { createdAt: { gte: since } }, _count: { _all: true } }),
+        ]);
+        return {
+            total, page, limit, pages: Math.ceil(total / limit), items: rows,
+            last24h: Object.fromEntries(last24.map((r) => [r.status, r._count._all])),
+        };
+    }
+    async emailHealth() {
+        const provider = this.emails.currentProvider();
+        const brevo = provider === 'brevo' ? await this.emails.checkBrevoAccount() : null;
+        return {
+            provider,
+            sender: this.emails.senderAddress(),
+            linksPointTo: this.emails.appUrl('/'),
+            warnings: this.emails.configurationWarnings(),
+            brevo,
+            webhookConfigured: (process.env.BREVO_WEBHOOK_TOKEN || '').trim().length >= 24,
+        };
+    }
+    async sendTestEmail(admin, body) {
+        const to = String(body?.to || '').trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to) || to.length > 254)
+            throw new common_1.BadRequestException('Enter a valid email address.');
+        const accepted = await this.emails.sendDeliveryTestEmail(to);
+        await this.audit(admin, 'EMAIL_TEST_SENT', 'EMAIL', to, accepted ? 'Test email accepted by the provider' : 'Test email was not accepted');
+        return {
+            accepted,
+            message: accepted
+                ? 'Accepted by the email provider. Check that inbox (and spam). Acceptance is not proof of delivery; the log below updates if delivery events are configured.'
+                : 'The provider did not accept the test email. See the email log for the reason.',
+        };
     }
     async listAudit(query) {
         const { page, limit, skip } = pageOf(query);

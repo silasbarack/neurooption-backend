@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProfileController = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const change_password_dto_1 = require("./dto/change-password.dto");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
 const profile_service_1 = require("./profile.service");
@@ -21,42 +22,53 @@ let ProfileController = class ProfileController {
     constructor(profileService) {
         this.profileService = profileService;
     }
-    getProfile(userId) {
+    assertSelf(req, userId) {
+        if (req.user?.id !== userId)
+            throw new common_1.ForbiddenException('You can only access your own account.');
+    }
+    getProfile(req, userId) {
+        this.assertSelf(req, userId);
         return this.profileService.getProfile(userId);
     }
-    updateProfile(userId, dto) {
+    updateProfile(req, userId, dto) {
+        this.assertSelf(req, userId);
         return this.profileService.updateProfile(userId, dto);
     }
-    changePassword(userId, dto) {
+    changePassword(req, userId, dto) {
+        this.assertSelf(req, userId);
         return this.profileService.changePassword(userId, dto);
     }
 };
 exports.ProfileController = ProfileController;
 __decorate([
     (0, common_1.Get)(':userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ProfileController.prototype, "getProfile", null);
 __decorate([
     (0, common_1.Patch)(':userId'),
-    __param(0, (0, common_1.Param)('userId')),
-    __param(1, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_profile_dto_1.UpdateProfileDto]),
+    __metadata("design:paramtypes", [Object, String, update_profile_dto_1.UpdateProfileDto]),
     __metadata("design:returntype", void 0)
 ], ProfileController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.Patch)(':userId/password'),
-    __param(0, (0, common_1.Param)('userId')),
-    __param(1, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, change_password_dto_1.ChangePasswordDto]),
+    __metadata("design:paramtypes", [Object, String, change_password_dto_1.ChangePasswordDto]),
     __metadata("design:returntype", void 0)
 ], ProfileController.prototype, "changePassword", null);
 exports.ProfileController = ProfileController = __decorate([
     (0, common_1.Controller)('profile'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [profile_service_1.ProfileService])
 ], ProfileController);
 //# sourceMappingURL=profile.controller.js.map

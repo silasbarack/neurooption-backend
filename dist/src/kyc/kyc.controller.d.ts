@@ -13,16 +13,16 @@ export declare class KycController {
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
         frontImageUrl: string | null;
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedByAdminId: string | null;
+        rejectionReason: string | null;
         reviewedAt: Date | null;
+        userId: string;
+        reviewedByAdminId: string | null;
     }>;
     findAll(): Promise<({
         user: {
@@ -37,16 +37,16 @@ export declare class KycController {
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
         frontImageUrl: string | null;
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedByAdminId: string | null;
+        rejectionReason: string | null;
         reviewedAt: Date | null;
+        userId: string;
+        reviewedByAdminId: string | null;
     })[]>;
     pending(): Promise<({
         user: {
@@ -61,16 +61,16 @@ export declare class KycController {
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
         frontImageUrl: string | null;
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedByAdminId: string | null;
+        rejectionReason: string | null;
         reviewedAt: Date | null;
+        userId: string;
+        reviewedByAdminId: string | null;
     })[]>;
     findOne(id: string): Promise<{
         user: {
@@ -85,47 +85,47 @@ export declare class KycController {
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
         frontImageUrl: string | null;
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedByAdminId: string | null;
+        rejectionReason: string | null;
         reviewedAt: Date | null;
+        userId: string;
+        reviewedByAdminId: string | null;
     }>;
     approve(id: string, dto: ReviewKycDto): Promise<{
         id: string;
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
         frontImageUrl: string | null;
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedByAdminId: string | null;
+        rejectionReason: string | null;
         reviewedAt: Date | null;
+        userId: string;
+        reviewedByAdminId: string | null;
     }>;
     reject(id: string, dto: ReviewKycDto): Promise<{
         id: string;
         status: import(".prisma/client").$Enums.KycStatus;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
-        rejectionReason: string | null;
         documentType: string;
         documentNumber: string | null;
         frontImageUrl: string | null;
         backImageUrl: string | null;
         selfieImageUrl: string | null;
         addressProofUrl: string | null;
-        reviewedByAdminId: string | null;
+        rejectionReason: string | null;
         reviewedAt: Date | null;
+        userId: string;
+        reviewedByAdminId: string | null;
     }>;
 }

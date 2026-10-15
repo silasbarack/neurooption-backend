@@ -70,5 +70,27 @@ export declare class AuthService {
         success: boolean;
         message: string;
     }>;
+    private issueVerificationLink;
+    private discardUnsentLink;
+    verifyEmail(payload: {
+        token?: string;
+    }): Promise<{
+        success: boolean;
+        alreadyVerified: boolean;
+        message: string;
+    }>;
+    resendVerification(userId: string): Promise<{
+        success: boolean;
+        emailSent: boolean;
+        alreadyVerified: boolean;
+        message: string;
+        emailHint?: undefined;
+    } | {
+        success: boolean;
+        emailSent: boolean;
+        alreadyVerified: boolean;
+        emailHint: string;
+        message: string;
+    }>;
 }
 export {};

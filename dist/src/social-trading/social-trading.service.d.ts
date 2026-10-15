@@ -468,10 +468,10 @@ export declare class SocialTradingService {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             profitAmount: Prisma.Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
@@ -528,10 +528,10 @@ export declare class SocialTradingService {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             profitAmount: Prisma.Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
@@ -588,10 +588,10 @@ export declare class SocialTradingService {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             profitAmount: Prisma.Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
@@ -648,10 +648,10 @@ export declare class SocialTradingService {
             id: string;
             status: import(".prisma/client").$Enums.TradeStatus;
             userId: string;
+            direction: import(".prisma/client").$Enums.TradeDirection;
             stakeAmount: Prisma.Decimal;
             entryPrice: Prisma.Decimal;
             profitAmount: Prisma.Decimal;
-            direction: import(".prisma/client").$Enums.TradeDirection;
             expiresAt: Date;
             payoutRate: Prisma.Decimal;
             exitPrice: Prisma.Decimal | null;
