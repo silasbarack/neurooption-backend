@@ -20,14 +20,14 @@ export declare class AuditLogsController {
         id: string;
         createdAt: Date;
         userId: string | null;
-        description: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     }>;
     findAll(): Promise<({
         user: {
@@ -46,14 +46,14 @@ export declare class AuditLogsController {
         id: string;
         createdAt: Date;
         userId: string | null;
-        description: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
     findOne(id: string): Promise<{
         user: {
@@ -72,14 +72,14 @@ export declare class AuditLogsController {
         id: string;
         createdAt: Date;
         userId: string | null;
-        description: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     }>;
     findByUser(userId: string): Promise<({
         user: {
@@ -98,14 +98,14 @@ export declare class AuditLogsController {
         id: string;
         createdAt: Date;
         userId: string | null;
-        description: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
     findByAdmin(adminId: string): Promise<({
         user: {
@@ -124,14 +124,14 @@ export declare class AuditLogsController {
         id: string;
         createdAt: Date;
         userId: string | null;
-        description: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
     findByTarget(targetType: string, targetId: string): Promise<({
         user: {
@@ -150,13 +150,13 @@ export declare class AuditLogsController {
         id: string;
         createdAt: Date;
         userId: string | null;
-        description: string | null;
-        adminId: string | null;
         action: string;
         targetType: string;
         targetId: string | null;
+        description: string | null;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
         ipAddress: string | null;
         userAgent: string | null;
+        adminId: string | null;
     })[]>;
 }

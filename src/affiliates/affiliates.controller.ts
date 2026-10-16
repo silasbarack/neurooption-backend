@@ -5,7 +5,11 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
 import { AffiliatesService } from './affiliates.service';
 import { CreateAffiliateCommissionDto } from './dto/create-affiliate-commission.dto';
@@ -13,6 +17,8 @@ import { CreateAffiliateDto } from './dto/create-affiliate.dto';
 import { UpdateAffiliateDto } from './dto/update-affiliate.dto';
 import { UpdateCommissionStatusDto } from './dto/update-commission-status.dto';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('affiliates')
 export class AffiliatesController {
   constructor(private readonly affiliatesService: AffiliatesService) {}

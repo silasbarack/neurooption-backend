@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationsController = void 0;
 const common_1 = require("@nestjs/common");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 const create_notification_dto_1 = require("./dto/create-notification.dto");
 const update_notification_status_dto_1 = require("./dto/update-notification-status.dto");
 const notifications_service_1 = require("./notifications.service");
@@ -94,6 +96,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "updateStatus", null);
 exports.NotificationsController = NotificationsController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('notifications'),
     __metadata("design:paramtypes", [notifications_service_1.NotificationsService])
 ], NotificationsController);

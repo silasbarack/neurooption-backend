@@ -5,7 +5,11 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
 import { CreateCopyTradeDto } from './dto/create-copy-trade.dto';
 import { CreateSocialFollowDto } from './dto/create-social-follow.dto';
@@ -13,6 +17,8 @@ import { UpdateCopyTradeDto } from './dto/update-copy-trade.dto';
 import { UpdateSocialFollowDto } from './dto/update-social-follow.dto';
 import { SocialTradingService } from './social-trading.service';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('social-trading')
 export class SocialTradingController {
   constructor(private readonly service: SocialTradingService) {}
