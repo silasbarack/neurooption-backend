@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const expiries_service_1 = require("./expiries.service");
 const create_expiry_dto_1 = require("./dto/create-expiry.dto");
 const update_expiry_dto_1 = require("./dto/update-expiry.dto");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 let ExpiriesController = class ExpiriesController {
     constructor(expiriesService) {
         this.expiriesService = expiriesService;
@@ -83,6 +85,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ExpiriesController.prototype, "remove", null);
 exports.ExpiriesController = ExpiriesController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('expiries'),
     __metadata("design:paramtypes", [expiries_service_1.ExpiriesService])
 ], ExpiriesController);

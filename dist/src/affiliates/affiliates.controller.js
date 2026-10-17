@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AffiliatesController = void 0;
 const common_1 = require("@nestjs/common");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 const affiliates_service_1 = require("./affiliates.service");
 const create_affiliate_commission_dto_1 = require("./dto/create-affiliate-commission.dto");
 const create_affiliate_dto_1 = require("./dto/create-affiliate.dto");
@@ -127,6 +129,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AffiliatesController.prototype, "payCommission", null);
 exports.AffiliatesController = AffiliatesController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('affiliates'),
     __metadata("design:paramtypes", [affiliates_service_1.AffiliatesService])
 ], AffiliatesController);

@@ -1,8 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CreateOtcSymbolDto } from './dto/create-otc-symbol.dto';
 import { UpdateOtcSymbolDto } from './dto/update-otc-symbol.dto';
 import { OtcMarketsService } from './otc-markets.service';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('otc-markets')
 export class OtcMarketsController {
   constructor(private readonly otcMarketsService: OtcMarketsService) {}

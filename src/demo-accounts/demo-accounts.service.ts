@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { AccountCurrency, AccountType } from '@prisma/client';
 
 import { TradingAccountsService } from '../trading-accounts/trading-accounts.service';
@@ -31,6 +31,12 @@ export class DemoAccountsService {
       AccountType.DEMO,
       dto,
     );
+  }
+
+  /** Throws unless the trading account belongs to the given user. */
+  async assertOwnedBy(accountId: string, userId: string) {
+    const account = await this.tradingAccountsService.findOne(accountId);
+    if (account.userId !== userId) throw new ForbiddenException('You can only access your own account.');
   }
 
   reset(accountId: string) {

@@ -18,6 +18,8 @@ const calculate_payout_dto_1 = require("./dto/calculate-payout.dto");
 const create_payout_dto_1 = require("./dto/create-payout.dto");
 const update_asset_payout_dto_1 = require("./dto/update-asset-payout.dto");
 const payouts_service_1 = require("./payouts.service");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 let PayoutsController = class PayoutsController {
     constructor(payoutsService) {
         this.payoutsService = payoutsService;
@@ -94,6 +96,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], PayoutsController.prototype, "findOne", null);
 exports.PayoutsController = PayoutsController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('payouts'),
     __metadata("design:paramtypes", [payouts_service_1.PayoutsService])
 ], PayoutsController);

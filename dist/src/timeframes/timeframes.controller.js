@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const timeframes_service_1 = require("./timeframes.service");
 const create_timeframe_dto_1 = require("./dto/create-timeframe.dto");
 const update_timeframe_dto_1 = require("./dto/update-timeframe.dto");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 let TimeframesController = class TimeframesController {
     constructor(timeframesService) {
         this.timeframesService = timeframesService;
@@ -83,6 +85,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TimeframesController.prototype, "remove", null);
 exports.TimeframesController = TimeframesController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('timeframes'),
     __metadata("design:paramtypes", [timeframes_service_1.TimeframesService])
 ], TimeframesController);

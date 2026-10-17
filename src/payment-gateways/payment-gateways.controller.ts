@@ -5,13 +5,18 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { PaymentGatewayType } from '@prisma/client';
 
 import { CreatePaymentGatewayDto } from './dto/create-payment-gateway.dto';
 import { UpdatePaymentGatewayDto } from './dto/update-payment-gateway.dto';
 import { PaymentGatewaysService } from './payment-gateways.service';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('payment-gateways')
 export class PaymentGatewaysController {
   constructor(private readonly service: PaymentGatewaysService) {}

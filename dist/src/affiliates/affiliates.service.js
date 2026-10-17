@@ -210,7 +210,7 @@ let AffiliatesService = class AffiliatesService {
             user: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -224,7 +224,7 @@ let AffiliatesService = class AffiliatesService {
             affiliateUser: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -232,7 +232,7 @@ let AffiliatesService = class AffiliatesService {
             referredUser: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },

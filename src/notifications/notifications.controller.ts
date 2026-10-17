@@ -5,12 +5,18 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
+
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationStatusDto } from './dto/update-notification-status.dto';
 import { NotificationsService } from './notifications.service';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('notifications')
 export class NotificationsController {
   constructor(

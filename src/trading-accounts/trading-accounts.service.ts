@@ -242,7 +242,7 @@ export class TradingAccountsService {
       user: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },

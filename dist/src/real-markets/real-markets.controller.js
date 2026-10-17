@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const create_real_symbol_dto_1 = require("./dto/create-real-symbol.dto");
 const update_real_symbol_dto_1 = require("./dto/update-real-symbol.dto");
 const real_markets_service_1 = require("./real-markets.service");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 let RealMarketsController = class RealMarketsController {
     constructor(realMarketsService) {
         this.realMarketsService = realMarketsService;
@@ -83,6 +85,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], RealMarketsController.prototype, "remove", null);
 exports.RealMarketsController = RealMarketsController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('real-markets'),
     __metadata("design:paramtypes", [real_markets_service_1.RealMarketsService])
 ], RealMarketsController);

@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuditLogsController = void 0;
 const common_1 = require("@nestjs/common");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 const audit_logs_service_1 = require("./audit-logs.service");
 const create_audit_log_dto_1 = require("./dto/create-audit-log.dto");
 let AuditLogsController = class AuditLogsController {
@@ -83,6 +85,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuditLogsController.prototype, "findByTarget", null);
 exports.AuditLogsController = AuditLogsController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('audit-logs'),
     __metadata("design:paramtypes", [audit_logs_service_1.AuditLogsService])
 ], AuditLogsController);

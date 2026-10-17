@@ -228,7 +228,7 @@ let SocialTradingService = class SocialTradingService {
             follower: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -236,7 +236,7 @@ let SocialTradingService = class SocialTradingService {
             trader: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -250,7 +250,7 @@ let SocialTradingService = class SocialTradingService {
             masterUser: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
@@ -258,7 +258,7 @@ let SocialTradingService = class SocialTradingService {
             followerUser: {
                 select: {
                     id: true,
-                    fullname: true,
+                    fullName: true,
                     email: true,
                     phone: true,
                 },
