@@ -270,7 +270,7 @@ export class SocialTradingService {
       follower: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -278,7 +278,7 @@ export class SocialTradingService {
       trader: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -293,7 +293,7 @@ export class SocialTradingService {
       masterUser: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -301,7 +301,7 @@ export class SocialTradingService {
       followerUser: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },

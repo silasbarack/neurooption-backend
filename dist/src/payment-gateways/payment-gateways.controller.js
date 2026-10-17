@@ -18,6 +18,8 @@ const client_1 = require("@prisma/client");
 const create_payment_gateway_dto_1 = require("./dto/create-payment-gateway.dto");
 const update_payment_gateway_dto_1 = require("./dto/update-payment-gateway.dto");
 const payment_gateways_service_1 = require("./payment-gateways.service");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 let PaymentGatewaysController = class PaymentGatewaysController {
     constructor(service) {
         this.service = service;
@@ -104,6 +106,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], PaymentGatewaysController.prototype, "disable", null);
 exports.PaymentGatewaysController = PaymentGatewaysController = __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Controller)('payment-gateways'),
     __metadata("design:paramtypes", [payment_gateways_service_1.PaymentGatewaysService])
 ], PaymentGatewaysController);

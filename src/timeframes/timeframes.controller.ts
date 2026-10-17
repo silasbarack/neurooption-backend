@@ -1,8 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { TimeframesService } from './timeframes.service';
 import { CreateTimeframeDto, TimeframeCode } from './dto/create-timeframe.dto';
 import { UpdateTimeframeDto } from './dto/update-timeframe.dto';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('timeframes')
 export class TimeframesController {
   constructor(private readonly timeframesService: TimeframesService) {}

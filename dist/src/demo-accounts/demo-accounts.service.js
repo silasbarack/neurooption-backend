@@ -30,6 +30,11 @@ let DemoAccountsService = class DemoAccountsService {
     switchCurrency(userId, dto) {
         return this.tradingAccountsService.switchCurrency(userId, client_1.AccountType.DEMO, dto);
     }
+    async assertOwnedBy(accountId, userId) {
+        const account = await this.tradingAccountsService.findOne(accountId);
+        if (account.userId !== userId)
+            throw new common_1.ForbiddenException('You can only access your own account.');
+    }
     reset(accountId) {
         return this.tradingAccountsService.resetDemoAccount(accountId);
     }

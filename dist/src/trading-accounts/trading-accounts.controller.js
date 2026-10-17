@@ -15,6 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TradingAccountsController = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
+const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const create_trading_account_dto_1 = require("./dto/create-trading-account.dto");
 const switch_account_currency_dto_1 = require("./dto/switch-account-currency.dto");
 const update_trading_account_dto_1 = require("./dto/update-trading-account.dto");
@@ -32,7 +35,9 @@ let TradingAccountsController = class TradingAccountsController {
     findAll() {
         return this.service.findAll();
     }
-    findByUser(userId) {
+    findByUser(req, userId) {
+        if (req.user?.id !== userId)
+            throw new common_1.ForbiddenException('You can only access your own account.');
         return this.service.findByUser(userId);
     }
     findByUserAndType(userId, type) {
@@ -53,6 +58,7 @@ let TradingAccountsController = class TradingAccountsController {
 };
 exports.TradingAccountsController = TradingAccountsController;
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -60,6 +66,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "create", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Post)('default/:userId'),
     __param(0, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
@@ -67,6 +74,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "createDefaultAccounts", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -74,12 +82,15 @@ __decorate([
 ], TradingAccountsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('user/:userId'),
-    __param(0, (0, common_1.Param)('userId')),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "findByUser", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Get)('user/:userId/type/:type'),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Param)('type')),
@@ -88,6 +99,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "findByUserAndType", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -95,6 +107,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "findOne", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Patch)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -103,6 +116,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "update", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Patch)(':id/reset-demo'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -110,6 +124,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], TradingAccountsController.prototype, "resetDemoAccount", null);
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Patch)('user/:userId/:type/switch-currency'),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Param)('type')),

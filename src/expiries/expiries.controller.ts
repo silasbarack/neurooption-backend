@@ -1,8 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ExpiriesService } from './expiries.service';
 import { CreateExpiryDto } from './dto/create-expiry.dto';
 import { UpdateExpiryDto } from './dto/update-expiry.dto';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('expiries')
 export class ExpiriesController {
   constructor(private readonly expiriesService: ExpiriesService) {}

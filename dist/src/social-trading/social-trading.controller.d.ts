@@ -9,15 +9,15 @@ export declare class SocialTradingController {
     followTrader(dto: CreateSocialFollowDto): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -52,15 +52,15 @@ export declare class SocialTradingController {
     findAllFollows(): Promise<({
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -95,15 +95,15 @@ export declare class SocialTradingController {
     findFollowersOfTrader(traderUserId: string): Promise<({
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -138,15 +138,15 @@ export declare class SocialTradingController {
     findTradersFollowedByUser(followerUserId: string): Promise<({
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -181,15 +181,15 @@ export declare class SocialTradingController {
     findFollow(id: string): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -224,15 +224,15 @@ export declare class SocialTradingController {
     updateFollow(id: string, dto: UpdateSocialFollowDto): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -267,15 +267,15 @@ export declare class SocialTradingController {
     pauseFollow(id: string): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -310,15 +310,15 @@ export declare class SocialTradingController {
     resumeFollow(id: string): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -353,15 +353,15 @@ export declare class SocialTradingController {
     stopFollow(id: string): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -396,15 +396,15 @@ export declare class SocialTradingController {
     createCopyTrade(dto: CreateCopyTradeDto): Promise<{
         follower: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         trader: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         copies: {
             id: string;
@@ -453,15 +453,15 @@ export declare class SocialTradingController {
         };
         masterUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         followerUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         masterTrade: {
             id: string;
@@ -513,15 +513,15 @@ export declare class SocialTradingController {
         };
         masterUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         followerUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         masterTrade: {
             id: string;
@@ -573,15 +573,15 @@ export declare class SocialTradingController {
         };
         masterUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         followerUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         masterTrade: {
             id: string;
@@ -633,15 +633,15 @@ export declare class SocialTradingController {
         };
         masterUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         followerUser: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         masterTrade: {
             id: string;

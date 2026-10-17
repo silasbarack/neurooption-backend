@@ -5,13 +5,18 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 
 import { CalculatePayoutDto } from './dto/calculate-payout.dto';
 import { CreatePayoutDto } from './dto/create-payout.dto';
 import { UpdateAssetPayoutDto } from './dto/update-asset-payout.dto';
 import { PayoutsService } from './payouts.service';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('payouts')
 export class PayoutsController {
   constructor(private readonly payoutsService: PayoutsService) {}

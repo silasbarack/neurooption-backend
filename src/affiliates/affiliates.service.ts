@@ -255,7 +255,7 @@ export class AffiliatesService {
       user: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -270,7 +270,7 @@ export class AffiliatesService {
       affiliateUser: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },
@@ -278,7 +278,7 @@ export class AffiliatesService {
       referredUser: {
         select: {
           id: true,
-          fullname: true,
+          fullName: true,
           email: true,
           phone: true,
         },

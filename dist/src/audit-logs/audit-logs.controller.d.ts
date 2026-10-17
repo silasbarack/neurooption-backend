@@ -6,9 +6,9 @@ export declare class AuditLogsController {
     create(dto: CreateAuditLogDto): Promise<{
         user: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         admin: {
             id: string;
@@ -32,9 +32,9 @@ export declare class AuditLogsController {
     findAll(): Promise<({
         user: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         admin: {
             id: string;
@@ -58,9 +58,9 @@ export declare class AuditLogsController {
     findOne(id: string): Promise<{
         user: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         admin: {
             id: string;
@@ -84,9 +84,9 @@ export declare class AuditLogsController {
     findByUser(userId: string): Promise<({
         user: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         admin: {
             id: string;
@@ -110,9 +110,9 @@ export declare class AuditLogsController {
     findByAdmin(adminId: string): Promise<({
         user: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         admin: {
             id: string;
@@ -136,9 +136,9 @@ export declare class AuditLogsController {
     findByTarget(targetType: string, targetId: string): Promise<({
         user: {
             id: string;
+            fullName: string;
             email: string;
             phone: string;
-            fullname: never;
         };
         admin: {
             id: string;

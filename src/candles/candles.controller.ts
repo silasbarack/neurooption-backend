@@ -1,12 +1,23 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CandlesService } from './candles.service';
 import { CreateCandleDto } from './dto/create-candle.dto';
 import { CandleQueryDto } from './dto/candle-query.dto';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
 @Controller('candles')
 export class CandlesController {
   constructor(private readonly candlesService: CandlesService) {}
 
+  /** Writing candles is internal tooling: Super Administrators only. */
+  @UseGuards(AdminSessionGuard, AdminSuperGuard)
   @Post()
   create(@Body() dto: CreateCandleDto) {
     return this.candlesService.create(dto);

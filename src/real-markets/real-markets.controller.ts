@@ -1,8 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CreateRealSymbolDto } from './dto/create-real-symbol.dto';
 import { UpdateRealSymbolDto } from './dto/update-real-symbol.dto';
 import { RealMarketsService } from './real-markets.service';
+import { AdminSessionGuard } from '../admin/admin-session.guard';
+import { AdminSuperGuard } from '../admin/admin-super.guard';
 
+/** Internal tooling only: not used by the client app. Super Administrators only. */
+@UseGuards(AdminSessionGuard, AdminSuperGuard)
 @Controller('real-markets')
 export class RealMarketsController {
   constructor(private readonly realMarketsService: RealMarketsService) {}

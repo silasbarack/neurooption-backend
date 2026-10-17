@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const candles_service_1 = require("./candles.service");
 const create_candle_dto_1 = require("./dto/create-candle.dto");
 const candle_query_dto_1 = require("./dto/candle-query.dto");
+const admin_session_guard_1 = require("../admin/admin-session.guard");
+const admin_super_guard_1 = require("../admin/admin-super.guard");
 let CandlesController = class CandlesController {
     constructor(candlesService) {
         this.candlesService = candlesService;
@@ -36,6 +38,7 @@ let CandlesController = class CandlesController {
 };
 exports.CandlesController = CandlesController;
 __decorate([
+    (0, common_1.UseGuards)(admin_session_guard_1.AdminSessionGuard, admin_super_guard_1.AdminSuperGuard),
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
