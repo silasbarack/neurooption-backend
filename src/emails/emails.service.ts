@@ -125,9 +125,7 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
     const provider = this.getProvider();
 
     if (provider === 'none') {
-      this.logger.warn(
-        'Email is not configured. Check EMAIL_PROVIDER and required credentials for the chosen SMTP/Brevo/Resend provider.',
-      );
+      this.logger.warn(`Email is not configured. ${this.missingConfiguration()}`);
       return;
     }
 
@@ -175,6 +173,28 @@ export class EmailsService implements OnModuleInit, OnModuleDestroy {
       warnings.push('Sending through Gmail SMTP: the sender is a personal Gmail address and delivery is not tracked. Use Brevo with an authenticated domain for reliable delivery.');
     }
     return warnings;
+  }
+
+  /**
+   * Names the variables a provider still needs, so the start-up log shows
+   * the cause. Only variable names are reported, never their values.
+   */
+  missingConfiguration(): string {
+    const requested = this.env('EMAIL_PROVIDER').toLowerCase() || 'auto';
+    const missing = (names: string[]) => names.filter((name) => !this.env(name));
+    const smtpMissing = missing(['SMTP_USER', 'SMTP_PASS']);
+    if (!this.env('SMTP_SERVICE') && !this.env('SMTP_HOST')) smtpMissing.push('SMTP_SERVICE or SMTP_HOST');
+    const needs: Record<string, string[]> = {
+      smtp: smtpMissing,
+      brevo: missing(['BREVO_API_KEY']),
+      resend: missing(['RESEND_API_KEY']),
+    };
+    if (requested === 'auto') {
+      return `EMAIL_PROVIDER is ${this.env('EMAIL_PROVIDER') ? 'auto' : 'not set (auto)'} and no provider is complete: ` +
+        `set BREVO_API_KEY, RESEND_API_KEY, or ${needs.smtp.join(', ')} for SMTP.`;
+    }
+    if (!needs[requested]) return 'EMAIL_PROVIDER must be auto, smtp, brevo or resend.';
+    return `EMAIL_PROVIDER is ${requested} but ${needs[requested].join(', ')} ${needs[requested].length > 1 ? 'are' : 'is'} empty or not set.`;
   }
 
   /** The active provider, for diagnostics. */

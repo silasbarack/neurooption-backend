@@ -27,6 +27,17 @@ describe('email provider setup and privacy', () => {
     expect((new EmailsService() as any).getProvider()).toBe('none');
   });
 
+  it('names the missing variables without echoing any values', () => {
+    for (const k of keys) delete process.env[k];
+    Object.assign(process.env,{EMAIL_PROVIDER:'smtp',SMTP_SERVICE:'gmail',SMTP_USER:'sender@gmail.com'});
+    const message = new EmailsService().missingConfiguration();
+    expect(message).toBe('EMAIL_PROVIDER is smtp but SMTP_PASS is empty or not set.');
+    expect(message).not.toContain('sender@gmail.com');
+
+    delete process.env.EMAIL_PROVIDER;
+    expect(new EmailsService().missingConfiguration()).toContain('not set (auto)');
+  });
+
   it('ignores unverified Gmail From alias by default', () => {
     Object.assign(process.env,{EMAIL_PROVIDER:'smtp',SMTP_SERVICE:'gmail',SMTP_USER:'sender@gmail.com',SMTP_PASS:'pass',EMAIL_FROM:'"NeuroOption" <another@example.com>'});
     expect((new EmailsService() as any).getFromAddress()).toContain('sender@gmail.com');
