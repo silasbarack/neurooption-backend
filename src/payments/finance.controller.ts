@@ -19,5 +19,6 @@ export class FinanceController {
   @Post('withdrawals')
   requestWithdrawal(@Req() req: AuthenticatedRequest, @Body() dto: WithdrawalRequestDto) {
     requireRealMoneyAuthorization();
+    return this.finance.requestWithdrawal(req.user.id, dto.phone, dto.amount);
   }
 }

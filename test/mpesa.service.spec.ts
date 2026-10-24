@@ -198,6 +198,67 @@ describe('MpesaService', () => {
     expect(depositsService.markCompleted).not.toHaveBeenCalled();
   });
 
+  it('records the Daraja environment on the deposit', async () => {
+    mockFetch({
+      '/oauth/v1/generate': { access_token: 'tok', expires_in: '3599' },
+      '/stkpush/v1/processrequest': { CheckoutRequestID: 'ws_CO_1', ResponseCode: '0' },
+    });
+    const { service, prisma } = makeService();
+
+    await service.startDeposit('user-1', '0712345678', 100);
+
+    expect(prisma.deposit.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ gatewayRaw: expect.objectContaining({ environment: 'sandbox' }) }) }),
+    );
+  });
+
+  it('retries the confirmation query once when Daraja does not answer the first one', async () => {
+    const queries = [
+      { fault: { faultstring: 'Spike arrest violation' } },
+      { ResponseCode: '0', ResultCode: '0', ResultDesc: 'Processed successfully' },
+    ];
+    let queryCalls = 0;
+    global.fetch = jest.fn(async (url: string) => {
+      const payload = url.includes('/oauth/')
+        ? { access_token: 'tok', expires_in: '3599' }
+        : queries[Math.min(queryCalls++, queries.length - 1)];
+      return { ok: true, status: 200, text: async () => JSON.stringify(payload) } as unknown as Response;
+    }) as unknown as typeof fetch;
+    const { service, depositsService } = makeService();
+
+    await service.handleCallback({
+      Body: {
+        stkCallback: {
+          CheckoutRequestID: 'ws_CO_1',
+          ResultCode: 0,
+          CallbackMetadata: { Item: [{ Name: 'Amount', Value: 100 }, { Name: 'MpesaReceiptNumber', Value: 'SJK1ABCD23' }] },
+        },
+      },
+    });
+
+    expect(queryCalls).toBe(2);
+    expect(depositsService.markCompleted).toHaveBeenCalledWith('dep-1', 'SJK1ABCD23');
+  });
+
+  it('spaces out status queries to Daraja while the customer is still paying', async () => {
+    const calls = mockFetch({
+      '/oauth/v1/generate': { access_token: 'tok', expires_in: '3599' },
+      '/stkpushquery/v1/query': { errorCode: '500.001.1001', errorMessage: 'The transaction is being processed' },
+    });
+    const { service } = makeService({ createdAt: new Date(Date.now() - 20_000) });
+
+    await service.getDepositStatus('user-1', 'dep-1');
+    await service.getDepositStatus('user-1', 'dep-1');
+
+    expect(calls.filter((c) => c.url.includes('stkpushquery')).length).toBe(1);
+  });
+
+  it('reports M-Pesa as unavailable when real money is switched off', () => {
+    process.env.REAL_MONEY_DISABLED = 'true';
+    const { service } = makeService();
+    expect(service.configSummary().configured).toBe(false);
+  });
+
   it('refuses to start a deposit when M-Pesa is not configured', async () => {
     delete process.env.MPESA_CONSUMER_KEY;
     const { service } = makeService();
