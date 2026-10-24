@@ -1,0 +1,228 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DepositsService = void 0;
+const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
+const prisma_service_1 = require("../config/prisma.service");
+const emails_service_1 = require("../emails/emails.service");
+const ledger_service_1 = require("../ledger/ledger.service");
+const ledger_types_1 = require("../ledger/ledger.types");
+const LEDGER_CURRENCIES = new Set(Object.values(client_1.AccountCurrency));
+let DepositsService = class DepositsService {
+    constructor(prisma, ledgerService, emails) {
+        this.prisma = prisma;
+        this.ledgerService = ledgerService;
+        this.emails = emails;
+    }
+    async create(dto) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: dto.userId },
+        });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const wallet = await this.prisma.wallet.findUnique({
+            where: { id: dto.walletId },
+        });
+        if (!wallet)
+            throw new common_1.NotFoundException('Wallet not found');
+        if (wallet.userId !== dto.userId) {
+            throw new common_1.BadRequestException('Wallet does not belong to user');
+        }
+        const gateway = await this.prisma.paymentGateway.findUnique({
+            where: {
+                type_direction: {
+                    type: dto.gatewayType,
+                    direction: client_1.PaymentDirection.IN,
+                },
+            },
+        });
+        if (!gateway)
+            throw new common_1.NotFoundException('Deposit gateway not found');
+        if (!gateway.isActive) {
+            throw new common_1.BadRequestException('Payment gateway is inactive');
+        }
+        const amount = new client_1.Prisma.Decimal(dto.amount);
+        return this.prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.create({
+                data: {
+                    userId: dto.userId,
+                    walletId: dto.walletId,
+                    type: client_1.TransactionType.DEPOSIT,
+                    status: client_1.TransactionStatus.PENDING,
+                    amount,
+                    reference: `DEP_${Date.now()}`,
+                    description: `Deposit via ${gateway.type}`,
+                },
+            });
+            return tx.deposit.create({
+                data: {
+                    userId: dto.userId,
+                    walletId: dto.walletId,
+                    gatewayId: gateway.id,
+                    transactionId: transaction.id,
+                    amount,
+                    currency: dto.currency ?? wallet.currency,
+                    phone: dto.phone,
+                    status: client_1.TransactionStatus.PENDING,
+                },
+                include: this.includeRelations(),
+            });
+        });
+    }
+    async findAll() {
+        return this.prisma.deposit.findMany({
+            include: this.includeRelations(),
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async findByUser(userId) {
+        return this.prisma.deposit.findMany({
+            where: { userId },
+            include: this.includeRelations(),
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async findOne(id) {
+        const deposit = await this.prisma.deposit.findUnique({
+            where: { id },
+            include: this.includeRelations(),
+        });
+        if (!deposit)
+            throw new common_1.NotFoundException('Deposit not found');
+        return deposit;
+    }
+    async updateStatus(id, dto) {
+        const deposit = await this.prisma.deposit.findUnique({
+            where: { id },
+            include: {
+                transaction: true,
+                wallet: true,
+                gateway: true,
+            },
+        });
+        if (!deposit)
+            throw new common_1.NotFoundException('Deposit not found');
+        if (deposit.status === client_1.TransactionStatus.COMPLETED) {
+            throw new common_1.BadRequestException('Deposit already completed');
+        }
+        if (dto.status === client_1.TransactionStatus.COMPLETED &&
+            !LEDGER_CURRENCIES.has(deposit.currency)) {
+            throw new common_1.BadRequestException(`Currency ${deposit.currency} is not supported by the real-money ledger yet`);
+        }
+        const result = await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.deposit.update({
+                where: { id },
+                data: {
+                    status: dto.status,
+                    externalRef: dto.externalRef,
+                },
+                include: this.includeRelations(),
+            });
+            await tx.transaction.update({
+                where: { id: deposit.transactionId },
+                data: {
+                    status: dto.status,
+                    reference: dto.externalRef ?? deposit.transaction.reference,
+                },
+            });
+            if (dto.status === client_1.TransactionStatus.COMPLETED) {
+                await tx.wallet.update({
+                    where: { id: deposit.walletId },
+                    data: {
+                        balance: {
+                            increment: deposit.amount,
+                        },
+                    },
+                });
+                await this.ledgerService.confirmDeposit({
+                    userId: deposit.userId,
+                    amount: deposit.amount,
+                    currency: deposit.currency,
+                    clearingAccountCode: (0, ledger_types_1.paymentGatewayTypeToClearingAccountCode)(deposit.gateway.type),
+                    idempotencyKey: deposit.id,
+                    depositId: deposit.id,
+                    externalReference: dto.externalRef ?? deposit.externalRef ?? undefined,
+                    description: `Deposit confirmed via ${deposit.gateway.type}`,
+                }, tx);
+            }
+            return updated;
+        });
+        await this.notifyClient(result, dto.status, dto.externalRef);
+        return result;
+    }
+    async markCompleted(id, externalRef) {
+        return this.updateStatus(id, {
+            status: client_1.TransactionStatus.COMPLETED,
+            externalRef,
+        });
+    }
+    async markFailed(id, externalRef) {
+        return this.updateStatus(id, {
+            status: client_1.TransactionStatus.FAILED,
+            externalRef,
+        });
+    }
+    includeRelations() {
+        return {
+            user: {
+                select: {
+                    id: true,
+                    fullName: true,
+                    email: true,
+                    phone: true,
+                },
+            },
+            wallet: true,
+            gateway: true,
+            transaction: true,
+        };
+    }
+    async notifyClient(deposit, status, detail) {
+        if (!this.emails || !deposit.user)
+            return;
+        const finalFailure = status === client_1.TransactionStatus.FAILED || status === client_1.TransactionStatus.REJECTED || status === client_1.TransactionStatus.CANCELLED;
+        if (status !== client_1.TransactionStatus.COMPLETED && !finalFailure)
+            return;
+        const owner = await this.prisma.user.findUnique({ where: { id: deposit.user.id }, select: { status: true } });
+        if (!owner || owner.status === 'DELETED')
+            return;
+        const data = {
+            amount: Number(deposit.amount),
+            currency: deposit.currency,
+            method: deposit.gateway?.name || 'M-Pesa',
+            transactionId: status === client_1.TransactionStatus.COMPLETED ? deposit.externalRef || deposit.id : deposit.id,
+            dateTime: `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Africa/Nairobi' }).format(deposit.updatedAt)} EAT`,
+        };
+        try {
+            if (status === client_1.TransactionStatus.COMPLETED) {
+                await this.emails.sendDepositSuccessfulEmail(deposit.user.email, data, { userId: deposit.user.id, dedupeKey: `deposit-completed:${deposit.id}` });
+            }
+            else {
+                await this.emails.sendDepositFailedEmail(deposit.user.email, { ...data, reason: (detail || 'The payment was not completed').slice(0, 180) }, { userId: deposit.user.id, dedupeKey: `deposit-failed:${deposit.id}` });
+            }
+        }
+        catch {
+        }
+    }
+};
+exports.DepositsService = DepositsService;
+exports.DepositsService = DepositsService = __decorate([
+    (0, common_1.Injectable)(),
+    __param(2, (0, common_1.Optional)()),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        ledger_service_1.LedgerService,
+        emails_service_1.EmailsService])
+], DepositsService);
+//# sourceMappingURL=deposits.service.js.map

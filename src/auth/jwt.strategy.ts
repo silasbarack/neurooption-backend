@@ -1,0 +1,32 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+
+import { PrismaService } from '../config/prisma.service';
+import { getJwtSecret } from '../config/jwt.config';
+
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+  constructor(private readonly prisma: PrismaService) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: getJwtSecret(),
+    });
+  }
+
+  async validate(payload: any) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
+
+    // A deleted account's tokens stop working at once, not when they expire.
+    if (!user || user.status === 'DELETED') {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    const { passwordHash, ...safeUser } = user;
+
+    return safeUser;
+  }
+}

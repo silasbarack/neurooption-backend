@@ -1,0 +1,166 @@
+import type { MarketCategory, OtcAsset } from "./market-data.types";
+
+type AssetSeed = {
+  symbol: string;
+  displayName: string;
+  category: MarketCategory;
+  basePrice: number;
+  precision: number;
+  volatility: number;
+  payout: number;
+};
+
+function asset(seed: AssetSeed): OtcAsset {
+  return {
+    ...seed,
+    market: "OTC",
+  };
+}
+
+const currencies: OtcAsset[] = [
+  asset({ symbol: "AUD/CAD OTC", displayName: "Australian Dollar / Canadian Dollar", category: "Currencies", basePrice: 0.8421, precision: 5, volatility: 0.00022, payout: 92 }),
+  asset({ symbol: "EUR/USD OTC", displayName: "Euro / US Dollar", category: "Currencies", basePrice: 1.1345, precision: 5, volatility: 0.00028, payout: 91 }),
+  asset({ symbol: "USD/JPY OTC", displayName: "US Dollar / Japanese Yen", category: "Currencies", basePrice: 157.28, precision: 3, volatility: 0.045, payout: 88 }),
+  asset({ symbol: "GBP/USD OTC", displayName: "British Pound / US Dollar", category: "Currencies", basePrice: 1.2745, precision: 5, volatility: 0.00032, payout: 90 }),
+  asset({ symbol: "USD/CAD OTC", displayName: "US Dollar / Canadian Dollar", category: "Currencies", basePrice: 1.3722, precision: 5, volatility: 0.00025, payout: 89 }),
+  asset({ symbol: "USD/CHF OTC", displayName: "US Dollar / Swiss Franc", category: "Currencies", basePrice: 0.8944, precision: 5, volatility: 0.00024, payout: 88 }),
+  asset({ symbol: "NZD/USD OTC", displayName: "New Zealand Dollar / US Dollar", category: "Currencies", basePrice: 0.6112, precision: 5, volatility: 0.00021, payout: 87 }),
+  asset({ symbol: "EUR/GBP OTC", displayName: "Euro / British Pound", category: "Currencies", basePrice: 0.8588, precision: 5, volatility: 0.0002, payout: 88 }),
+  asset({ symbol: "EUR/JPY OTC", displayName: "Euro / Japanese Yen", category: "Currencies", basePrice: 178.42, precision: 3, volatility: 0.052, payout: 89 }),
+  asset({ symbol: "GBP/JPY OTC", displayName: "British Pound / Japanese Yen", category: "Currencies", basePrice: 200.35, precision: 3, volatility: 0.065, payout: 90 }),
+  asset({ symbol: "AUD/USD OTC", displayName: "Australian Dollar / US Dollar", category: "Currencies", basePrice: 0.6621, precision: 5, volatility: 0.00023, payout: 89 }),
+  asset({ symbol: "CAD/JPY OTC", displayName: "Canadian Dollar / Japanese Yen", category: "Currencies", basePrice: 114.62, precision: 3, volatility: 0.04, payout: 87 }),
+  asset({ symbol: "CHF/JPY OTC", displayName: "Swiss Franc / Japanese Yen", category: "Currencies", basePrice: 175.85, precision: 3, volatility: 0.047, payout: 86 }),
+  asset({ symbol: "AUD/JPY OTC", displayName: "Australian Dollar / Japanese Yen", category: "Currencies", basePrice: 104.08, precision: 3, volatility: 0.043, payout: 89 }),
+  asset({ symbol: "NZD/JPY OTC", displayName: "New Zealand Dollar / Japanese Yen", category: "Currencies", basePrice: 96.12, precision: 3, volatility: 0.038, payout: 86 }),
+  asset({ symbol: "EUR/AUD OTC", displayName: "Euro / Australian Dollar", category: "Currencies", basePrice: 1.7145, precision: 5, volatility: 0.0004, payout: 88 }),
+  asset({ symbol: "GBP/AUD OTC", displayName: "British Pound / Australian Dollar", category: "Currencies", basePrice: 1.9268, precision: 5, volatility: 0.0005, payout: 89 }),
+  asset({ symbol: "EUR/CAD OTC", displayName: "Euro / Canadian Dollar", category: "Currencies", basePrice: 1.5572, precision: 5, volatility: 0.00036, payout: 88 }),
+  asset({ symbol: "GBP/CAD OTC", displayName: "British Pound / Canadian Dollar", category: "Currencies", basePrice: 1.7485, precision: 5, volatility: 0.00044, payout: 88 }),
+  asset({ symbol: "AUD/NZD OTC", displayName: "Australian Dollar / New Zealand Dollar", category: "Currencies", basePrice: 1.0835, precision: 5, volatility: 0.00022, payout: 86 }),
+  asset({ symbol: "USD/SGD OTC", displayName: "US Dollar / Singapore Dollar", category: "Currencies", basePrice: 1.3512, precision: 5, volatility: 0.0002, payout: 85 }),
+  asset({ symbol: "USD/ZAR OTC", displayName: "US Dollar / South African Rand", category: "Currencies", basePrice: 18.23, precision: 4, volatility: 0.012, payout: 84 }),
+  asset({ symbol: "USD/MXN OTC", displayName: "US Dollar / Mexican Peso", category: "Currencies", basePrice: 18.42, precision: 4, volatility: 0.011, payout: 84 }),
+  asset({ symbol: "USD/TRY OTC", displayName: "US Dollar / Turkish Lira", category: "Currencies", basePrice: 32.85, precision: 4, volatility: 0.018, payout: 83 }),
+  asset({ symbol: "USD/CNH OTC", displayName: "US Dollar / Chinese Yuan Offshore", category: "Currencies", basePrice: 7.255, precision: 4, volatility: 0.003, payout: 85 }),
+];
+
+const cryptos: OtcAsset[] = [
+  asset({ symbol: "Bitcoin OTC", displayName: "Bitcoin", category: "Cryptocurrencies", basePrice: 66420, precision: 2, volatility: 42, payout: 86 }),
+  asset({ symbol: "Ethereum OTC", displayName: "Ethereum", category: "Cryptocurrencies", basePrice: 3520, precision: 2, volatility: 6.8, payout: 85 }),
+  asset({ symbol: "Solana OTC", displayName: "Solana", category: "Cryptocurrencies", basePrice: 148.3, precision: 2, volatility: 0.48, payout: 84 }),
+  asset({ symbol: "BNB OTC", displayName: "BNB", category: "Cryptocurrencies", basePrice: 602.4, precision: 2, volatility: 1.55, payout: 84 }),
+  asset({ symbol: "XRP OTC", displayName: "XRP", category: "Cryptocurrencies", basePrice: 0.512, precision: 4, volatility: 0.0024, payout: 83 }),
+  asset({ symbol: "Cardano OTC", displayName: "Cardano", category: "Cryptocurrencies", basePrice: 0.412, precision: 4, volatility: 0.002, payout: 83 }),
+  asset({ symbol: "Dogecoin OTC", displayName: "Dogecoin", category: "Cryptocurrencies", basePrice: 0.124, precision: 5, volatility: 0.0008, payout: 82 }),
+  asset({ symbol: "Toncoin OTC", displayName: "Toncoin", category: "Cryptocurrencies", basePrice: 6.85, precision: 3, volatility: 0.024, payout: 83 }),
+  asset({ symbol: "Tron OTC", displayName: "Tron", category: "Cryptocurrencies", basePrice: 0.118, precision: 5, volatility: 0.00052, payout: 82 }),
+  asset({ symbol: "Avalanche OTC", displayName: "Avalanche", category: "Cryptocurrencies", basePrice: 29.42, precision: 2, volatility: 0.13, payout: 83 }),
+  asset({ symbol: "Shiba Inu OTC", displayName: "Shiba Inu", category: "Cryptocurrencies", basePrice: 0.000018, precision: 8, volatility: 0.00000012, payout: 82 }),
+  asset({ symbol: "Polkadot OTC", displayName: "Polkadot", category: "Cryptocurrencies", basePrice: 6.12, precision: 3, volatility: 0.025, payout: 82 }),
+  asset({ symbol: "Chainlink OTC", displayName: "Chainlink", category: "Cryptocurrencies", basePrice: 14.25, precision: 2, volatility: 0.055, payout: 83 }),
+  asset({ symbol: "Polygon OTC", displayName: "Polygon", category: "Cryptocurrencies", basePrice: 0.625, precision: 4, volatility: 0.0026, payout: 82 }),
+  asset({ symbol: "Litecoin OTC", displayName: "Litecoin", category: "Cryptocurrencies", basePrice: 72.45, precision: 2, volatility: 0.24, payout: 83 }),
+  asset({ symbol: "Bitcoin Cash OTC", displayName: "Bitcoin Cash", category: "Cryptocurrencies", basePrice: 412.8, precision: 2, volatility: 1.2, payout: 83 }),
+  asset({ symbol: "Stellar OTC", displayName: "Stellar", category: "Cryptocurrencies", basePrice: 0.098, precision: 5, volatility: 0.00045, payout: 82 }),
+  asset({ symbol: "Uniswap OTC", displayName: "Uniswap", category: "Cryptocurrencies", basePrice: 9.45, precision: 3, volatility: 0.038, payout: 82 }),
+  asset({ symbol: "Cosmos OTC", displayName: "Cosmos", category: "Cryptocurrencies", basePrice: 7.08, precision: 3, volatility: 0.028, payout: 82 }),
+  asset({ symbol: "Aptos OTC", displayName: "Aptos", category: "Cryptocurrencies", basePrice: 7.24, precision: 3, volatility: 0.036, payout: 82 }),
+  asset({ symbol: "Near OTC", displayName: "Near Protocol", category: "Cryptocurrencies", basePrice: 5.42, precision: 3, volatility: 0.032, payout: 82 }),
+  asset({ symbol: "Filecoin OTC", displayName: "Filecoin", category: "Cryptocurrencies", basePrice: 4.48, precision: 3, volatility: 0.02, payout: 82 }),
+];
+
+const indices: OtcAsset[] = [
+  asset({ symbol: "US100 OTC", displayName: "Nasdaq 100", category: "Indices", basePrice: 19888.46, precision: 2, volatility: 18, payout: 86 }),
+  asset({ symbol: "US30 OTC", displayName: "Dow Jones 30", category: "Indices", basePrice: 38950.2, precision: 2, volatility: 24, payout: 84 }),
+  asset({ symbol: "US500 OTC", displayName: "S&P 500", category: "Indices", basePrice: 5442.8, precision: 2, volatility: 4.8, payout: 85 }),
+  asset({ symbol: "UK100 OTC", displayName: "FTSE 100", category: "Indices", basePrice: 8245.4, precision: 2, volatility: 6.8, payout: 83 }),
+  asset({ symbol: "Germany40 OTC", displayName: "DAX 40", category: "Indices", basePrice: 18380.2, precision: 2, volatility: 15, payout: 84 }),
+  asset({ symbol: "France40 OTC", displayName: "CAC 40", category: "Indices", basePrice: 7650.5, precision: 2, volatility: 7, payout: 83 }),
+  asset({ symbol: "Spain35 OTC", displayName: "IBEX 35", category: "Indices", basePrice: 11125.6, precision: 2, volatility: 9, payout: 82 }),
+  asset({ symbol: "Italy40 OTC", displayName: "Italy 40", category: "Indices", basePrice: 34210.2, precision: 2, volatility: 28, payout: 82 }),
+  asset({ symbol: "EU50 OTC", displayName: "Euro Stoxx 50", category: "Indices", basePrice: 4910.8, precision: 2, volatility: 4.2, payout: 82 }),
+  asset({ symbol: "Japan225 OTC", displayName: "Nikkei 225", category: "Indices", basePrice: 38550.9, precision: 2, volatility: 35, payout: 83 }),
+  asset({ symbol: "HongKong50 OTC", displayName: "Hang Seng 50", category: "Indices", basePrice: 18110.3, precision: 2, volatility: 22, payout: 82 }),
+  asset({ symbol: "ChinaA50 OTC", displayName: "China A50", category: "Indices", basePrice: 12320.4, precision: 2, volatility: 18, payout: 82 }),
+  asset({ symbol: "Australia200 OTC", displayName: "ASX 200", category: "Indices", basePrice: 7790.6, precision: 2, volatility: 6.5, payout: 82 }),
+  asset({ symbol: "India50 OTC", displayName: "Nifty 50", category: "Indices", basePrice: 23480.7, precision: 2, volatility: 20, payout: 83 }),
+  asset({ symbol: "Singapore30 OTC", displayName: "Singapore 30", category: "Indices", basePrice: 3310.4, precision: 2, volatility: 2.8, payout: 81 }),
+  asset({ symbol: "Netherlands25 OTC", displayName: "Netherlands 25", category: "Indices", basePrice: 920.4, precision: 2, volatility: 0.9, payout: 81 }),
+  asset({ symbol: "Switzerland20 OTC", displayName: "Switzerland 20", category: "Indices", basePrice: 12050.2, precision: 2, volatility: 8.8, payout: 82 }),
+  asset({ symbol: "Sweden30 OTC", displayName: "Sweden 30", category: "Indices", basePrice: 2580.6, precision: 2, volatility: 2.4, payout: 81 }),
+  asset({ symbol: "Norway25 OTC", displayName: "Norway 25", category: "Indices", basePrice: 1350.8, precision: 2, volatility: 1.4, payout: 81 }),
+  asset({ symbol: "Brazil50 OTC", displayName: "Brazil 50", category: "Indices", basePrice: 128500.5, precision: 2, volatility: 110, payout: 82 }),
+  asset({ symbol: "Mexico35 OTC", displayName: "Mexico 35", category: "Indices", basePrice: 54620.7, precision: 2, volatility: 48, payout: 81 }),
+  asset({ symbol: "SouthAfrica40 OTC", displayName: "South Africa 40", category: "Indices", basePrice: 73500.1, precision: 2, volatility: 62, payout: 81 }),
+  asset({ symbol: "DubaiDFM OTC", displayName: "Dubai Financial Market", category: "Indices", basePrice: 4050.2, precision: 2, volatility: 4.1, payout: 80 }),
+  asset({ symbol: "SaudiTASI OTC", displayName: "Saudi TASI", category: "Indices", basePrice: 11850.4, precision: 2, volatility: 10, payout: 80 }),
+  asset({ symbol: "Korea200 OTC", displayName: "Korea 200", category: "Indices", basePrice: 365.4, precision: 2, volatility: 0.42, payout: 80 }),
+  asset({ symbol: "Taiwan50 OTC", displayName: "Taiwan 50", category: "Indices", basePrice: 18850.8, precision: 2, volatility: 16, payout: 81 }),
+  asset({ symbol: "Canada60 OTC", displayName: "Canada 60", category: "Indices", basePrice: 22150.5, precision: 2, volatility: 18, payout: 81 }),
+  asset({ symbol: "Russell2000 OTC", displayName: "Russell 2000", category: "Indices", basePrice: 2025.4, precision: 2, volatility: 2.1, payout: 82 }),
+  asset({ symbol: "Volatility75 OTC", displayName: "Volatility 75", category: "Indices", basePrice: 356000.4, precision: 2, volatility: 430, payout: 78 }),
+];
+
+const stocks: OtcAsset[] = [
+  asset({ symbol: "Tesla OTC", displayName: "Tesla Inc.", category: "Stocks", basePrice: 182.45, precision: 2, volatility: 0.42, payout: 81 }),
+  asset({ symbol: "Apple OTC", displayName: "Apple Inc.", category: "Stocks", basePrice: 214.85, precision: 2, volatility: 0.32, payout: 82 }),
+  asset({ symbol: "Amazon OTC", displayName: "Amazon.com Inc.", category: "Stocks", basePrice: 186.55, precision: 2, volatility: 0.36, payout: 81 }),
+  asset({ symbol: "Microsoft OTC", displayName: "Microsoft Corp.", category: "Stocks", basePrice: 444.2, precision: 2, volatility: 0.68, payout: 82 }),
+  asset({ symbol: "Google OTC", displayName: "Alphabet Inc.", category: "Stocks", basePrice: 176.2, precision: 2, volatility: 0.35, payout: 81 }),
+  asset({ symbol: "Meta OTC", displayName: "Meta Platforms", category: "Stocks", basePrice: 504.8, precision: 2, volatility: 0.86, payout: 81 }),
+  asset({ symbol: "Nvidia OTC", displayName: "Nvidia Corp.", category: "Stocks", basePrice: 128.5, precision: 2, volatility: 0.42, payout: 83 }),
+  asset({ symbol: "Netflix OTC", displayName: "Netflix Inc.", category: "Stocks", basePrice: 654.2, precision: 2, volatility: 1.1, payout: 80 }),
+  asset({ symbol: "Intel OTC", displayName: "Intel Corp.", category: "Stocks", basePrice: 31.25, precision: 2, volatility: 0.08, payout: 79 }),
+  asset({ symbol: "AMD OTC", displayName: "Advanced Micro Devices", category: "Stocks", basePrice: 158.4, precision: 2, volatility: 0.45, payout: 81 }),
+  asset({ symbol: "CocaCola OTC", displayName: "Coca-Cola Co.", category: "Stocks", basePrice: 63.8, precision: 2, volatility: 0.09, payout: 78 }),
+  asset({ symbol: "McDonalds OTC", displayName: "McDonald's Corp.", category: "Stocks", basePrice: 256.4, precision: 2, volatility: 0.28, payout: 79 }),
+  asset({ symbol: "Boeing OTC", displayName: "Boeing Co.", category: "Stocks", basePrice: 182.6, precision: 2, volatility: 0.45, payout: 79 }),
+  asset({ symbol: "JPMorgan OTC", displayName: "JPMorgan Chase", category: "Stocks", basePrice: 198.8, precision: 2, volatility: 0.32, payout: 80 }),
+  asset({ symbol: "Visa OTC", displayName: "Visa Inc.", category: "Stocks", basePrice: 275.5, precision: 2, volatility: 0.3, payout: 80 }),
+  asset({ symbol: "Mastercard OTC", displayName: "Mastercard Inc.", category: "Stocks", basePrice: 456.8, precision: 2, volatility: 0.55, payout: 80 }),
+  asset({ symbol: "Walmart OTC", displayName: "Walmart Inc.", category: "Stocks", basePrice: 67.4, precision: 2, volatility: 0.09, payout: 78 }),
+  asset({ symbol: "ExxonMobil OTC", displayName: "Exxon Mobil Corp.", category: "Stocks", basePrice: 112.2, precision: 2, volatility: 0.2, payout: 79 }),
+  asset({ symbol: "Chevron OTC", displayName: "Chevron Corp.", category: "Stocks", basePrice: 156.8, precision: 2, volatility: 0.24, payout: 79 }),
+  asset({ symbol: "Nike OTC", displayName: "Nike Inc.", category: "Stocks", basePrice: 94.5, precision: 2, volatility: 0.18, payout: 78 }),
+  asset({ symbol: "Alibaba OTC", displayName: "Alibaba Group", category: "Stocks", basePrice: 76.8, precision: 2, volatility: 0.24, payout: 79 }),
+  asset({ symbol: "Toyota OTC", displayName: "Toyota Motor Corp.", category: "Stocks", basePrice: 198.5, precision: 2, volatility: 0.25, payout: 79 }),
+  asset({ symbol: "Sony OTC", displayName: "Sony Group", category: "Stocks", basePrice: 86.4, precision: 2, volatility: 0.16, payout: 78 }),
+  asset({ symbol: "Samsung OTC", displayName: "Samsung Electronics", category: "Stocks", basePrice: 56.8, precision: 2, volatility: 0.12, payout: 78 }),
+  asset({ symbol: "Coinbase OTC", displayName: "Coinbase Global", category: "Stocks", basePrice: 222.4, precision: 2, volatility: 0.85, payout: 80 }),
+];
+
+const commodities: OtcAsset[] = [
+  asset({ symbol: "Gold OTC", displayName: "Gold", category: "Commodities", basePrice: 2328.4, precision: 2, volatility: 1.8, payout: 87 }),
+  asset({ symbol: "Silver OTC", displayName: "Silver", category: "Commodities", basePrice: 29.4, precision: 3, volatility: 0.035, payout: 84 }),
+  asset({ symbol: "Platinum OTC", displayName: "Platinum", category: "Commodities", basePrice: 996.2, precision: 2, volatility: 1.1, payout: 83 }),
+  asset({ symbol: "Palladium OTC", displayName: "Palladium", category: "Commodities", basePrice: 930.4, precision: 2, volatility: 1.4, payout: 82 }),
+  asset({ symbol: "Copper OTC", displayName: "Copper", category: "Commodities", basePrice: 4.52, precision: 4, volatility: 0.006, payout: 82 }),
+  asset({ symbol: "Brent Oil OTC", displayName: "Brent Crude Oil", category: "Commodities", basePrice: 82.75, precision: 2, volatility: 0.12, payout: 84 }),
+  asset({ symbol: "WTI Oil OTC", displayName: "WTI Crude Oil", category: "Commodities", basePrice: 78.45, precision: 2, volatility: 0.13, payout: 84 }),
+  asset({ symbol: "Natural Gas OTC", displayName: "Natural Gas", category: "Commodities", basePrice: 2.76, precision: 4, volatility: 0.007, payout: 82 }),
+  asset({ symbol: "Corn OTC", displayName: "Corn", category: "Commodities", basePrice: 445.4, precision: 2, volatility: 0.45, payout: 80 }),
+  asset({ symbol: "Wheat OTC", displayName: "Wheat", category: "Commodities", basePrice: 612.6, precision: 2, volatility: 0.75, payout: 80 }),
+  asset({ symbol: "Soybeans OTC", displayName: "Soybeans", category: "Commodities", basePrice: 1152.8, precision: 2, volatility: 1.15, payout: 80 }),
+  asset({ symbol: "Coffee OTC", displayName: "Coffee", category: "Commodities", basePrice: 225.5, precision: 2, volatility: 0.38, payout: 80 }),
+  asset({ symbol: "Sugar OTC", displayName: "Sugar", category: "Commodities", basePrice: 19.25, precision: 3, volatility: 0.025, payout: 79 }),
+  asset({ symbol: "Cotton OTC", displayName: "Cotton", category: "Commodities", basePrice: 72.3, precision: 2, volatility: 0.12, payout: 79 }),
+  asset({ symbol: "Cocoa OTC", displayName: "Cocoa", category: "Commodities", basePrice: 8450.4, precision: 2, volatility: 12, payout: 81 }),
+];
+
+export const MARKET_ASSETS: OtcAsset[] = [
+  ...currencies,
+  ...cryptos,
+  ...indices,
+  ...stocks,
+  ...commodities,
+];
+
+export const MARKET_ASSET_COUNTS = {
+  currencies: currencies.length,
+  cryptocurrencies: cryptos.length,
+  indices: indices.length,
+  stocks: stocks.length,
+  commodities: commodities.length,
+  total: MARKET_ASSETS.length,
+};

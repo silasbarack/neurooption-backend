@@ -1,28 +1,46 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { IoAdapter } from '@nestjs/platform-socket.io';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { ValidationPipe } from "@nestjs/common";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.useWebSocketAdapter(new IoAdapter(app));
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    "https://neurooption-frontend.onrender.com",
+    "https://neurooption.com",
+    "https://www.neurooption.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ].filter(Boolean) as string[];
 
-  const config = new DocumentBuilder()
-    .setTitle('NeuroOption API')
-    .setDescription('Binary Options Trading Platform API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
 
-  const port = process.env.PORT || 3001;
-  await app.listen(port);
-  console.log(`🚀 NeuroOption API running on http://localhost:${port}`);
-  console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
+      callback(new Error(`CORS blocked origin: ${origin}`), false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: false,
+    }),
+  );
+
+  const port = Number(process.env.PORT) || 10000;
+
+  await app.listen(port, "0.0.0.0");
+
+  console.log(`NeuroOption backend is running on port ${port}`);
 }
+
 bootstrap();

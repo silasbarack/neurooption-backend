@@ -1,0 +1,163 @@
+import { PrismaService } from '../config/prisma.service';
+import { CreateAuditLogDto } from './dto/create-audit-log.dto';
+export declare class AuditLogsService {
+    private readonly prisma;
+    constructor(prisma: PrismaService);
+    create(dto: CreateAuditLogDto): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            phone: string;
+        };
+        admin: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.AdminRole;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        adminId: string | null;
+    }>;
+    findAll(): Promise<({
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            phone: string;
+        };
+        admin: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.AdminRole;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        adminId: string | null;
+    })[]>;
+    findOne(id: string): Promise<{
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            phone: string;
+        };
+        admin: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.AdminRole;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        adminId: string | null;
+    }>;
+    findByUser(userId: string): Promise<({
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            phone: string;
+        };
+        admin: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.AdminRole;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        adminId: string | null;
+    })[]>;
+    findByAdmin(adminId: string): Promise<({
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            phone: string;
+        };
+        admin: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.AdminRole;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        adminId: string | null;
+    })[]>;
+    findByTarget(targetType: string, targetId: string): Promise<({
+        user: {
+            id: string;
+            fullName: string;
+            email: string;
+            phone: string;
+        };
+        admin: {
+            id: string;
+            fullName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.AdminRole;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        userId: string | null;
+        action: string;
+        targetType: string;
+        targetId: string | null;
+        description: string | null;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
+        userAgent: string | null;
+        adminId: string | null;
+    })[]>;
+    private includeRelations;
+}

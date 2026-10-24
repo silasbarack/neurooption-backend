@@ -1,0 +1,1091 @@
+import { readFileSync } from 'node:fs';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
+import {
+  MARKET_ASSETS,
+  MarketAsset,
+  OtcCandle,
+  TIMEFRAME_SECONDS,
+} from './market-data.constants';
+import { MarketCandlesQueryDto } from './dto/market-candles-query.dto';
+import { MarketStreamService } from './market-stream.service';
+import { PayoutEngineService } from '../payout-engine/payout-engine.service';
+
+type OtcTick = {
+  asset: string;
+  price: number;
+  time: number;
+  serverTime: string;
+};
+
+type MarketRegime =
+  | 'FX_TREND'
+  | 'FX_RANGE'
+  | 'FX_BREAKOUT'
+  | 'FX_REVERSAL'
+  | 'CRYPTO_SPIKE'
+  | 'COMMODITY_SWING'
+  | 'INDEX_GRIND'
+  | 'STOCK_STEP';
+
+type AssetDna = {
+  regime: MarketRegime;
+  direction: number;
+  driftBias: number;
+
+  macroCycle: number;
+  trendCycle: number;
+  swingCycle: number;
+  pullbackCycle: number;
+  chopCycle: number;
+  microCycle: number;
+
+  macroStrength: number;
+  trendStrength: number;
+  swingStrength: number;
+  pullbackStrength: number;
+  chopStrength: number;
+  microStrength: number;
+  noiseStrength: number;
+  impulseStrength: number;
+  wickStrength: number;
+
+  noiseBucketMs: number;
+  impulseCycle: number;
+  stepCycle: number;
+  phaseA: number;
+  phaseB: number;
+  phaseC: number;
+  phaseD: number;
+  phaseE: number;
+};
+
+const HISTORY_SLICE_MS_BASE = 4;
+
+/**
+ * CPU share the container may use (Render's free plan: 0.15), read from the
+ * cgroup; 1 when there is no quota.
+ */
+function cpuQuota(): number {
+  const read = (path: string) => {
+    try {
+      return readFileSync(path, 'utf8').trim();
+    } catch {
+      return null;
+    }
+  };
+  // cgroup v2: "<quota> <period>" or "max <period>".
+  const v2 = read('/sys/fs/cgroup/cpu.max');
+  // cgroup v1: separate files; quota -1 means unlimited.
+  const v1Quota = read('/sys/fs/cgroup/cpu/cpu.cfs_quota_us');
+  const v1Period = read('/sys/fs/cgroup/cpu/cpu.cfs_period_us');
+  const [quota, period] = v2 ? v2.split(/\s+/) : [v1Quota, v1Period];
+  const share = Number(quota) / Number(period);
+  return Number.isFinite(share) && share > 0 && share < 1 ? share : 1;
+}
+
+/**
+ * Pause between history slices. With a small CPU quota, building history
+ * flat out would use up each 100 ms quota period and freeze the stream for the
+ * rest of it, so slices are spaced to use at most half the quota; with no
+ * quota the build only yields so pending ticks go out first.
+ */
+const CPU_QUOTA = cpuQuota();
+const HISTORY_PAUSE_MS =
+  CPU_QUOTA >= 1 ? 0 : Math.ceil(HISTORY_SLICE_MS_BASE * (1 / (CPU_QUOTA * 0.5) - 1));
+
+function pauseForStream() {
+  return new Promise<void>((resolve) =>
+    HISTORY_PAUSE_MS > 0 ? setTimeout(resolve, HISTORY_PAUSE_MS) : setImmediate(resolve),
+  );
+}
+
+/** Asset/timeframe pairs whose closed history candles are cached. */
+const HISTORY_CACHE_KEYS = 60;
+/** Extra candles kept before the requested window, for slightly larger requests. */
+const HISTORY_CACHE_SLACK = 120;
+/** Longest stretch of history building between yields to the event loop. */
+const HISTORY_SLICE_MS = HISTORY_SLICE_MS_BASE;
+
+@Injectable()
+export class MarketDataService implements OnApplicationBootstrap {
+  constructor(
+    private readonly marketStreamService: MarketStreamService,
+    private readonly payoutEngine: PayoutEngineService,
+  ) {
+    new Logger('MarketHistory').log(
+      `CPU quota ${CPU_QUOTA >= 1 ? 'none' : CPU_QUOTA.toFixed(2)}; history slices ${HISTORY_SLICE_MS} ms, pause ${HISTORY_PAUSE_MS} ms`,
+    );
+  }
+  getAssets() {
+    return {
+      serverTime: new Date().toISOString(),
+      categories: this.getCategories(),
+      assets: MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => ({
+        symbol: asset.symbol,
+        label: asset.label,
+        category: asset.category,
+        basePrice: asset.basePrice,
+        precision: asset.precision,
+        payoutBoost: asset.payoutBoost,
+        isActive: asset.isActive,
+        marketType: 'OTC' as const,
+        source: 'neurooption-otc-simulator-v2',
+        ...this.payoutFields(asset.symbol),
+      })),
+    };
+  }
+
+  /** Published payout (60-second reference) and its version. */
+  private payoutFields(symbol: string) {
+    const snapshot = this.payoutEngine.getSnapshot(symbol);
+    return {
+      payout: snapshot?.payoutPercent ?? null,
+      payoutVersion: snapshot?.version ?? null,
+      payoutUpdatedAt: snapshot?.updatedAt ?? null,
+    };
+  }
+
+  /** Every published payout plus the rules the frontend needs to quote. */
+  getPayouts() {
+    return {
+      serverTime: new Date().toISOString(),
+      marketType: 'OTC' as const,
+      note: 'Synthetic OTC markets. Payouts follow measured conditions of the synthetic price engine.',
+      expiryAdjustments: this.payoutEngine.publicConfig().expiryAdjustments,
+      bounds: {
+        minPercent: this.payoutEngine.config.minPercent,
+        maxPercent: this.payoutEngine.config.maxPercent,
+      },
+      payouts: this.payoutEngine.listSnapshots(),
+    };
+  }
+
+  /**
+   * Live price, 24h change and the published payout for every active asset,
+   * for the Markets list. The payout is what the trading engine pays on a
+   * 60-second trade (see payout-engine.config.ts for other expiries).
+   */
+  getQuotes() {
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    return {
+      serverTime: new Date(now).toISOString(),
+      quotes: MARKET_ASSETS.filter((asset) => asset.isActive).map((asset) => {
+        const liveTick = this.marketStreamService.getLatestTick(asset.symbol);
+        const price = this.roundPrice(liveTick.mid, asset.precision);
+        const generatedNow = this.priceAt(asset, now);
+        const historyScale = generatedNow > 0 ? price / generatedNow : 1;
+        const previous = this.priceAt(asset, dayAgo) * historyScale;
+        const changePercent = previous ? ((price - previous) / previous) * 100 : 0;
+
+        return {
+          symbol: asset.symbol,
+          label: asset.label,
+          category: asset.category,
+          precision: asset.precision,
+          price,
+          changePercent: Number(changePercent.toFixed(2)),
+          ...this.payoutFields(asset.symbol),
+        };
+      }),
+    };
+  }
+
+  getCategories() {
+    return Array.from(new Set(MARKET_ASSETS.map((asset) => asset.category)));
+  }
+
+  getTick(assetSymbol: string): OtcTick & Record<string, unknown> {
+    const asset = this.findAsset(assetSymbol);
+    const tick = this.marketStreamService.getLatestTick(asset.symbol);
+
+    return {
+      asset: asset.symbol,
+      price: tick.mid,
+      time: tick.timestamp,
+      serverTime: new Date(tick.serverReceiveTimestamp).toISOString(),
+      bid: tick.bid,
+      ask: tick.ask,
+      mid: tick.mid,
+      timestamp: tick.timestamp,
+      sequence: tick.sequence,
+      source: tick.source,
+      marketType: tick.marketType,
+      serverReceiveTimestamp: tick.serverReceiveTimestamp,
+    };
+  }
+
+  /**
+   * The trading screen opens on EUR/USD M1, so its history is built in the
+   * background at startup (paced like any other request) and the first chart
+   * after a restart loads from the cache.
+   */
+  onApplicationBootstrap() {
+    void this.getCandles({ asset: 'EUR/USD OTC', timeframe: 'M1', limit: 320 }).catch(
+      () => undefined,
+    );
+  }
+
+  /**
+   * Closed historical candles never change, so they are kept per asset and
+   * timeframe and only new ones are built. Bounded to the most recently used
+   * HISTORY_CACHE_KEYS asset/timeframe pairs.
+   */
+  private readonly historyCache = new Map<string, Map<number, OtcCandle>>();
+
+  private historyFor(symbol: string, timeframe: string) {
+    const key = `${symbol}|${timeframe}`;
+    let entry = this.historyCache.get(key);
+    if (entry) {
+      this.historyCache.delete(key);
+    } else {
+      entry = new Map();
+    }
+    this.historyCache.set(key, entry);
+    while (this.historyCache.size > HISTORY_CACHE_KEYS) {
+      const oldest = this.historyCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.historyCache.delete(oldest);
+    }
+    return entry;
+  }
+
+  /**
+   * Builds candle history in short slices and yields between them, so a
+   * cold request never stalls the live price stream (on a small CPU quota a
+   * few hundred candles take long enough to freeze ticks for most of a
+   * second).
+   */
+  async getCandles(query: MarketCandlesQueryDto) {
+    const asset = this.findAsset(query.asset);
+    const timeframe = this.normalizeTimeframe(query.timeframe);
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const intervalMs = timeframeSeconds * 1000;
+    const limit = this.normalizeLimit(query.limit, timeframeSeconds);
+
+    const now = Date.now();
+    const currentCandleStart = Math.floor(now / intervalMs) * intervalMs;
+    const firstStart = currentCandleStart - intervalMs * (limit - 1);
+
+    const candles: OtcCandle[] = [];
+    const history = this.historyFor(asset.symbol, timeframe);
+    let sliceStart = performance.now();
+
+    for (let index = 0; index < limit; index += 1) {
+      const candleStart = firstStart + index * intervalMs;
+      const closed = candleStart + intervalMs <= now;
+      let candle = closed ? history.get(candleStart) : undefined;
+
+      if (!candle) {
+        candle = this.buildCandle(asset, timeframe, candleStart, now);
+        if (closed) history.set(candleStart, candle);
+
+        if (performance.now() - sliceStart > HISTORY_SLICE_MS) {
+          await pauseForStream();
+          sliceStart = performance.now();
+        }
+      }
+
+      // Copied: the prices below are rescaled to the live price.
+      candles.push({ ...candle });
+    }
+
+    for (const time of history.keys()) {
+      if (time < firstStart - intervalMs * HISTORY_CACHE_SLACK) history.delete(time);
+    }
+
+    const aggregator = this.marketStreamService.getCandleAggregator();
+    const recentLive = aggregator.getRecentCandles(
+      asset.symbol,
+      timeframe,
+      limit,
+    );
+
+    const firstLive = recentLive[0];
+    const generatedAnchor = firstLive
+      ? candles.find((candle) => candle.time === firstLive.time)
+      : undefined;
+    const liveTick = firstLive
+      ? undefined
+      : this.marketStreamService.getLatestTick(asset.symbol);
+    const generatedPrice = firstLive
+      ? (generatedAnchor?.open ?? generatedAnchor?.close ?? asset.basePrice)
+      : (candles[candles.length - 1]?.close ?? asset.basePrice);
+    const targetPrice = firstLive?.open ?? liveTick?.mid ?? asset.basePrice;
+    const scale = generatedPrice > 0 ? targetPrice / generatedPrice : 1;
+
+    for (let index = 0; index < candles.length; index += 1) {
+      const candle = candles[index];
+      candle.open = this.roundPrice(candle.open * scale, asset.precision);
+      candle.high = this.roundPrice(candle.high * scale, asset.precision);
+      candle.low = this.roundPrice(candle.low * scale, asset.precision);
+      candle.close = this.roundPrice(candle.close * scale, asset.precision);
+    }
+
+    if (recentLive.length > 0) {
+      const byTime = new Map(candles.map((candle) => [candle.time, candle]));
+
+      for (const live of recentLive) {
+        byTime.set(live.time, {
+          time: live.time,
+          openTime: live.openTime,
+          closeTime: live.closeTime,
+          open: live.open,
+          high: live.high,
+          low: live.low,
+          close: live.close,
+          volume: live.volume,
+        });
+      }
+
+      candles.splice(
+        0,
+        candles.length,
+        ...Array.from(byTime.values())
+          .sort((left, right) => left.time - right.time)
+          .slice(-limit),
+      );
+    }
+
+    return {
+      asset: {
+        symbol: asset.symbol,
+        label: asset.label,
+        category: asset.category,
+        basePrice: asset.basePrice,
+        precision: asset.precision,
+        payoutBoost: asset.payoutBoost,
+        isActive: asset.isActive,
+      },
+      timeframe,
+      timeframeSeconds,
+      marketType: 'OTC' as const,
+      source: 'neurooption-otc-simulator-v2',
+      serverTime: new Date(now).toISOString(),
+      candles,
+    };
+  }
+
+  getLatestCandle(assetSymbol: string, timeframe: string): OtcCandle {
+    const asset = this.findAsset(assetSymbol);
+    const normalized = this.normalizeTimeframe(timeframe);
+    const active = this.marketStreamService
+      .getCandleAggregator()
+      .getCurrentCandle(asset.symbol, normalized);
+
+    if (active) {
+      return {
+        time: active.time,
+        openTime: active.openTime,
+        closeTime: active.closeTime,
+        open: active.open,
+        high: active.high,
+        low: active.low,
+        close: active.close,
+        volume: active.volume,
+      };
+    }
+
+    const timeframeSeconds = TIMEFRAME_SECONDS[normalized];
+    const intervalMs = timeframeSeconds * 1000;
+    const now = Date.now();
+    const candleStart = Math.floor(now / intervalMs) * intervalMs;
+    return this.buildCandle(asset, normalized, candleStart, now);
+  }
+
+  private buildCandle(
+    asset: MarketAsset,
+    timeframe: string,
+    candleStart: number,
+    now: number,
+  ): OtcCandle {
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const intervalMs = timeframeSeconds * 1000;
+    const candleEnd = candleStart + intervalMs;
+    const effectiveEnd = Math.min(candleEnd, now);
+
+    const sampleStepMs = this.getSampleStepMs(timeframeSeconds);
+    const samples: number[] = [];
+
+    for (
+      let sampleTime = candleStart;
+      sampleTime <= effectiveEnd;
+      sampleTime += sampleStepMs
+    ) {
+      samples.push(this.priceAt(asset, sampleTime));
+    }
+
+    const open = this.priceAt(asset, candleStart);
+    const close = this.priceAt(asset, effectiveEnd);
+
+    samples.push(open, close);
+
+    const high = Math.max(...samples);
+    const low = Math.min(...samples);
+
+    return {
+      time: candleStart,
+      openTime: new Date(candleStart).toISOString(),
+      closeTime: new Date(candleEnd).toISOString(),
+      open: this.roundPrice(open, asset.precision),
+      high: this.roundPrice(high, asset.precision),
+      low: this.roundPrice(low, asset.precision),
+      close: this.roundPrice(close, asset.precision),
+      volume: this.buildTickVolume(asset, timeframe, candleStart),
+    };
+  }
+
+  private priceAt(asset: MarketAsset, timeMs: number): number {
+    const dna = this.getAssetDna(asset);
+    const t = timeMs / 1000;
+    const categoryMultiplier = this.getCategoryMultiplier(asset.category);
+
+    const macro =
+      Math.sin(t / dna.macroCycle + dna.phaseA) *
+      asset.volatility *
+      dna.macroStrength;
+
+    const trend =
+      Math.sin(t / dna.trendCycle + dna.phaseB) *
+      asset.volatility *
+      dna.trendStrength *
+      dna.direction;
+
+    const swing =
+      Math.sin(t / dna.swingCycle + dna.phaseC) *
+      asset.volatility *
+      dna.swingStrength;
+
+    const pullback =
+      Math.sin(t / dna.pullbackCycle + dna.phaseD) *
+      asset.volatility *
+      dna.pullbackStrength *
+      -dna.direction;
+
+    const chop =
+      Math.sin(t / dna.chopCycle + dna.phaseE) *
+      asset.volatility *
+      dna.chopStrength;
+
+    const micro =
+      Math.sin(t / dna.microCycle + dna.phaseA * 0.73) *
+      asset.volatility *
+      dna.microStrength;
+
+    const noise =
+      this.multiNoise(asset.symbol, timeMs, dna.noiseBucketMs) *
+      asset.volatility *
+      dna.noiseStrength;
+
+    const impulse =
+      this.impulse(asset, timeMs, dna) *
+      asset.volatility *
+      dna.impulseStrength;
+
+    const regimeMove = this.regimeMove(asset, timeMs, dna) * asset.volatility;
+    const sessionMove = this.sessionMove(asset, timeMs) * asset.volatility;
+    const stepMove = this.stepMove(asset, timeMs, dna) * asset.volatility;
+
+    const totalMove =
+      (macro +
+        trend +
+        swing +
+        pullback +
+        chop +
+        micro +
+        noise +
+        impulse +
+        regimeMove +
+        sessionMove +
+        stepMove +
+        dna.driftBias * asset.volatility) *
+      categoryMultiplier;
+
+    return Math.max(asset.basePrice * (1 + totalMove), asset.basePrice * 0.05);
+  }
+
+  /** An asset's DNA is fixed, so it is computed once per symbol. */
+  private readonly dnaCache = new Map<string, AssetDna>();
+
+  private getAssetDna(asset: MarketAsset): AssetDna {
+    const cached = this.dnaCache.get(asset.symbol);
+    if (cached) return cached;
+    const dna = this.computeAssetDna(asset);
+    this.dnaCache.set(asset.symbol, dna);
+    return dna;
+  }
+
+  private computeAssetDna(asset: MarketAsset): AssetDna {
+    const key = asset.symbol;
+    const category = asset.category;
+
+    const r1 = this.seededRandom(`${key}:dna:1`);
+    const r2 = this.seededRandom(`${key}:dna:2`);
+    const r3 = this.seededRandom(`${key}:dna:3`);
+    const r4 = this.seededRandom(`${key}:dna:4`);
+    const r5 = this.seededRandom(`${key}:dna:5`);
+    const r6 = this.seededRandom(`${key}:dna:6`);
+    const r7 = this.seededRandom(`${key}:dna:7`);
+    const r8 = this.seededRandom(`${key}:dna:8`);
+    const r9 = this.seededRandom(`${key}:dna:9`);
+    const r10 = this.seededRandom(`${key}:dna:10`);
+    const r11 = this.seededRandom(`${key}:dna:11`);
+    const r12 = this.seededRandom(`${key}:dna:12`);
+
+    let regimes: MarketRegime[] = [
+      'FX_TREND',
+      'FX_RANGE',
+      'FX_BREAKOUT',
+      'FX_REVERSAL',
+    ];
+
+    if (category === 'Cryptocurrencies') {
+      regimes = ['CRYPTO_SPIKE', 'FX_BREAKOUT', 'FX_TREND', 'FX_REVERSAL'];
+    }
+
+    if (category === 'Commodities') {
+      regimes = ['COMMODITY_SWING', 'FX_BREAKOUT', 'FX_REVERSAL', 'FX_RANGE'];
+    }
+
+    if (category === 'Indices') {
+      regimes = ['INDEX_GRIND', 'FX_TREND', 'FX_RANGE', 'FX_REVERSAL'];
+    }
+
+    if (category === 'Stocks') {
+      regimes = ['STOCK_STEP', 'INDEX_GRIND', 'FX_TREND', 'FX_BREAKOUT'];
+    }
+
+    const regime = regimes[Math.floor(r1 * regimes.length) % regimes.length];
+
+    let macroBase = 2400;
+    let trendBase = 1400;
+    let swingBase = 520;
+    let pullbackBase = 190;
+    let chopBase = 42;
+    let microBase = 7.5;
+    let impulseBase = 820;
+    let stepBase = 410;
+
+    if (category === 'Cryptocurrencies') {
+      macroBase = 900;
+      trendBase = 520;
+      swingBase = 210;
+      pullbackBase = 72;
+      chopBase = 18;
+      microBase = 3.6;
+      impulseBase = 260;
+      stepBase = 155;
+    }
+
+    if (category === 'Commodities') {
+      macroBase = 2900;
+      trendBase = 1750;
+      swingBase = 780;
+      pullbackBase = 260;
+      chopBase = 58;
+      microBase = 9.5;
+      impulseBase = 640;
+      stepBase = 510;
+    }
+
+    if (category === 'Indices') {
+      macroBase = 3100;
+      trendBase = 2100;
+      swingBase = 850;
+      pullbackBase = 330;
+      chopBase = 74;
+      microBase = 11.5;
+      impulseBase = 930;
+      stepBase = 760;
+    }
+
+    if (category === 'Stocks') {
+      macroBase = 3700;
+      trendBase = 2500;
+      swingBase = 1100;
+      pullbackBase = 430;
+      chopBase = 88;
+      microBase = 14;
+      impulseBase = 1250;
+      stepBase = 900;
+    }
+
+    let macroStrength = 0.65 + r2 * 1.55;
+    let trendStrength = 0.45 + r3 * 1.75;
+    let swingStrength = 0.4 + r4 * 1.55;
+    let pullbackStrength = 0.12 + r5 * 0.9;
+    let chopStrength = 0.05 + r6 * 0.34;
+    let impulseStrength = 0.06 + r7 * 0.55;
+    let wickStrength = 0.2 + r8 * 1.1;
+
+    if (regime === 'FX_TREND') {
+      trendStrength *= 2.2;
+      swingStrength *= 0.7;
+      pullbackStrength *= 0.75;
+      impulseStrength *= 0.75;
+    }
+
+    if (regime === 'FX_RANGE') {
+      trendStrength *= 0.35;
+      swingStrength *= 2.2;
+      pullbackStrength *= 1.5;
+      chopStrength *= 1.4;
+    }
+
+    if (regime === 'FX_BREAKOUT') {
+      trendStrength *= 1.35;
+      swingStrength *= 1.2;
+      impulseStrength *= 2.15;
+      wickStrength *= 1.4;
+    }
+
+    if (regime === 'FX_REVERSAL') {
+      macroStrength *= 1.4;
+      swingStrength *= 1.8;
+      pullbackStrength *= 1.9;
+    }
+
+    if (regime === 'CRYPTO_SPIKE') {
+      trendStrength *= 1.05;
+      swingStrength *= 1.5;
+      chopStrength *= 1.8;
+      impulseStrength *= 3.2;
+      wickStrength *= 2.4;
+    }
+
+    if (regime === 'COMMODITY_SWING') {
+      macroStrength *= 1.65;
+      swingStrength *= 1.7;
+      impulseStrength *= 1.15;
+      wickStrength *= 1.45;
+    }
+
+    if (regime === 'INDEX_GRIND') {
+      trendStrength *= 1.45;
+      swingStrength *= 0.95;
+      chopStrength *= 0.65;
+      impulseStrength *= 0.7;
+      wickStrength *= 0.8;
+    }
+
+    if (regime === 'STOCK_STEP') {
+      trendStrength *= 1.25;
+      swingStrength *= 0.85;
+      impulseStrength *= 1.4;
+      wickStrength *= 0.9;
+    }
+
+    return {
+      regime,
+      direction: r9 >= 0.5 ? 1 : -1,
+      driftBias: (r10 - 0.5) * 0.22,
+
+      macroCycle: macroBase * (0.48 + r1 * 1.9),
+      trendCycle: trendBase * (0.45 + r2 * 2.1),
+      swingCycle: swingBase * (0.38 + r3 * 1.95),
+      pullbackCycle: pullbackBase * (0.38 + r4 * 1.8),
+      chopCycle: chopBase * (0.45 + r5 * 1.55),
+      microCycle: microBase * (0.5 + r6 * 1.5),
+
+      macroStrength,
+      trendStrength,
+      swingStrength,
+      pullbackStrength,
+      chopStrength,
+      microStrength: 0.035 + r11 * 0.17,
+      noiseStrength: 0.055 + r12 * 0.28,
+      impulseStrength,
+      wickStrength,
+
+      noiseBucketMs: Math.floor(280 + r7 * 2800),
+      impulseCycle: impulseBase * (0.35 + r8 * 2.3),
+      stepCycle: stepBase * (0.45 + r9 * 2),
+      phaseA: r1 * Math.PI * 2,
+      phaseB: r2 * Math.PI * 2,
+      phaseC: r3 * Math.PI * 2,
+      phaseD: r4 * Math.PI * 2,
+      phaseE: r5 * Math.PI * 2,
+    };
+  }
+
+  private regimeMove(asset: MarketAsset, timeMs: number, dna: AssetDna) {
+    const t = timeMs / 1000;
+
+    const a = Math.sin(t / (dna.macroCycle * 0.82) + dna.phaseC);
+    const b = Math.sin(t / (dna.swingCycle * 1.13) + dna.phaseD);
+    const c = Math.sin(t / (dna.pullbackCycle * 0.77) + dna.phaseE);
+
+    if (dna.regime === 'FX_TREND') {
+      return dna.direction * (a * 0.72 + b * 0.22 + c * 0.08);
+    }
+
+    if (dna.regime === 'FX_RANGE') {
+      return b * 0.82 - a * 0.28 + c * 0.12;
+    }
+
+    if (dna.regime === 'FX_BREAKOUT') {
+      const bucket = Math.floor(t / dna.impulseCycle);
+      const event = this.seededRandom(`${asset.symbol}:breakout:${bucket}`);
+      const sign =
+        this.seededRandom(`${asset.symbol}:breakout-dir:${bucket}`) >= 0.5
+          ? 1
+          : -1;
+
+      if (event < 0.67) return a * 0.3 + b * 0.2;
+
+      const progress = (t % dna.impulseCycle) / dna.impulseCycle;
+      const expansion = Math.min(progress / 0.28, 1);
+      return sign * expansion * 0.9 + b * 0.18;
+    }
+
+    if (dna.regime === 'FX_REVERSAL') {
+      const reversal = Math.sin(t / (dna.macroCycle * 0.58) + dna.phaseA);
+      return -Math.sign(reversal || 1) * b * 0.72 + a * 0.22;
+    }
+
+    if (dna.regime === 'CRYPTO_SPIKE') {
+      const bucket = Math.floor(t / dna.impulseCycle);
+      const event = this.seededRandom(`${asset.symbol}:crypto-spike:${bucket}`);
+
+      if (event < 0.58) return a * 0.2 + b * 0.35 + c * 0.25;
+
+      const progress = (t % dna.impulseCycle) / dna.impulseCycle;
+      const spike = Math.exp(-progress * 7.5);
+      const sign = event >= 0.79 ? 1 : -1;
+
+      return sign * spike * 1.2 + c * 0.2;
+    }
+
+    if (dna.regime === 'COMMODITY_SWING') {
+      return a * 0.78 + b * 0.55 - c * 0.14;
+    }
+
+    if (dna.regime === 'INDEX_GRIND') {
+      return dna.direction * (a * 0.5 + b * 0.28) + c * 0.06;
+    }
+
+    const stepBucket = Math.floor(t / dna.stepCycle);
+    const step =
+      this.seededRandom(`${asset.symbol}:stock-step:${stepBucket}`) > 0.48
+        ? 1
+        : -1;
+
+    return step * dna.direction * 0.36 + a * 0.22 + b * 0.12;
+  }
+
+  private stepMove(asset: MarketAsset, timeMs: number, dna: AssetDna) {
+    const t = timeMs / 1000;
+    const bucket = Math.floor(t / dna.stepCycle);
+    const previousBucket = bucket - 1;
+
+    const current =
+      this.seededRandom(`${asset.symbol}:step-current:${bucket}`) - 0.5;
+    const previous =
+      this.seededRandom(`${asset.symbol}:step-current:${previousBucket}`) - 0.5;
+
+    const progress = (t % dna.stepCycle) / dna.stepCycle;
+    const smooth = progress * progress * (3 - 2 * progress);
+
+    return (previous * (1 - smooth) + current * smooth) * 0.42;
+  }
+
+  private impulse(asset: MarketAsset, timeMs: number, dna: AssetDna) {
+    const t = timeMs / 1000;
+    const bucket = Math.floor(t / dna.impulseCycle);
+    const seed = this.seededRandom(`${asset.symbol}:impulse:${bucket}`);
+
+    let threshold = 0.76;
+
+    if (dna.regime === 'CRYPTO_SPIKE') threshold = 0.55;
+    if (dna.regime === 'FX_BREAKOUT') threshold = 0.62;
+    if (dna.regime === 'INDEX_GRIND') threshold = 0.86;
+    if (dna.regime === 'STOCK_STEP') threshold = 0.79;
+
+    if (seed < threshold) return 0;
+
+    const direction =
+      this.seededRandom(`${asset.symbol}:impulse-direction:${bucket}`) >= 0.5
+        ? 1
+        : -1;
+
+    const progress = (t % dna.impulseCycle) / dna.impulseCycle;
+    const attack = Math.min(progress / 0.18, 1);
+    const decay = Math.max(1 - (progress - 0.18) / 0.82, 0);
+    const shape = attack * decay;
+
+    return direction * shape;
+  }
+
+  private buildWick(
+    asset: MarketAsset,
+    timeframe: string,
+    candleStart: number,
+    bodyHigh: number,
+    bodyLow: number,
+    open: number,
+    close: number,
+    isClosed: boolean,
+  ) {
+    const dna = this.getAssetDna(asset);
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const intervalMs = timeframeSeconds * 1000;
+
+    const body = Math.abs(close - open);
+    const range = Math.max(bodyHigh - bodyLow, asset.basePrice * 0.00002);
+    const tfWeight = Math.sqrt(Math.max(timeframeSeconds, 5) / 60);
+
+    const upperSeed = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:wick-upper`,
+    );
+
+    const lowerSeed = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:wick-lower`,
+    );
+
+    const wickBase =
+      range * (0.12 + tfWeight * 0.065) +
+      body * 0.22 +
+      asset.basePrice * asset.volatility * 0.003;
+
+    const wickSize = wickBase * dna.wickStrength;
+
+    let upperWick = wickSize * upperSeed;
+    let lowerWick = wickSize * lowerSeed;
+
+    // Classify this candle against its neighbours so the wick reads as a
+    // real formation (Doji, Hammer, Shooting Star, Marubozu) instead of
+    // uniform random noise — the same trick used for the chart's personality.
+    const prevOpen = this.priceAt(asset, candleStart - intervalMs);
+    const slopeBefore = open - prevOpen;
+    const slopeAfter = isClosed
+      ? this.priceAt(asset, candleStart + 2 * intervalMs) -
+        this.priceAt(asset, candleStart + intervalMs)
+      : 0;
+    const isBullishReversal = isClosed && slopeBefore < 0 && slopeAfter > 0;
+    const isBearishReversal = isClosed && slopeBefore > 0 && slopeAfter < 0;
+    const bodyRatio = body / Math.max(wickBase, asset.basePrice * 10 ** -asset.precision);
+    const patternSeed = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:pattern`,
+    );
+
+    if (bodyRatio < 0.45 && patternSeed < this.regimeIndecisionChance(dna.regime)) {
+      upperWick = wickSize * (0.55 + upperSeed * 0.55);
+      lowerWick = wickSize * (0.55 + lowerSeed * 0.55);
+    } else if (isBullishReversal && patternSeed < this.regimeReversalChance(dna.regime)) {
+      lowerWick = wickSize * (1.3 + lowerSeed * 0.9) + body * 0.15;
+      upperWick = wickSize * (0.05 + upperSeed * 0.12);
+    } else if (isBearishReversal && patternSeed < this.regimeReversalChance(dna.regime)) {
+      upperWick = wickSize * (1.3 + upperSeed * 0.9) + body * 0.15;
+      lowerWick = wickSize * (0.05 + lowerSeed * 0.12);
+    } else if (bodyRatio > 1.3 && patternSeed < this.regimeCleanChance(dna.regime)) {
+      upperWick *= 0.18;
+      lowerWick *= 0.18;
+    }
+
+    return {
+      high: bodyHigh + upperWick,
+      low: bodyLow - lowerWick,
+    };
+  }
+
+  private regimeIndecisionChance(regime: MarketRegime) {
+    if (regime === 'FX_RANGE') return 0.55;
+    if (regime === 'FX_BREAKOUT' || regime === 'FX_REVERSAL') return 0.35;
+    if (regime === 'COMMODITY_SWING') return 0.3;
+    if (regime === 'STOCK_STEP') return 0.25;
+    if (regime === 'INDEX_GRIND') return 0.2;
+    if (regime === 'FX_TREND') return 0.18;
+    return 0.15;
+  }
+
+  private regimeReversalChance(regime: MarketRegime) {
+    if (regime === 'FX_REVERSAL') return 0.55;
+    if (regime === 'FX_RANGE' || regime === 'COMMODITY_SWING') return 0.48;
+    if (regime === 'CRYPTO_SPIKE') return 0.3;
+    if (regime === 'FX_TREND') return 0.25;
+    return 0.35;
+  }
+
+  private regimeCleanChance(regime: MarketRegime) {
+    if (regime === 'FX_BREAKOUT' || regime === 'CRYPTO_SPIKE') return 0.58;
+    if (regime === 'FX_TREND') return 0.5;
+    if (regime === 'STOCK_STEP') return 0.45;
+    return 0.3;
+  }
+
+  private multiNoise(key: string, timeMs: number, bucketMs: number) {
+    const n1 = this.interpolatedNoise(`${key}:n1`, timeMs, bucketMs);
+    const n2 = this.interpolatedNoise(`${key}:n2`, timeMs, bucketMs * 2.7);
+    const n3 = this.interpolatedNoise(`${key}:n3`, timeMs, Math.max(170, bucketMs / 2.2));
+
+    return n1 * 0.55 + n2 * 0.28 + n3 * 0.17;
+  }
+
+  private interpolatedNoise(key: string, timeMs: number, bucketMs: number) {
+    const bucket = Math.floor(timeMs / bucketMs);
+    const bucketStart = bucket * bucketMs;
+    const progress = (timeMs - bucketStart) / bucketMs;
+    const smooth = progress * progress * (3 - 2 * progress);
+
+    const current = this.seededRandom(`${key}:${bucket}`);
+    const next = this.seededRandom(`${key}:${bucket + 1}`);
+
+    return (current * (1 - smooth) + next * smooth - 0.5) * 2;
+  }
+
+  private sessionMove(asset: MarketAsset, timeMs: number) {
+    const hour = new Date(timeMs).getUTCHours();
+
+    if (asset.category === 'Cryptocurrencies') {
+      if (hour >= 0 && hour <= 5) return 0.1;
+      if (hour >= 12 && hour <= 20) return 0.22;
+      return 0.04;
+    }
+
+    if (asset.category === 'Commodities') {
+      if (hour >= 6 && hour <= 11) return 0.08;
+      if (hour >= 12 && hour <= 18) return 0.2;
+      return -0.02;
+    }
+
+    if (asset.category === 'Stocks' || asset.category === 'Indices') {
+      if (hour >= 13 && hour <= 20) return 0.18;
+      if (hour >= 7 && hour <= 11) return 0.06;
+      return -0.03;
+    }
+
+    if (hour >= 7 && hour <= 11) return 0.1;
+    if (hour >= 12 && hour <= 16) return 0.2;
+    if (hour >= 17 && hour <= 21) return 0.14;
+    if (hour >= 0 && hour <= 5) return -0.05;
+
+    return 0.02;
+  }
+
+  private buildTickVolume(
+    asset: MarketAsset,
+    timeframe: string,
+    candleStart: number,
+  ) {
+    const timeframeSeconds = TIMEFRAME_SECONDS[timeframe];
+    const dna = this.getAssetDna(asset);
+
+    let multiplier = 1;
+
+    if (asset.category === 'Cryptocurrencies') multiplier = 2.8;
+    if (asset.category === 'Commodities') multiplier = 1.8;
+    if (asset.category === 'Indices') multiplier = 1.45;
+    if (asset.category === 'Stocks') multiplier = 1.2;
+
+    if (dna.regime === 'CRYPTO_SPIKE') multiplier *= 2;
+    if (dna.regime === 'FX_BREAKOUT') multiplier *= 1.6;
+    if (dna.regime === 'INDEX_GRIND') multiplier *= 0.8;
+
+    const base = Math.max(10, Math.floor((timeframeSeconds / 3) * multiplier));
+    const random = this.seededRandom(
+      `${asset.symbol}:${timeframe}:${candleStart}:volume`,
+    );
+
+    return Math.floor(base + random * base * 3);
+  }
+
+  private getSampleStepMs(timeframeSeconds: number) {
+    if (timeframeSeconds <= 5) return 200;
+    if (timeframeSeconds <= 10) return 300;
+    if (timeframeSeconds <= 15) return 450;
+    if (timeframeSeconds <= 30) return 750;
+    if (timeframeSeconds <= 60) return 1100;
+    if (timeframeSeconds <= 120) return 1800;
+    if (timeframeSeconds <= 180) return 2600;
+    if (timeframeSeconds <= 300) return 4200;
+    if (timeframeSeconds <= 600) return 7500;
+    if (timeframeSeconds <= 900) return 12000;
+    if (timeframeSeconds <= 1800) return 24000;
+    if (timeframeSeconds <= 3600) return 48000;
+    return 90000;
+  }
+
+  private getCategoryMultiplier(category: string) {
+    if (category === 'Cryptocurrencies') return 1.55;
+    if (category === 'Commodities') return 1.2;
+    if (category === 'Stocks') return 0.84;
+    if (category === 'Indices') return 0.76;
+    return 1;
+  }
+
+  private seededRandom(input: string) {
+    return this.hashSeed(input);
+  }
+
+  private hashSeed(input: string) {
+    let hash = 2166136261;
+
+    for (let index = 0; index < input.length; index += 1) {
+      hash ^= input.charCodeAt(index);
+      hash +=
+        (hash << 1) +
+        (hash << 4) +
+        (hash << 7) +
+        (hash << 8) +
+        (hash << 24);
+    }
+
+    return Math.abs(hash >>> 0) / 4294967295;
+  }
+
+  private roundPrice(price: number, precision: number) {
+    return Number(price.toFixed(precision));
+  }
+
+  private normalizeTimeframe(timeframe?: string) {
+    const normalized = (timeframe || 'M1').toUpperCase();
+
+    if (!TIMEFRAME_SECONDS[normalized]) {
+      throw new BadRequestException(
+        `Unsupported timeframe: ${timeframe}. Supported: ${Object.keys(
+          TIMEFRAME_SECONDS,
+        ).join(', ')}`,
+      );
+    }
+
+    return normalized;
+  }
+
+  private normalizeLimit(limit: number | undefined, timeframeSeconds: number) {
+    const requested = Number(limit || 260);
+
+    let maxLimit = 720;
+
+    if (timeframeSeconds >= 14400) maxLimit = 140;
+    else if (timeframeSeconds >= 3600) maxLimit = 180;
+    else if (timeframeSeconds >= 1800) maxLimit = 220;
+    else if (timeframeSeconds >= 900) maxLimit = 290;
+    else if (timeframeSeconds >= 300) maxLimit = 360;
+
+    return Math.min(Math.max(requested, 60), maxLimit);
+  }
+
+  private findAsset(symbol: string) {
+    const normalized = symbol.trim().toLowerCase();
+
+    const asset = MARKET_ASSETS.find(
+      (item) => item.symbol.toLowerCase() === normalized,
+    );
+
+    if (!asset) {
+      throw new BadRequestException(`Unsupported asset: ${symbol}`);
+    }
+
+    if (!asset.isActive) {
+      throw new BadRequestException(`Asset is not active: ${symbol}`);
+    }
+
+    return asset;
+  }
+}
