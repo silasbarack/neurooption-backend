@@ -1,0 +1,29 @@
+import type { AuthenticatedRequest } from './authenticated-request';
+import { StkPushDto } from './dto/stk-push.dto';
+import { MpesaService, StkCallbackBody } from './mpesa.service';
+export declare class MpesaController {
+    private readonly mpesa;
+    private readonly logger;
+    constructor(mpesa: MpesaService);
+    config(): {
+        configured: boolean;
+        environment: "production" | "sandbox";
+        minAmount: number;
+        maxAmount: number;
+        demoOnly: boolean;
+    };
+    startDeposit(req: AuthenticatedRequest, dto: StkPushDto): void;
+    depositStatus(req: AuthenticatedRequest, id: string): Promise<{
+        depositId: string;
+        status: import(".prisma/client").$Enums.TransactionStatus;
+        amount: number;
+        currency: string;
+        phone: string;
+        receipt: string;
+        message: string;
+    }>;
+    callback(token: string, body: StkCallbackBody): Promise<{
+        ResultCode: number;
+        ResultDesc: string;
+    }>;
+}

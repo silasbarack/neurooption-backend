@@ -1,0 +1,22 @@
+export declare const WebsocketEvents: {
+    CONNECTED: string;
+    SUBSCRIBE_SYMBOL: string;
+    UNSUBSCRIBE_SYMBOL: string;
+    PRICE_UPDATE: string;
+    CANDLE_UPDATE: string;
+    CHART_UPDATE: string;
+    SERVER_TIME: string;
+    RESYNC_REQUEST: string;
+    RESYNC_RESPONSE: string;
+    CLIENT_METRICS: string;
+    TRADE_OPENED: string;
+    TRADE_SETTLED: string;
+    TRADE_CANCELLED: string;
+    WALLET_UPDATE: string;
+    DEPOSIT_UPDATE: string;
+    WITHDRAWAL_UPDATE: string;
+    PAYOUT_UPDATE: string;
+    ASSET_PAYOUT_UPDATED: string;
+    ASSET_PAYOUT_SNAPSHOT: string;
+    ERROR: string;
+};

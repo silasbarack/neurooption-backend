@@ -1,0 +1,1 @@
+{"version":3,"file":"real-money-mode.js","sourceRoot":"","sources":["../../../src/common/real-money-mode.ts"],"names":[],"mappings":";;AAMA,sEAEC;AAED,sDAEC;AAZD,2CAA6D;AAM7D,SAAgB,6BAA6B;IAC3C,MAAM,IAAI,oCAA2B,CAAC,4CAA4C,CAAC,CAAC;AACtF,CAAC;AAED,SAAgB,qBAAqB,CAAC,WAAmB;IACvD,IAAI,WAAW,KAAK,SAAS;QAAE,6BAA6B,EAAE,CAAC;AACjE,CAAC"}

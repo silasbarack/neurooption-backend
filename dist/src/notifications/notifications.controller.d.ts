@@ -1,0 +1,115 @@
+import { CreateNotificationDto } from './dto/create-notification.dto';
+import { UpdateNotificationStatusDto } from './dto/update-notification-status.dto';
+import { NotificationsService } from './notifications.service';
+export declare class NotificationsController {
+    private readonly notificationsService;
+    constructor(notificationsService: NotificationsService);
+    create(dto: CreateNotificationDto): Promise<{
+        message: string;
+        notification: {
+            id: string;
+            status: import(".prisma/client").$Enums.NotificationStatus;
+            createdAt: Date;
+            userId: string;
+            transactionId: string | null;
+            type: import(".prisma/client").$Enums.NotificationType;
+            channel: import(".prisma/client").$Enums.NotificationChannel;
+            subject: string;
+            body: string;
+            recipientEmail: string;
+            sentAt: Date | null;
+            kycRecordId: string | null;
+            supportTicketId: string | null;
+        };
+    }>;
+    findAll(): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
+        userId: string;
+        transactionId: string | null;
+        type: import(".prisma/client").$Enums.NotificationType;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        sentAt: Date | null;
+        kycRecordId: string | null;
+        supportTicketId: string | null;
+    }[]>;
+    findByUser(userId: string): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
+        userId: string;
+        transactionId: string | null;
+        type: import(".prisma/client").$Enums.NotificationType;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        sentAt: Date | null;
+        kycRecordId: string | null;
+        supportTicketId: string | null;
+    }[]>;
+    findOne(id: string): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
+        userId: string;
+        transactionId: string | null;
+        type: import(".prisma/client").$Enums.NotificationType;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        sentAt: Date | null;
+        kycRecordId: string | null;
+        supportTicketId: string | null;
+    }>;
+    markAsSent(id: string): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
+        userId: string;
+        transactionId: string | null;
+        type: import(".prisma/client").$Enums.NotificationType;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        sentAt: Date | null;
+        kycRecordId: string | null;
+        supportTicketId: string | null;
+    }>;
+    markAsFailed(id: string): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
+        userId: string;
+        transactionId: string | null;
+        type: import(".prisma/client").$Enums.NotificationType;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        sentAt: Date | null;
+        kycRecordId: string | null;
+        supportTicketId: string | null;
+    }>;
+    updateStatus(id: string, dto: UpdateNotificationStatusDto): Promise<{
+        id: string;
+        status: import(".prisma/client").$Enums.NotificationStatus;
+        createdAt: Date;
+        userId: string;
+        transactionId: string | null;
+        type: import(".prisma/client").$Enums.NotificationType;
+        channel: import(".prisma/client").$Enums.NotificationChannel;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        sentAt: Date | null;
+        kycRecordId: string | null;
+        supportTicketId: string | null;
+    }>;
+}
