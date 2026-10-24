@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { assertDemoOnlyAccount } from '../common/real-money-mode';
+import { assertAccountTypeAllowed } from '../common/real-money-mode';
 import {
   BadRequestException,
   ConflictException,
@@ -69,7 +69,7 @@ export class TradingEngineService {
     const timeframe = (dto.timeframe || 'M1').toUpperCase();
     const side = dto.side;
     const accountType = (dto.accountType || 'QT Demo') as AccountType;
-    assertDemoOnlyAccount(accountType);
+    assertAccountTypeAllowed(accountType);
     const currency = (dto.currency || 'USD') as AccountCurrency;
     const amount = Number(dto.amount);
     const expirySeconds = Number(dto.expirySeconds);

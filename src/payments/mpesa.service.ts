@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { createHash } from 'crypto';
 
+import { realMoneyEnabled } from '../common/real-money-mode';
 import { PrismaService } from '../config/prisma.service';
 import { DepositsService } from '../deposits/deposits.service';
 
@@ -26,6 +27,11 @@ const SANDBOX_PASSKEY =
 const DARAJA_TIMEOUT_MS = 20_000;
 // Give the customer time to enter their PIN before asking Safaricom.
 const QUERY_AFTER_MS = 15_000;
+// The app polls every few seconds; Daraja (the sandbox especially) answers
+// bursts of queries with "Spike arrest violation", so space them out.
+const MIN_QUERY_GAP_MS = 10_000;
+// One retry when the confirmation query after a callback gets no answer.
+const CALLBACK_QUERY_RETRY_MS = 3_000;
 const MAX_STK_AMOUNT = 150_000;
 const DEPOSIT_CURRENCY = 'KES';
 
@@ -67,6 +73,7 @@ type QueryOutcome = 'paid' | 'failed' | 'pending' | 'unknown';
 export class MpesaService {
   private readonly logger = new Logger(MpesaService.name);
   private token: { value: string; expiresAt: number } | null = null;
+  private readonly lastQueryAt = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -153,7 +160,7 @@ export class MpesaService {
 
   configSummary() {
     return {
-      configured: this.isConfigured(),
+      configured: this.isConfigured() && realMoneyEnabled(),
       environment: this.environment,
       shortcode: this.shortcode || null,
       transactionType: this.transactionType,
@@ -290,6 +297,9 @@ export class MpesaService {
         return { outcome: 'pending', resultDesc: body.errorMessage };
       }
 
+      this.logger.warn(
+        `STK query for ${checkoutRequestId} returned no result: ${body.errorCode || ''} ${body.errorMessage || ''}`.trim(),
+      );
       return { outcome: 'unknown', resultDesc: body.errorMessage };
     } catch (error) {
       this.logger.warn(
@@ -417,7 +427,8 @@ export class MpesaService {
       where: { id: deposit.id },
       data: {
         checkoutId: response.CheckoutRequestID,
-        gatewayRaw: { stkPush: response } as object,
+        // Sandbox payments move no money; keep that visible on the record.
+        gatewayRaw: { environment: this.environment, stkPush: response } as object,
       },
     });
 
@@ -449,9 +460,14 @@ export class MpesaService {
     if (
       deposit.status === TransactionStatus.PENDING &&
       deposit.checkoutId &&
-      Date.now() - deposit.createdAt.getTime() > QUERY_AFTER_MS
+      Date.now() - deposit.createdAt.getTime() > QUERY_AFTER_MS &&
+      Date.now() - (this.lastQueryAt.get(deposit.checkoutId) ?? 0) > MIN_QUERY_GAP_MS
     ) {
+      this.lastQueryAt.set(deposit.checkoutId, Date.now());
       const query = await this.queryStk(deposit.checkoutId);
+      if (query.outcome !== 'pending' && query.outcome !== 'unknown') {
+        this.lastQueryAt.delete(deposit.checkoutId);
+      }
       if (query.outcome === 'paid') {
         await this.completeDeposit(deposit.id, deposit.checkoutId);
       } else if (query.outcome === 'failed') {
@@ -500,7 +516,11 @@ export class MpesaService {
     }
 
     // Never trust the callback alone: confirm with Daraja before crediting.
-    const query = await this.queryStk(checkoutId);
+    let query = await this.queryStk(checkoutId);
+    if (query.outcome === 'unknown') {
+      await new Promise((resolve) => setTimeout(resolve, CALLBACK_QUERY_RETRY_MS));
+      query = await this.queryStk(checkoutId);
+    }
     if (query.outcome !== 'paid') {
       this.logger.warn(
         `Callback for deposit ${deposit.id} reported success but query returned ${query.outcome}; leaving pending.`,
