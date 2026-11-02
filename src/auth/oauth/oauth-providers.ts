@@ -52,7 +52,13 @@ function requireToken(body: TokenResponse): string {
   return body.access_token;
 }
 
-const FACEBOOK_GRAPH = 'https://graph.facebook.com/v19.0';
+// No version in the path means "use the version set on the Facebook app";
+// FACEBOOK_GRAPH_VERSION (e.g. v23.0) pins one explicitly.
+function facebookVersion(): string {
+  const version = (process.env.FACEBOOK_GRAPH_VERSION || '').trim();
+  return /^v\d+\.\d+$/.test(version) ? `/${version}` : '';
+}
+const facebookGraph = () => `https://graph.facebook.com${facebookVersion()}`;
 
 export const PROVIDER_SPECS: Record<OAuthProvider, ProviderSpec> = {
   google: {
@@ -132,13 +138,13 @@ export const PROVIDER_SPECS: Record<OAuthProvider, ProviderSpec> = {
   facebook: {
     idEnv: 'FACEBOOK_APP_ID',
     secretEnv: 'FACEBOOK_APP_SECRET',
-    authorizeUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
+    authorizeUrl: 'https://www.facebook.com/dialog/oauth',
     scope: 'email,public_profile',
     pkce: false,
     exchange: async ({ code, clientId, clientSecret, redirectUri }) =>
       requireToken(
         await getJson<TokenResponse>(
-          `${FACEBOOK_GRAPH}/oauth/access_token?${new URLSearchParams({
+          `${facebookGraph()}/oauth/access_token?${new URLSearchParams({
             client_id: clientId,
             client_secret: clientSecret,
             redirect_uri: redirectUri,
@@ -148,7 +154,7 @@ export const PROVIDER_SPECS: Record<OAuthProvider, ProviderSpec> = {
       ),
     profile: async (accessToken) => {
       const me = await getJson<{ id?: string; name?: string; email?: string }>(
-        `${FACEBOOK_GRAPH}/me?${new URLSearchParams({ fields: 'id,name,email', access_token: accessToken })}`,
+        `${facebookGraph()}/me?${new URLSearchParams({ fields: 'id,name,email', access_token: accessToken })}`,
       );
       if (!me.id) throw new Error('Facebook returned no user id');
       // Facebook only returns an email it has confirmed for the account.
