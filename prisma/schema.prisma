@@ -361,6 +361,7 @@ model User {
   followerCopyTrades   CopyTrade[]           @relation("FollowerTradeUser")
   PasswordResetToken   PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  identities           UserIdentity[]
   emailMessages        EmailMessage[]
 }
 
@@ -1209,6 +1210,24 @@ model AssetPayoutHistory {
 }
 
 /// One-time email verification links. Only a SHA-256 hash of the token is stored.
+/// A Google, X or Facebook login linked to an account.
+model UserIdentity {
+  id             String    @id @default(uuid())
+  userId         String
+  /// "google" | "x" | "facebook"
+  provider       String
+  /// The provider's stable user id (Google "sub", X/Facebook "id").
+  providerUserId String
+  email          String?
+  createdAt      DateTime  @default(now())
+  lastUsedAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
 model EmailVerificationToken {
   id        String    @id @default(uuid())
   userId    String

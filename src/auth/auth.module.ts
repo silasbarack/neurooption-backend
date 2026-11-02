@@ -8,6 +8,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { getJwtSecret } from '../config/jwt.config';
+import { OAuthController } from './oauth/oauth.controller';
+import { OAuthService } from './oauth/oauth.service';
 
 @Module({
   imports: [
@@ -19,11 +21,11 @@ import { getJwtSecret } from '../config/jwt.config';
       signOptions: { expiresIn: '7d' },
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, OAuthController],
   // JwtStrategy was previously defined but never registered, so
   // AuthGuard('jwt') had nothing to validate against. Registering it here
   // makes JwtAuthGuard usable from any module (passport strategies are
   // process-wide once instantiated).
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, OAuthService],
 })
 export class AuthModule {}

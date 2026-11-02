@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomInt } from 'crypto';
 import { PrismaService } from '../config/prisma.service';
 import { EmailsService } from '../emails/emails.service';
+import type { OAuthProfile, OAuthProvider } from './oauth/oauth-providers';
 
 type RegisterPayload = {
   fullName?: string;
@@ -36,6 +37,18 @@ const VERIFY_RESENDS_PER_HOUR = 5;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESET_ATTEMPT_WINDOW_MS = 15 * 60_000;
 const MAX_RESET_ATTEMPTS = 5;
+const SOCIAL_SIGNUP_AUDIENCE = 'oauth-signup';
+const SOCIAL_SIGNUP_TTL_SECONDS = 15 * 60;
+
+type SocialSignupClaims = {
+  p: OAuthProvider;
+  sub: string;
+  email: string | null;
+  ev: boolean;
+  name: string | null;
+};
+
+export type SocialSignInResult = { token: string } | { signupToken: string } | { error: 'email-unverified' | 'unavailable' };
 
 type ResetPasswordPayload = {
   email: string;
@@ -556,5 +569,162 @@ export class AuthService {
         ? 'Verification email accepted by our email provider. Check your inbox and spam folder; the link works for 24 hours.'
         : 'We could not send the verification email right now. Please try again shortly.',
     };
+  }
+
+  // -------------------------------------------------------------------
+  // Google, X and Facebook sign-in
+  // -------------------------------------------------------------------
+
+  /**
+   * An existing linked login signs straight in. Otherwise an account with
+   * the same email is linked, but only when the provider confirms the
+   * person controls that email. Anyone new gets a short-lived sign-up token
+   * so they confirm age and terms before an account is created.
+   */
+  async socialSignIn(profile: OAuthProfile): Promise<SocialSignInResult> {
+    const linked = await this.prisma.userIdentity.findUnique({
+      where: { provider_providerUserId: { provider: profile.provider, providerUserId: profile.subject } },
+      include: { user: true },
+    });
+    if (linked) {
+      if (linked.user.status === 'DELETED') return { error: 'unavailable' };
+      await this.prisma.userIdentity.update({ where: { id: linked.id }, data: { lastUsedAt: new Date() } });
+      return { token: this.signToken(linked.user) };
+    }
+
+    const email = profile.email ? this.normalizeEmail(profile.email) : null;
+    if (email) {
+      const existing = await this.prisma.user.findUnique({ where: { email } });
+      if (existing && existing.status !== 'DELETED') {
+        if (!profile.emailVerified) return { error: 'email-unverified' };
+        await this.linkIdentity(existing.id, profile, email);
+        if (!existing.emailVerifiedAt) {
+          await this.prisma.user.update({ where: { id: existing.id }, data: { emailVerifiedAt: new Date() } });
+        }
+        return { token: this.signToken(existing) };
+      }
+    }
+
+    const claims: SocialSignupClaims = {
+      p: profile.provider,
+      sub: profile.subject,
+      email,
+      ev: Boolean(email && profile.emailVerified),
+      name: profile.name?.trim().slice(0, 120) || null,
+    };
+    const signupToken = this.jwtService.sign(claims, {
+      expiresIn: SOCIAL_SIGNUP_TTL_SECONDS,
+      audience: SOCIAL_SIGNUP_AUDIENCE,
+    });
+    return { signupToken };
+  }
+
+  /** What the confirmation page shows before the account is created. */
+  readSocialSignup(signupToken: string) {
+    const claims = this.verifySocialSignup(signupToken);
+    return { provider: claims.p, email: claims.email, emailVerified: claims.ev, name: claims.name };
+  }
+
+  async completeSocialSignup(payload: { signupToken?: string; acceptTerms?: boolean; email?: string; fullName?: string }) {
+    const claims = this.verifySocialSignup(payload.signupToken || '');
+    if (payload.acceptTerms !== true) {
+      throw new BadRequestException('Please confirm you are 21 or older and accept the terms.');
+    }
+
+    // A double submit, or a second tab: the login was already linked.
+    const linked = await this.prisma.userIdentity.findUnique({
+      where: { provider_providerUserId: { provider: claims.p, providerUserId: claims.sub } },
+      include: { user: true },
+    });
+    if (linked && linked.user.status !== 'DELETED') {
+      const token = this.signToken(linked.user);
+      return { success: true, message: 'Signed in successfully.', token, accessToken: token, user: this.removeSensitiveFields(linked.user) };
+    }
+
+    const email = claims.email || this.normalizeEmail(payload.email || '');
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+      throw new BadRequestException('Enter a valid email address.');
+    }
+    const emailVerified = Boolean(claims.email && claims.ev);
+
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing && existing.status !== 'DELETED') {
+      // Only a provider-confirmed email may join an existing account.
+      if (!emailVerified) {
+        throw new BadRequestException('An account with this email already exists. Sign in with your email and password.');
+      }
+      await this.linkIdentity(existing.id, { provider: claims.p, subject: claims.sub, email, emailVerified, name: claims.name }, email);
+      const token = this.signToken(existing);
+      return { success: true, message: 'Signed in successfully.', token, accessToken: token, user: this.removeSensitiveFields(existing) };
+    }
+
+    const fullName = (payload.fullName || claims.name || email.split('@')[0]).trim().slice(0, 120);
+    // Social-only accounts get a random password; "Forgot password" sets one.
+    const unusablePassword = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
+
+    let user;
+    try {
+      user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email,
+            fullName,
+            passwordHash: unusablePassword,
+            emailVerifiedAt: emailVerified ? new Date() : null,
+          },
+        });
+        await tx.userIdentity.create({
+          data: { userId: created.id, provider: claims.p, providerUserId: claims.sub, email: claims.email, lastUsedAt: new Date() },
+        });
+        return created;
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        throw new BadRequestException('An account with this email already exists. Sign in with your email and password.');
+      }
+      throw error;
+    }
+
+    let welcomeEmailSent = false;
+    try {
+      const verifyUrl = emailVerified ? undefined : await this.issueVerificationLink(user.id);
+      welcomeEmailSent = await this.emailsService.sendAccountCreatedEmail(user.email, this.getUserDisplayName(user), {
+        userId: user.id,
+        verifyUrl,
+      });
+      if (!welcomeEmailSent) await this.discardUnsentLink(verifyUrl);
+    } catch (error) {
+      this.logger.error('Welcome email send failed', error as Error);
+    }
+
+    const token = this.signToken(user);
+    return {
+      success: true,
+      message: 'Account created successfully.',
+      welcomeEmailSent,
+      welcomeEmailHint: this.maskRecipient(user.email),
+      token,
+      accessToken: token,
+      user: this.removeSensitiveFields(user),
+    };
+  }
+
+  private verifySocialSignup(signupToken: string): SocialSignupClaims {
+    try {
+      return this.jwtService.verify<SocialSignupClaims>(signupToken, { audience: SOCIAL_SIGNUP_AUDIENCE });
+    } catch {
+      throw new BadRequestException('This sign-up link has expired. Please choose your account again.');
+    }
+  }
+
+  private async linkIdentity(userId: string, profile: OAuthProfile, email: string) {
+    try {
+      await this.prisma.userIdentity.create({
+        data: { userId, provider: profile.provider, providerUserId: profile.subject, email, lastUsedAt: new Date() },
+      });
+    } catch (error) {
+      // Linked a moment ago by a parallel request: fine.
+      if ((error as { code?: string }).code !== 'P2002') throw error;
+    }
   }
 }
