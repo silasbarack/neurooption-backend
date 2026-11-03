@@ -44,7 +44,7 @@ function setup(overrides: Partial<State> = {}) {
     ...overrides,
   };
 
-  const writes: Record<string, any[]> = { user: [], tokens: [], follows: [], affiliate: [], audit: [] };
+  const writes: Record<string, any[]> = { user: [], tokens: [], identities: [], follows: [], affiliate: [], audit: [] };
   const prisma: any = {
     user: {
       findUnique: jest.fn(async () => (state.user ? { ...state.user } : null)),
@@ -62,6 +62,7 @@ function setup(overrides: Partial<State> = {}) {
     withdrawal: { count: jest.fn(async () => state.withdrawals) },
     deposit: { count: jest.fn(async () => state.deposits) },
     passwordResetToken: { deleteMany: jest.fn(async (a: any) => writes.tokens.push(a)) },
+    userIdentity: { deleteMany: jest.fn(async (a: any) => writes.identities.push(a)) },
     socialFollow: { updateMany: jest.fn(async (a: any) => writes.follows.push(a)) },
     affiliate: { updateMany: jest.fn(async (a: any) => writes.affiliate.push(a)) },
     auditLog: {
@@ -204,6 +205,8 @@ describe('account deletion: what happens', () => {
     expect(await bcrypt.compare(PASSWORD, patch.passwordHash)).toBe(false);
 
     expect(writes.tokens).toHaveLength(1);
+    // Linked Google, X and Facebook logins are removed.
+    expect(writes.identities).toEqual([{ where: { userId: 'user-1' } }]);
     expect(writes.follows[0].data.status).toBe('STOPPED');
     expect(writes.affiliate[0].data.status).toBe('DISABLED');
 

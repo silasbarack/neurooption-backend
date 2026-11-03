@@ -139,6 +139,7 @@ export class AccountDeletionService {
       if (closed.count !== 1) throw new NotFoundException('Account not found.');
 
       await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await tx.userIdentity.deleteMany({ where: { userId: user.id } });
       await tx.socialFollow.updateMany({
         where: { OR: [{ followerUserId: user.id }, { traderUserId: user.id }] },
         data: { status: 'STOPPED' },
